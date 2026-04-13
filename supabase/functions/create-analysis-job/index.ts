@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai"
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai"  // Kept for embeddings (text-embedding-004)
 import JSON5 from "https://esm.sh/json5@2.2.3"
 import { corsHeaders } from '../_shared/cors.ts'
+import { callLLM } from '../_shared/llm-client.ts'
 // import { calculateAllMarkets, PreCalculatedMarkets } from '../_shared/marketCalculator.ts'
 
 // Import League Mapping
@@ -625,16 +626,15 @@ REGLAS DE ORO:
 `;
 
     // ═══════════════════════════════════════════════════════════════
-    // FASE 5: EJECUCIÓN (GEMINI PRO)
+    // FASE 5: EJECUCIÓN (LLM multi-provider con fallback automático)
     // ═══════════════════════════════════════════════════════════════
-    const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash-exp",
-      generationConfig: { responseMimeType: "application/json", temperature: 0.4 }
+    const llmResult = await callLLM(prompt, {
+      temperature: 0.4,
+      jsonMode: true,
+      timeoutMs: 90000,
     });
-
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    const responseText = llmResult.text;
+    console.log(`[JOB] LLM responded via ${llmResult.provider}/${llmResult.model}`);
 
     let aiData;
     try {
@@ -666,7 +666,7 @@ REGLAS DE ORO:
     const { data: runData, error: runError } = await supabase.from('analysis_runs').insert({
       job_id: job.id,
       fixture_id: job.id, // REVERTED: DB column expects UUID. Using job.id as intended by schema.
-      model_version: 'gemini-2.0-flash-exp', // Updated model name
+      model_version: `${llmResult.provider}/${llmResult.model}`,
       summary_pre_text: aiData.resumen_ejecutivo?.frase_principal,
       report_pre_jsonb: finalOutput, // Use finalOutput with debug info
       match_date: game.fixture.date.split('T')[0] // YYYY-MM-DD del partido

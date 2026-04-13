@@ -6,6 +6,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import JSON5 from "https://esm.sh/json5@2.2.3"
 import { corsHeaders } from '../_shared/cors.ts'
+import { callLLM, calcGroqDelay } from '../_shared/llm-client.ts'
 
 // ENGINE_VERSION is declared inside serve() handler (line ~425) — single source of truth
 
@@ -924,12 +925,372 @@ serve(async (req) => {
             console.log(`[v3-ai-analyzer] Strategic insights block injected into prompt`);
         }
 
-        // CONSTRUIR EL SUPER-PROMPT V8 (MASTERMIND + EVENTS + CONTEXT)
         // ═══════════════════════════════════════════════════════════════
+        // PIPELINE DE ANÁLISIS ESCALONADO (4 CAPAS — SECUENCIAL)
+        // Groq free tier: 6,000 TPM → cada capa ~2-4K tokens
+        // Se ejecutan en secuencia con delays calculados para no exceder el rate limit
+        // Capa 1 → delay → Capa 2 → delay → Capa 3 → delay → Capa 4
+        // ═══════════════════════════════════════════════════════════════
+        const WALL_CLOCK_SAFE = 140000;
+        const SAVE_RESERVE_MS = 15000;
+        const remainingMs = () => WALL_CLOCK_SAFE - (Date.now() - startTime);
+
+        const USE_STAGED = Deno.env.get('USE_STAGED_ANALYSIS') !== 'false';
+
+        // Helper to parse stage JSON responses
+        const parseStageJSON = (text: string, stageName: string): any => {
+            let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            const si = cleaned.indexOf('{');
+            const ei = cleaned.lastIndexOf('}');
+            if (si !== -1 && ei > si) cleaned = cleaned.substring(si, ei + 1);
+            try { return JSON5.parse(cleaned); } catch {}
+            try { return JSON.parse(cleaned); } catch {}
+            console.warn(`[V3-AI-ANALYZER] ${stageName} JSON parse failed, using raw text`);
+            return { raw_text: cleaned };
+        };
+
+        let analysisResult: any;
+        let tokensUsed = 0;
+
+        if (USE_STAGED) {
+        // ═══ CAPA 1 + 2 EN PARALELO ═══
+        console.log(`[V3-AI-ANALYZER] Starting staged analysis (4 layers)...`);
+
+        const layer1Prompt = `
+Eres un analista estadístico deportivo de élite. Analiza los datos estadísticos puros de este partido.
+
+PARTIDO: ${homeTeam} (LOCAL) vs ${awayTeam} (VISITANTE)
+COMPETICIÓN: ${leagueName}
+
+DATOS ESTADÍSTICOS (resumen por espacio):
+
+>>> HISTORIAL ${homeTeam} (LOCAL) — últimos partidos:
+${deepHome.substring(0, 4000)}
+
+>>> HISTORIAL ${awayTeam} (VISITANTE) — últimos partidos:
+${deepAway.substring(0, 4000)}
+
+>>> H2H:
+${h2hText.substring(0, 1500)}
+
+>>> CUOTAS:
+${oddsText.substring(0, 2000)}
+
+${(mlCalibration.calibrationText || '').substring(0, 1000)}
+
+INSTRUCCIONES:
+1. ABSORCIÓN DE DATOS: Cruza TIROS, ATAJADAS, CORNERS, TARJETAS, MINUTOS DE GOLES.
+2. CORRELACIÓN MULTIVARIABLE: Busca patrones Causa-Efecto.
+3. CORNERS & BALÓN PARADO: Correlaciona posesión + tiros + despejes.
+4. ANÁLISIS DISCIPLINARIO: Faltas promedio + árbitro.
+5. ANÁLISIS DE CUOTAS: Para cada mercado, calcula Edge = Prob_Estimada - (100/Cuota).
+6. PATRONES TEMPORALES: ¿Goles en 1er o 2do tiempo? ¿Tarjetas tempraneras?
+
+Responde en JSON:
+{
+  "score_estadistico": <0-100>,
+  "insights_estadisticos": "Resumen de hallazgos estadísticos clave (300+ palabras)",
+  "analisis_corners": "Análisis de corners con datos",
+  "analisis_tarjetas": "Análisis de tarjetas con datos",
+  "candidatos_combo": ["mercado1", "mercado2"],
+  "patrones_goles": {
+    "home_1er_tiempo_pct": <0-100>,
+    "home_2do_tiempo_pct": <0-100>,
+    "away_1er_tiempo_pct": <0-100>,
+    "away_2do_tiempo_pct": <0-100>,
+    "insight": "descripción"
+  },
+  "formacion_rendimiento": {
+    "home_formacion_usual": "4-3-3",
+    "home_win_pct_con_formacion": <0-100>,
+    "away_formacion_usual": "4-4-2",
+    "away_win_pct_con_formacion": <0-100>,
+    "insight": "descripción"
+  },
+  "disciplina": {
+    "home_avg_tarjetas": <number>,
+    "away_avg_tarjetas": <number>,
+    "insight": "descripción"
+  },
+  "datos_modelo": {
+    "goles_esperados_partido": <number>,
+    "corners_esperados": <number>,
+    "probabilidad_btts_porcentaje": <number>
+  },
+  "mercados_con_valor": [
+    { "mercado": "nombre", "prob_estimada": <number>, "cuota": <number>, "edge": <number> }
+  ]
+}
+`;
+
+        const layer2Prompt = `
+Eres un estratega de inteligencia deportiva. Tu trabajo es analizar el CONTEXTO que las estadísticas NO pueden capturar.
+
+PARTIDO: ${homeTeam} (LOCAL) vs ${awayTeam} (VISITANTE)
+COMPETICIÓN: ${leagueName}
+
+HISTORIAL RECIENTE (últimos partidos):
+${deepHome.substring(0, 3000)}
+
+${deepAway.substring(0, 3000)}
+
+CONTEXTO EXTERNO:
+${externalContextText}
+
+${mlCalibration.calibrationText}
+
+INSTRUCCIONES — Analiza estos 5 factores:
+
+♟️ B1. ANÁLISIS TÁCTICO: Choque de sistemas, formaciones, quién controla el mediocampo, juego aéreo.
+🧠 B2. PSICOLOGÍA DEPORTIVA: Presión, motivación, momentum, factor vestuario, derby.
+🏟️ B3. CONTEXTO COMPETITIVO: ¿Qué se juegan? ¿Fase del torneo? ¿Rotaciones esperadas?
+🔮 B4. ESCENARIOS: Optimista, base, alternativo — ¿cuál es más probable?
+⚡ B5. FACTORES INVISIBLES: Debuts, regresos de lesión, clima, horario.
+
+Responde en JSON:
+{
+  "score_inteligencia_partido": <0-100>,
+  "matchup_tactico": "Análisis detallado del choque táctico (200+ palabras)",
+  "factor_psicologico": "Análisis de motivación, presión, mentalidad (150+ palabras)",
+  "contexto_competitivo": "Qué se juegan, fase del torneo, rotaciones (100+ palabras)",
+  "escenarios": {
+    "escenario_optimista": "descripción",
+    "escenario_base": "descripción",
+    "escenario_alternativo": "descripción"
+  },
+  "factores_invisibles": "Factores no estadísticos relevantes",
+  "contexto_externo_resumen": "Resumen de noticias/contexto externo relevante"
+}
+`;
+
+        // Helper: wait for Groq rate limit before each call
+        const waitForGroq = async (estimatedTokens: number, layerName: string) => {
+            const delaySec = calcGroqDelay(estimatedTokens);
+            if (delaySec > 0) {
+                console.log(`[V3-AI-ANALYZER] ${layerName}: Waiting ${delaySec}s for Groq rate limit (6K TPM)...`);
+                await new Promise(r => setTimeout(r, delaySec * 1000));
+            }
+        };
+
+        console.log(`[V3-AI-ANALYZER] Layer 1: Statistical Analysis...`);
+        const layerTimeout = Math.min(45000, (remainingMs() - SAVE_RESERVE_MS) / 4);
+
+        // ═══ CAPA 1: SECUENCIAL ═══
+        await waitForGroq(4000, 'Layer 1');
+        const layer1Result = await callLLM(layer1Prompt, { temperature: 0.3, jsonMode: true, maxTokens: 2048, timeoutMs: layerTimeout })
+            .catch(err => { console.error(`[V3-AI-ANALYZER] Layer 1 failed: ${err.message}`); return null; });
+
+        // ═══ CAPA 2: SECUENCIAL (después de Capa 1) ═══
+        console.log(`[V3-AI-ANALYZER] Layer 2: Match Intelligence (${Math.round(remainingMs()/1000)}s remaining)...`);
+        await waitForGroq(3500, 'Layer 2');
+        const layer2Result = await callLLM(layer2Prompt, { temperature: 0.4, jsonMode: true, maxTokens: 2048, timeoutMs: layerTimeout })
+            .catch(err => { console.error(`[V3-AI-ANALYZER] Layer 2 failed: ${err.message}`); return null; });
+
+        const layer1Data = layer1Result ? parseStageJSON(layer1Result.text, 'Layer1') : {
+            score_estadistico: 50, insights_estadisticos: 'Análisis estadístico no disponible',
+            datos_modelo: { goles_esperados_partido: 2.5, corners_esperados: 9, probabilidad_btts_porcentaje: 50 }
+        };
+        const layer2Data = layer2Result ? parseStageJSON(layer2Result.text, 'Layer2') : {
+            score_inteligencia_partido: 50, matchup_tactico: 'Análisis táctico no disponible',
+            factor_psicologico: 'No disponible', contexto_competitivo: 'No disponible',
+            escenarios: { escenario_optimista: '', escenario_base: '', escenario_alternativo: '' }
+        };
+        tokensUsed += (layer1Result?.tokensUsed || 0) + (layer2Result?.tokensUsed || 0);
+        console.log(`[V3-AI-ANALYZER] Layer 1 (${layer1Result?.provider || 'FAILED'}): score=${layer1Data.score_estadistico} | Layer 2 (${layer2Result?.provider || 'FAILED'}): score=${layer2Data.score_inteligencia_partido}`);
+
+        // ═══ CAPA 3: CAZA DE OPORTUNIDADES ═══
+        console.log(`[V3-AI-ANALYZER] Layer 3: Value Hunting (${Math.round(remainingMs()/1000)}s remaining)...`);
+        await waitForGroq(4000, 'Layer 3');
+
+        const layer3Prompt = `
+Eres un cazador de valor en apuestas deportivas de clase mundial.
+Tu misión: encontrar picks con ≥83% de confianza REAL Y cuota ≥ 1.40.
+
+PARTIDO: ${homeTeam} (LOCAL) vs ${awayTeam} (VISITANTE) — ${leagueName}
+
+═══ ANÁLISIS ESTADÍSTICO (Score: ${layer1Data.score_estadistico}/100) ═══
+${(layer1Data.insights_estadisticos || JSON.stringify(layer1Data)).substring(0, 1500)}
+Corners: ${(layer1Data.analisis_corners || 'N/A').substring(0, 300)}
+Tarjetas: ${(layer1Data.analisis_tarjetas || 'N/A').substring(0, 300)}
+Modelo: ${JSON.stringify(layer1Data.datos_modelo || {})}
+Valor: ${JSON.stringify((layer1Data.mercados_con_valor || []).slice(0, 5))}
+
+═══ INTELIGENCIA PARTIDO (Score: ${layer2Data.score_inteligencia_partido}/100) ═══
+${(layer2Data.matchup_tactico || 'N/A').substring(0, 500)}
+${(layer2Data.factor_psicologico || 'N/A').substring(0, 300)}
+${(layer2Data.contexto_competitivo || 'N/A').substring(0, 300)}
+
+═══ CUOTAS ═══
+${oddsText.substring(0, 2000)}
+
+${(mlCalibration.marketPrioritiesText || '').substring(0, 500)}
+
+PROCESO DE BÚSQUEDA (EN ORDEN):
+1. PRIMERO busca COMBINADOS — cuotas ≥1.50, más ineficiencias.
+2. LUEGO individuales de VALOR: BTTS, corners, handicaps, team totals.
+3. FINALMENTE picks estándar con cuota ≥1.40.
+4. ÚLTIMO RECURSO: Máximo 1 banker (cuota <1.40, confianza ≥88%).
+
+FORMATOS DE MERCADO OBLIGATORIOS:
+- "Resultado 1X2", "Más de X.5 Goles", "Menos de X.5 Goles"
+- "Ambos Anotan", "Doble Oportunidad", "Corners Más de X.5"
+- "Resultado y Total: [Equipo] & Más de X.5 Goles" (combinados)
+- Selección para 1X2: nombre COMPLETO del equipo (nunca abreviaciones)
+
+CONFIANZA FINAL = (Score_Estadístico × 0.50) + (Score_Inteligencia × 0.50)
+Máximo 1 pick >90%. Máximo 2 picks >85%.
+
+Responde en JSON:
+{
+  "pronosticos": [
+    {
+      "mercado": "formato exacto",
+      "seleccion": "selección exacta",
+      "probabilidad_calculada_porcentaje": <number>,
+      "probabilidad_implicita_porcentaje": <number>,
+      "edge_porcentaje": <number>,
+      "cuota_actual": <number or null>,
+      "confianza": "ALTA" | "MEDIA" | "BAJA",
+      "tipo_pick": "combo" | "valor" | "standard" | "banker",
+      "justificacion": {
+        "estadistica": "dato estadístico clave",
+        "contexto_partido": "factor de ESTE partido",
+        "tactica": "razón táctica",
+        "mercado": "ineficiencia detectada"
+      }
+    }
+  ],
+  "mercados_evaluados": {
+    "con_valor_detectado": <number>,
+    "total_analizados": <number>
+  }
+}
+`;
+
+        const layer3TimeoutMs = Math.min(60000, remainingMs() - SAVE_RESERVE_MS - 30000);
+        const layer3Result = await callLLM(layer3Prompt, {
+            temperature: 0.3, jsonMode: true, maxTokens: 3072, timeoutMs: Math.max(layer3TimeoutMs, 15000)
+        }).catch(err => {
+            console.error(`[V3-AI-ANALYZER] Layer 3 failed: ${err.message}`);
+            return null;
+        });
+
+        const layer3Data = layer3Result ? parseStageJSON(layer3Result.text, 'Layer3') : {
+            pronosticos: [], mercados_evaluados: { con_valor_detectado: 0, total_analizados: 0 }
+        };
+        tokensUsed += layer3Result?.tokensUsed || 0;
+        console.log(`[V3-AI-ANALYZER] Layer 3 (${layer3Result?.provider || 'FAILED'}): ${layer3Data.pronosticos?.length || 0} picks`);
+
+        // ═══ CAPA 4: SÍNTESIS Y RESUMEN EJECUTIVO ═══
+        console.log(`[V3-AI-ANALYZER] Layer 4: Synthesis (${Math.round(remainingMs()/1000)}s remaining)...`);
+        await waitForGroq(3000, 'Layer 4');
+
+        const confianzaFinal = Math.round(
+            ((layer1Data.score_estadistico || 50) * 0.5) + ((layer2Data.score_inteligencia_partido || 50) * 0.5)
+        );
+        const numPicks = layer3Data.pronosticos?.length || 0;
+        const veredictoAuto = numPicks > 0 && confianzaFinal >= 75 ? 'APOSTAR' : (confianzaFinal >= 65 ? 'OBSERVAR' : 'NO_BET');
+
+        const layer4Prompt = `
+Eres el editor en jefe de Derbix. Sintetiza el análisis completo en un reporte ejecutivo.
+
+PARTIDO: ${homeTeam} vs ${awayTeam} — ${leagueName}
+
+SCORES DUALES:
+- Score Estadístico: ${layer1Data.score_estadistico}/100
+- Score Inteligencia de Partido: ${layer2Data.score_inteligencia_partido}/100
+- Confianza Final: ${confianzaFinal}/100
+
+ESTADÍSTICO: ${(layer1Data.insights_estadisticos || 'N/A').substring(0, 500)}
+TÁCTICO: ${(layer2Data.matchup_tactico || 'N/A').substring(0, 400)}
+PSICOLÓGICO: ${(layer2Data.factor_psicologico || 'N/A').substring(0, 300)}
+COMPETITIVO: ${(layer2Data.contexto_competitivo || 'N/A').substring(0, 300)}
+
+PRONÓSTICOS (${numPicks} picks):
+${JSON.stringify((layer3Data.pronosticos || []).map((p: any) => ({
+  m: p.mercado, s: p.seleccion, prob: p.probabilidad_calculada_porcentaje,
+  cuota: p.cuota_actual, edge: p.edge_porcentaje, tipo: p.tipo_pick
+})), null, 1).substring(0, 2000)}
+
+Genera el reporte final. El "razonamiento_central" debe ser un texto DETALLADO (mínimo 200 palabras) que conecte datos duros con factores tácticos, psicológicos y competitivos. Usa lenguaje de "shark" profesional.
+
+Responde en JSON:
+{
+  "resumen_ejecutivo": {
+    "titular": "Titular de alto impacto",
+    "veredicto": "${veredictoAuto}",
+    "confianza_global": "${confianzaFinal >= 82 ? 'ALTA' : (confianzaFinal >= 70 ? 'MEDIA' : 'BAJA')}",
+    "picks_principales": ["Pick 1 resumido", "Pick 2 resumido"]
+  },
+  "analisis_profundo": {
+    "razonamiento_central": "TEXTO DETALLADO (200+ palabras)...",
+    "matchup_tactico": "Choque de sistemas...",
+    "factor_psicologico": "Mentalidad...",
+    "contexto_competitivo": "Qué se juegan..."
+  },
+  "factores_riesgo": {
+    "riesgo_principal": "El mayor peligro...",
+    "nivel_incertidumbre": "BAJO" | "MEDIO" | "ALTO",
+    "factores_que_podrian_romper_la_estadistica": "..."
+  }
+}
+`;
+
+        const layer4TimeoutMs = Math.min(45000, remainingMs() - SAVE_RESERVE_MS);
+        const layer4Result = await callLLM(layer4Prompt, {
+            temperature: 0.2, jsonMode: true, maxTokens: 2048, timeoutMs: Math.max(layer4TimeoutMs, 15000)
+        }).catch(err => {
+            console.error(`[V3-AI-ANALYZER] Layer 4 failed: ${err.message}`);
+            return null;
+        });
+
+        const layer4Data = layer4Result ? parseStageJSON(layer4Result.text, 'Layer4') : {};
+        tokensUsed += layer4Result?.tokensUsed || 0;
+        console.log(`[V3-AI-ANALYZER] Layer 4 (${layer4Result?.provider || 'FAILED'}): synthesis complete`);
+
+        // ═══ ENSAMBLAR RESULTADO FINAL (combinar las 4 capas) ═══
+        analysisResult = {
+            meta: { modelo: layer1Result?.model || 'multi-provider', version: ENGINE_VERSION },
+            resumen_ejecutivo: layer4Data.resumen_ejecutivo || {
+                titular: `Análisis ${homeTeam} vs ${awayTeam}`,
+                veredicto: veredictoAuto,
+                confianza_global: confianzaFinal >= 82 ? 'ALTA' : (confianzaFinal >= 70 ? 'MEDIA' : 'BAJA'),
+                picks_principales: (layer3Data.pronosticos || []).slice(0, 2).map((p: any) => `${p.mercado}: ${p.seleccion}`)
+            },
+            scores_duales: {
+                score_estadistico: layer1Data.score_estadistico || 50,
+                score_inteligencia_partido: layer2Data.score_inteligencia_partido || 50,
+                confianza_final_calculada: confianzaFinal,
+                justificacion_balance: `Pilar A (${layer1Data.score_estadistico}) + Pilar B (${layer2Data.score_inteligencia_partido}) = ${confianzaFinal}`
+            },
+            analisis_profundo: layer4Data.analisis_profundo || {
+                razonamiento_central: layer1Data.insights_estadisticos || 'Análisis no disponible',
+                matchup_tactico: layer2Data.matchup_tactico || 'No disponible',
+                factor_psicologico: layer2Data.factor_psicologico || 'No disponible',
+                contexto_competitivo: layer2Data.contexto_competitivo || 'No disponible'
+            },
+            pronosticos: layer3Data.pronosticos || [],
+            patrones_detectados: {
+                goles_por_tiempo: layer1Data.patrones_goles || {},
+                formacion_rendimiento: layer1Data.formacion_rendimiento || {},
+                disciplina: layer1Data.disciplina || {}
+            },
+            contexto_externo_resumen: layer2Data.contexto_externo_resumen || '',
+            factores_riesgo: layer4Data.factores_riesgo || { riesgo_principal: 'No evaluado', nivel_incertidumbre: 'MEDIO' },
+            datos_modelo: layer1Data.datos_modelo || { goles_esperados_partido: 2.5, corners_esperados: 9, probabilidad_btts_porcentaje: 50 },
+            mercados_evaluados: layer3Data.mercados_evaluados || { con_valor_detectado: 0, total_analizados: 0 },
+            escenarios_proyectados: layer2Data.escenarios || { escenario_optimista: '', escenario_base: '', escenario_alternativo: '' }
+        };
+
+        console.log(`[V3-AI-ANALYZER] Staged analysis complete. Total tokens: ${tokensUsed}. Providers used: L1=${layer1Result?.provider || 'FAILED'}, L2=${layer2Result?.provider || 'FAILED'}, L3=${layer3Result?.provider || 'FAILED'}, L4=${layer4Result?.provider || 'FAILED'}`);
+
+        } else {
+        // ═══ MODO MONOLÍTICO (FALLBACK) ═══
+        console.log(`[V3-AI-ANALYZER] Using monolithic mode (USE_STAGED_ANALYSIS=false)...`);
         const prompt = `
 ════════════════════════════════════════════════════════════════════════════════
 🧠 SISTEMA DERBIX V8 [DUAL INTELLIGENCE + EVENTS + CONTEXT] - MOTOR DE ANÁLISIS DE ÉLITE
-Modelo: ${GEMINI_MODEL}
+Modelo: multi-provider
 Fecha Sistema: ${new Date().toISOString().split('T')[0]}
 ════════════════════════════════════════════════════════════════════════════════
 
@@ -1369,127 +1730,22 @@ ${strategicInsightsBlock}
 `;
 
         // ═══════════════════════════════════════════════════════════════
-        // LLAMAR A GEMINI
+        // LLAMAR A LLM (Modo Monolítico — Fallback)
         // ═══════════════════════════════════════════════════════════════
-        console.log(`[V3 - AI - ANALYZER] Sending prompt to Gemini(${prompt.length} chars)...`);
+        console.log(`[V3-AI-ANALYZER] Sending monolithic prompt (${prompt.length} chars)...`);
 
-        const requestBody = {
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-                temperature: 0.3, // Más determinístico para análisis
-                responseMimeType: 'application/json',
-                maxOutputTokens: 16384
-            }
-        };
+        const monoTimeoutMs = Math.min(90000, remainingMs() - SAVE_RESERVE_MS);
+        const monoResult = await callLLM(prompt, {
+            temperature: 0.3,
+            jsonMode: true,
+            maxTokens: 16384,
+            timeoutMs: Math.max(monoTimeoutMs, 25000),
+        });
 
-        // ═══ GEMINI CALL WITH DYNAMIC TIMEOUT & MODEL FALLBACK ═══
-        // Supabase Edge Function wall clock limit: ~150s
-        // Strategy: Dynamic timeouts based on remaining wall clock time
-        // Reserve 15s for post-Gemini save operations (DB writes, cleanup)
-        const WALL_CLOCK_SAFE = 140000; // 140s safe limit (10s margin from 150s)
-        const SAVE_RESERVE_MS = 15000;  // Reserve 15s for DB save operations
-        const MAX_TIMEOUT_PER_MODEL = 90000; // Max 90s per attempt (up from 60s)
-        const MIN_TIMEOUT_FOR_ATTEMPT = 25000; // Don't attempt with <25s available
-        const remainingMs = () => WALL_CLOCK_SAFE - (Date.now() - startTime);
+        tokensUsed = monoResult.tokensUsed || 0;
+        console.log(`[V3-AI-ANALYZER] ${monoResult.provider} responded with ${tokensUsed} tokens`);
 
-        const FALLBACK_MODEL = 'gemini-3-pro-preview';
-        const PRIMARY_MODEL = GEMINI_MODEL; // gemini-3.1-pro-preview (best quality)
-        const models = [PRIMARY_MODEL, FALLBACK_MODEL];
-        let genRes: Response | null = null;
-
-        for (let modelIdx = 0; modelIdx < models.length; modelIdx++) {
-            const currentModel = models[modelIdx];
-            const currentUrl = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${geminiKey}`;
-            const attemptStart = Date.now();
-
-            // Dynamic timeout: use available time minus save reserve, capped at MAX
-            const available = remainingMs() - SAVE_RESERVE_MS;
-            if (available < MIN_TIMEOUT_FOR_ATTEMPT) {
-                console.warn(`[V3-AI-ANALYZER] Only ${Math.round(available / 1000)}s available, skipping ${currentModel}`);
-                break;
-            }
-            const dynamicTimeout = Math.min(available, MAX_TIMEOUT_PER_MODEL);
-            console.log(`[V3-AI-ANALYZER] Using dynamic timeout: ${Math.round(dynamicTimeout / 1000)}s for ${currentModel} (${Math.round(remainingMs() / 1000)}s remaining)`);
-
-            const geminiController = new AbortController();
-            const geminiTimeoutId = setTimeout(() => geminiController.abort(), dynamicTimeout);
-
-            try {
-                console.log(`[V3-AI-ANALYZER] Calling ${currentModel} (attempt ${modelIdx + 1}/${models.length})...`);
-                genRes = await fetch(currentUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody),
-                    signal: geminiController.signal
-                });
-                clearTimeout(geminiTimeoutId);
-
-                if (genRes.ok) {
-                    if (modelIdx > 0) console.log(`[V3-AI-ANALYZER] Fallback model ${currentModel} succeeded`);
-                    break; // Success
-                }
-
-                const statusCode = genRes.status;
-                const elapsed = Date.now() - attemptStart;
-                const isRetryable = statusCode === 429 || statusCode === 503 || statusCode === 500;
-                const hasTimeBudget = remainingMs() > (SAVE_RESERVE_MS + MIN_TIMEOUT_FOR_ATTEMPT); // Enough for another attempt + save
-
-                if (isRetryable && modelIdx < models.length - 1 && hasTimeBudget) {
-                    console.warn(`[V3-AI-ANALYZER] ${currentModel} returned ${statusCode} in ${elapsed}ms, trying fallback ${models[modelIdx + 1]} (${Math.round(remainingMs() / 1000)}s remaining)...`);
-                    await new Promise(r => setTimeout(r, 2000)); // 2s pause before fallback
-                    continue;
-                }
-
-                // No more models to try or no time budget
-                const errorText = await genRes.text();
-                if (statusCode === 429) {
-                    throw new Error(`QUOTA_EXCEEDED: API key de Gemini alcanzó el límite. Espera unos minutos. (${errorText.substring(0, 200)})`);
-                } else if (statusCode === 503) {
-                    throw new Error(`GEMINI_OVERLOADED: Gemini (${currentModel}) sobrecargado. Intenta de nuevo en unos minutos. (${errorText.substring(0, 200)})`);
-                } else {
-                    throw new Error(`Gemini Error (${statusCode}): ${errorText.substring(0, 300)}`);
-                }
-
-            } catch (fetchErr: any) {
-                clearTimeout(geminiTimeoutId);
-                if (fetchErr.name === 'AbortError') {
-                    // Timeout — try fallback model if we have enough time remaining
-                    const hasTimeBudgetForFallback = remainingMs() > (SAVE_RESERVE_MS + MIN_TIMEOUT_FOR_ATTEMPT);
-                    if (modelIdx < models.length - 1 && hasTimeBudgetForFallback) {
-                        console.warn(`[V3-AI-ANALYZER] ${currentModel} timed out after ${Math.round(dynamicTimeout / 1000)}s, trying fallback ${models[modelIdx + 1]} (${Math.round(remainingMs() / 1000)}s remaining)...`);
-                        continue;
-                    }
-                    throw new Error(`GEMINI_TIMEOUT: ${currentModel} no respondió en ${Math.round(dynamicTimeout / 1000)}s. Intenta de nuevo.`);
-                }
-                // Re-throw user-facing errors
-                if (fetchErr.message?.startsWith('QUOTA_') || fetchErr.message?.startsWith('GEMINI_')) {
-                    throw fetchErr;
-                }
-                // Network error — try fallback if budget allows
-                const hasTimeBudget = remainingMs() > (SAVE_RESERVE_MS + MIN_TIMEOUT_FOR_ATTEMPT);
-                if (modelIdx < models.length - 1 && hasTimeBudget) {
-                    console.warn(`[V3-AI-ANALYZER] ${currentModel} fetch error: ${fetchErr.message}, trying fallback (${Math.round(remainingMs() / 1000)}s remaining)...`);
-                    continue;
-                }
-                throw fetchErr;
-            }
-        }
-
-        if (!genRes || !genRes.ok) {
-            throw new Error('Gemini failed on all models');
-        }
-
-        const genJson = await genRes.json();
-        let aiResponseText = genJson.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-        const tokensUsed = genJson.usageMetadata?.totalTokenCount || 0;
-
-        console.log(`[V3-AI-ANALYZER] Gemini responded with ${tokensUsed} tokens`);
-
-        // Detectar truncamiento por límite de tokens
-        const finishReason = genJson.candidates?.[0]?.finishReason;
-        if (finishReason === 'MAX_TOKENS') {
-            console.warn(`[V3-AI-ANALYZER] WARNING: Gemini response TRUNCATED (${tokensUsed} tokens). Attempting JSON repair...`);
-        }
+        let aiResponseText = monoResult.text || '{}';
 
         // Clean and parse response
         aiResponseText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -1499,8 +1755,8 @@ ${strategicInsightsBlock}
             aiResponseText = aiResponseText.substring(startIndex, endIndex + 1);
         }
 
-        // Reparar JSON truncado: contar llaves/corchetes y cerrar los faltantes
-        if (finishReason === 'MAX_TOKENS') {
+        // JSON truncation repair
+        if (monoResult.finishReason === 'length' || monoResult.finishReason === 'MAX_TOKENS') {
             let openBraces = 0, openBrackets = 0;
             let inString = false, escaped = false;
             for (const ch of aiResponseText) {
@@ -1520,14 +1776,7 @@ ${strategicInsightsBlock}
             }
         }
 
-        let analysisResult: any;
-
         // ═══ PARSING MULTI-INTENTO ═══
-        // Estrategia 1: JSON5 (más permisivo, maneja trailing commas, etc.)
-        // Estrategia 2: JSON nativo
-        // Estrategia 3: Limpiar control chars + trailing commas y reintentar
-        // Fallback: Extraer datos parciales con regex
-
         try {
             analysisResult = JSON5.parse(aiResponseText);
         } catch (e1: any) {
@@ -1544,22 +1793,11 @@ ${strategicInsightsBlock}
                     console.log('[V3-AI-ANALYZER] Parse succeeded after cleanup');
                 } catch (e3: any) {
                     console.error('[V3-AI-ANALYZER] All parse strategies failed');
-                    console.error('[V3-AI-ANALYZER] Raw response (first 1000 chars):', aiResponseText.substring(0, 1000));
-
-                    // Fallback: extraer datos parciales del texto crudo
                     analysisResult = {
-                        resumen_ejecutivo: {
-                            titular: "Análisis completado con datos parciales",
-                            veredicto: "OBSERVAR",
-                            confianza_global: "BAJA",
-                            picks_principales: []
-                        },
+                        resumen_ejecutivo: { titular: "Análisis completado con datos parciales", veredicto: "OBSERVAR", confianza_global: "BAJA", picks_principales: [] },
                         pronosticos: [],
-                        analisis_profundo: {
-                            razonamiento_central: aiResponseText.substring(0, 2000)
-                        }
+                        analisis_profundo: { razonamiento_central: aiResponseText.substring(0, 2000) }
                     };
-                    // Intentar rescatar titular y veredicto del texto crudo
                     const titularMatch = aiResponseText.match(/"titular"\s*:\s*"([^"]+)"/);
                     if (titularMatch) analysisResult.resumen_ejecutivo.titular = titularMatch[1];
                     const veredictoMatch = aiResponseText.match(/"veredicto"\s*:\s*"(APOSTAR|NO_BET|OBSERVAR)"/);
@@ -1567,6 +1805,8 @@ ${strategicInsightsBlock}
                 }
             }
         }
+
+        } // end of monolithic else block
 
         // ═══════════════════════════════════════════════════════════════
         // ROBUSTNESS LAYER: Normalize AI Response (V5 CRITICAL FIX)

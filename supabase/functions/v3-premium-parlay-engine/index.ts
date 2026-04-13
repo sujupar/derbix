@@ -4,7 +4,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai"
+import { callLLM } from '../_shared/llm-client.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -30,7 +30,7 @@ const CONFIG = {
     PARLAYS_TO_GENERATE: 3,
 
     // Modelo
-    MODEL: 'gemini-2.0-flash-exp',
+    MODEL: 'gemini-2.5-flash',
     TEMPERATURE: 0.8  // Más creatividad para mercados diversos
 }
 
@@ -267,17 +267,7 @@ serve(async (req) => {
         // Initialize clients
         const sbUrl = Deno.env.get('SUPABASE_URL')!
         const sbKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-        const geminiKey = Deno.env.get('GEMINI_API_KEY')!
-
         const supabase = createClient(sbUrl, sbKey)
-        const genAI = new GoogleGenerativeAI(geminiKey)
-        const model = genAI.getGenerativeModel({
-            model: CONFIG.MODEL,
-            generationConfig: {
-                temperature: CONFIG.TEMPERATURE,
-                responseMimeType: "application/json"
-            }
-        })
 
         // ═══════════════════════════════════════════════════════════════
         // FASE 1: CARGAR REPORTES DE ANALISTAS (META-ANALYSIS)
@@ -421,8 +411,13 @@ CRITICAL:
 - DO NOT INVENT ODDS.
 `;
 
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+        const llmResult = await callLLM(prompt, {
+            temperature: CONFIG.TEMPERATURE,
+            jsonMode: true,
+            timeoutMs: 90000,
+        });
+        console.log(`[V3-PremiumParlay] LLM provider: ${llmResult.provider}`);
+        const responseText = llmResult.text;
 
         // ═══════════════════════════════════════════════════════════════
         // FASE 3: PARSE & VALIDATE

@@ -6,6 +6,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import JSON5 from "https://esm.sh/json5@2.2.3"
 import { corsHeaders } from '../_shared/cors.ts'
+import { callLLM } from '../_shared/llm-client.ts'
 
 const ENGINE_VERSION = '2.0.0';
 const PROMPT_VERSION = '2.0.0';
@@ -14,7 +15,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   // CONSTANTES RAG & MODELO
-  const GEMINI_MODEL = 'gemini-2.0-flash'; // Modelo actualizado
+  const GEMINI_MODEL = 'gemini-2.5-flash'; // Modelo actualizado
   const EMBEDDING_MODEL = 'models/text-embedding-004';
 
   // Helper: Generar Embedding (Vector)
@@ -327,29 +328,17 @@ DEBES ANALIZAR:
 `;
 
     // ═══════════════════════════════════════════════════════════════
-    // CALL GEMINI (PRO MODEL)
+    // CALL LLM (Multi-provider via llm-client)
     // ═══════════════════════════════════════════════════════════════
-    const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiKey}`;
-
-    const requestBody = {
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.4,
-        responseMimeType: 'application/json'
-      }
-    };
-
-    const genRes = await fetch(genUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody)
+    const llmResult = await callLLM(prompt, {
+      temperature: 0.4,
+      jsonMode: true,
+      timeoutMs: 60000,
     });
+    console.log(`[V2-INTERPRET] LLM provider: ${llmResult.provider}`);
 
-    if (!genRes.ok) throw new Error(`Gemini Error: ${await genRes.text()}`);
-
-    const genJson = await genRes.json();
-    let aiResponseText = genJson.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-    const tokensUsed = genJson.usageMetadata?.totalTokenCount || 0;
+    let aiResponseText = llmResult.text || '{}';
+    const tokensUsed = llmResult.tokensUsed || 0;
 
     // Clean response
     aiResponseText = aiResponseText.replace(/```json/g, '').replace(/```/g, '').trim();

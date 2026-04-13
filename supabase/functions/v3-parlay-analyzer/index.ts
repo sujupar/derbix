@@ -7,6 +7,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import JSON5 from "https://esm.sh/json5@2.2.3"
 import { corsHeaders } from '../_shared/cors.ts'
+import { callLLM } from '../_shared/llm-client.ts'
 
 const MARKETS_CATALOG = `
 ═══ MERCADOS PRIORITARIOS PARA PARLAYS ═══
@@ -85,7 +86,6 @@ serve(async (req) => {
     try {
         const sbUrl = Deno.env.get('SUPABASE_URL')!;
         const sbKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const geminiKey = Deno.env.get('GEMINI_API_KEY')!;
         const supabase = createClient(sbUrl, sbKey);
 
         let { job_id, fixture_id, payload } = await req.json();
@@ -370,38 +370,18 @@ REGLAS FINALES:
 `;
 
         // ═══════════════════════════════════════════════════════════════
-        // CALL GEMINI
+        // CALL LLM (multi-provider with automatic fallback)
         // ═══════════════════════════════════════════════════════════════
-        const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiKey}`;
-
-        const geminiController = new AbortController();
-        const geminiTimeout = setTimeout(() => geminiController.abort(), 90000); // 90s timeout
-
-        const genRes = await fetch(genUrl, {
-            method: 'POST',
-            signal: geminiController.signal,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                    temperature: 0.5,
-                    responseMimeType: 'application/json',
-                    maxOutputTokens: 4096
-                }
-            })
+        const llmResult = await callLLM(prompt, {
+            temperature: 0.5,
+            jsonMode: true,
+            maxTokens: 4096,
+            timeoutMs: 90000,
         });
 
-        clearTimeout(geminiTimeout);
-
-        const genJson = await genRes.json();
-
-        if (genJson.error) {
-            throw new Error(`Gemini API Error: ${genJson.error.message}`);
-        }
-
-        let aiText = genJson.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-        const tokensUsed = genJson.usageMetadata?.totalTokenCount || 0;
-        console.log(`[PARLAY-ANALYZER] Gemini responded. Tokens: ${tokensUsed}`);
+        let aiText = llmResult.text || '{}';
+        const tokensUsed = llmResult.tokensUsed || 0;
+        console.log(`[PARLAY-ANALYZER] ${llmResult.provider}/${llmResult.model} responded. Tokens: ${tokensUsed}`);
 
         // Clean JSON
         aiText = aiText.replace(/```json/g, '').replace(/```/g, '').trim();

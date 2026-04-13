@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { corsHeaders } from '../_shared/cors.ts'
+import { callLLM } from '../_shared/llm-client.ts'
 
 declare const Deno: any;
 
@@ -33,10 +34,9 @@ serve(async (req) => {
         const sbUrl = Deno.env.get('SUPABASE_URL')!;
         const sbKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(sbUrl, sbKey);
-        const geminiKey = Deno.env.get('GEMINI_API_KEY');
         const footballKeys = Deno.env.get('API_FOOTBALL_KEYS');
 
-        if (!geminiKey || !footballKeys) throw new Error("Missing Secrets");
+        if (!footballKeys) throw new Error("Missing API_FOOTBALL_KEYS secret");
 
         // CHECK SYSTEM SETTINGS
         let learningActive = false;
@@ -235,34 +235,21 @@ serve(async (req) => {
         }
         `;
 
-            const requestBody = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1 } };
-            // MODEL UPGRADE: gemini-3-flash (2026 Standard)
-            const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${geminiKey}`;
-
-            log(`[AI] Sending request to Gemini 3 Flash...`);
+                log(`[AI] Sending request to LLM...`);
             const start = Date.now();
-            let genRes;
+            let llmResult;
             try {
-                // Add a signal controller if supported or just await standard fetch
-                genRes = await fetch(genUrl, { method: 'POST', body: JSON.stringify(requestBody) });
+                llmResult = await callLLM(prompt, { temperature: 0.1, jsonMode: true, timeoutMs: 60000 });
             } catch (fetchErr: any) {
-                log(`[AI] Fetch failed (Network/Timeout): ${fetchErr.message}`);
+                log(`[AI] LLM call failed: ${fetchErr.message}`);
                 throw fetchErr;
             }
             const duration = Date.now() - start;
-            log(`[AI] Request completed in ${duration}ms. Status: ${genRes.status} ${genRes.statusText}`);
+            log(`[AI] ${llmResult.provider} responded in ${duration}ms`);
 
-            if (!genRes.ok) {
-                const errText = await genRes.text();
-                log(`[AI ERROR] Response Body: ${errText}`);
-                throw new Error(`Gemini API Error ${genRes.status}: ${errText}`);
-            }
-
-            const genJson = await genRes.json();
-
-            const aiText = genJson.candidates?.[0]?.content?.parts?.[0]?.text;
+            const aiText = llmResult.text;
             if (!aiText) {
-                log(`[AI ERROR] No text generated. Raw:`, genJson);
+                log(`[AI ERROR] No text generated from ${llmResult.provider}`);
                 continue;
             }
 

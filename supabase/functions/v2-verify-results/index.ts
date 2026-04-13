@@ -2,9 +2,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { corsHeaders } from '../_shared/cors.ts'
+import { callLLM } from '../_shared/llm-client.ts'
 
 const API_FOOTBALL_BASE = 'https://v3.football.api-sports.io';
-const GEMINI_MODEL = 'gemini-1.5-flash'; // Cost-effective and fast
 
 serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -36,8 +36,6 @@ serve(async (req) => {
 
         // Load API Keys
         const apiKeys = (Deno.env.get('API_FOOTBALL_KEYS') || '').split(',').map(k => k.trim());
-        const geminiKey = Deno.env.get('GEMINI_API_KEY');
-
         // 1.5 CHECK AUTOMATION SETTING (Safety Gate)
         // Only strictly enforce if we are running for "yesterday" (auto mode) and no manual override
         if (!manual_fixture_id) {
@@ -57,11 +55,11 @@ serve(async (req) => {
 
         log(`🚀 Starting V2 Verification for Date: ${targetDate}`);
 
-        if (!geminiKey || apiKeys.length === 0 || (apiKeys.length === 1 && !apiKeys[0])) {
-            log(`❌ Error: Missing API Keys (Gemini or Football)`);
+        if (apiKeys.length === 0 || (apiKeys.length === 1 && !apiKeys[0])) {
+            log(`❌ Error: Missing API_FOOTBALL_KEYS`);
             return new Response(JSON.stringify({
                 success: false,
-                msg: "Missing API Keys. Please set GEMINI_API_KEY and API_FOOTBALL_KEYS in Supabase Secrets.",
+                msg: "Missing API Keys. Please set API_FOOTBALL_KEYS in Supabase Secrets.",
                 trace
             }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
@@ -267,14 +265,14 @@ serve(async (req) => {
             }
             `;
 
-                const genRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                const llmResult = await callLLM(prompt, {
+                    temperature: 0.1,
+                    jsonMode: true,
+                    timeoutMs: 30000,
                 });
+                log(`✓ LLM (${llmResult.provider}) responded for fixture ${fId}`);
 
-                const genData = await genRes.json();
-                const text = genData.candidates?.[0]?.content?.parts?.[0]?.text;
+                const text = llmResult.text;
                 if (!text) throw new Error("No AI response");
 
                 const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();

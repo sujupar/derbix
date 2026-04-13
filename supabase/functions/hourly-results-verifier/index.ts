@@ -11,6 +11,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { corsHeaders } from '../_shared/cors.ts'
 import { getFixtureComplete } from '../_shared/sportmonks-client.ts'
+import { callLLM } from '../_shared/llm-client.ts'
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -424,7 +425,7 @@ function evaluatePickResult(
 }
 
 // ═══════════════════════════════════════════════════════════════
-// GEMINI FALLBACK FOR COMPLEX MARKETS
+// LLM FALLBACK FOR COMPLEX MARKETS (Multi-provider via llm-client)
 // ═══════════════════════════════════════════════════════════════
 async function evaluateWithGemini(
     market: string,
@@ -435,12 +436,6 @@ async function evaluateWithGemini(
     awayScore: number,
     stats: ReturnType<typeof extractStats>
 ): Promise<boolean | null> {
-    const geminiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!geminiKey) {
-        console.warn('[Verifier] No GEMINI_API_KEY, skipping Gemini fallback');
-        return null;
-    }
-
     const prompt = `You are a sports betting verification system. Determine if the following prediction was WON or LOST based on the actual match result.
 
 PREDICTION:
@@ -461,40 +456,23 @@ ACTUAL RESULT:
 Answer ONLY with one word: WON, LOST, or VOID (if the bet is cancelled/pushed).`;
 
     try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
+        const result = await callLLM(prompt, {
+            temperature: 0,
+            maxTokens: 10,
+            timeoutMs: 10000,
+        });
 
-        const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: { temperature: 0, maxOutputTokens: 10 }
-                }),
-                signal: controller.signal
-            }
-        );
-
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-            console.error(`[Verifier] Gemini API error: ${response.status}`);
-            return null;
-        }
-
-        const data = await response.json();
-        const answer = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim().toUpperCase();
+        const answer = result.text.trim().toUpperCase();
+        console.log(`[Verifier] LLM (${result.provider}) answer: "${answer}"`);
 
         if (answer.includes('WON') || answer.includes('WIN')) return true;
         if (answer.includes('LOST') || answer.includes('LOSE')) return false;
-        if (answer.includes('VOID') || answer.includes('PUSH')) return null; // Will be treated as VOID
+        if (answer.includes('VOID') || answer.includes('PUSH')) return null;
 
-        console.warn(`[Verifier] Gemini unclear answer: "${answer}"`);
+        console.warn(`[Verifier] LLM unclear answer: "${answer}"`);
         return null;
     } catch (err: any) {
-        console.error(`[Verifier] Gemini fallback error: ${err.message}`);
+        console.error(`[Verifier] LLM fallback error: ${err.message}`);
         return null;
     }
 }

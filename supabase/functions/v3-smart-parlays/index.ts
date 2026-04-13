@@ -7,6 +7,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { corsHeaders } from '../_shared/cors.ts'
+import { callLLM } from '../_shared/llm-client.ts'
 
 serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -17,7 +18,6 @@ serve(async (req) => {
     try {
         const sbUrl = Deno.env.get('SUPABASE_URL')!;
         const sbKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const geminiKey = Deno.env.get('GEMINI_API_KEY')!;
         const supabase = createClient(sbUrl, sbKey);
 
         const { date, force_regenerate } = await req.json();
@@ -153,9 +153,6 @@ serve(async (req) => {
             return new Response(JSON.stringify({ success: false, message: 'Not enough high-confidence matches (<3) to build a smart parlay.', logs }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
-        // ═══ GEMINI URL (Must be defined BEFORE scout calls) ═══
-        const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${geminiKey}`;
-
         // 3. FETCH RAW DATA FOR DEEP RE-ANALYSIS (The "Scout" Phase)
         const scoutJobIds = candidates.map(c => c.job_id).filter(Boolean);
         log(`DEBUG: scoutJobIds count: ${scoutJobIds.length} | IDs: ${scoutJobIds.slice(0, 5).join(', ')}...`);
@@ -245,16 +242,13 @@ Responde SOLO con este JSON. Nada de texto extra.
 }
 `;
             try {
-                const scoutRes = await fetch(genUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: scoutPrompt }] }],
-                        generationConfig: { temperature: 0.7, maxOutputTokens: 2048, responseMimeType: "application/json" }
-                    })
+                const scoutResult = await callLLM(scoutPrompt, {
+                    temperature: 0.7,
+                    maxTokens: 2048,
+                    jsonMode: true,
+                    timeoutMs: 30000,
                 });
-                const scoutJson = await scoutRes.json();
-                const text = scoutJson.candidates?.[0]?.content?.parts?.[0]?.text;
+                const text = scoutResult.text;
                 if (!text) return null;
                 const clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
                 return { ...JSON.parse(clean), fixture_id: c.fixture_id, match: c.match };
@@ -322,42 +316,17 @@ OUTPUT FORMAT (JSON STRICTO):
 }
 `;
 
-        // 5. CALL GEMINI
-        log('Asking Gemini to architect the parlay...');
-        // genUrl already defined above (before scout phase)
-        const genRes = await fetch(genUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 8192,
-                    responseMimeType: "application/json"
-                },
-                safetySettings: [
-                    { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-                    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-                    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-                    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-                ]
-            })
+        // 5. CALL LLM (Architect Phase)
+        log('Asking LLM to architect the parlay...');
+        const architectResult = await callLLM(prompt, {
+            temperature: 0.7,
+            maxTokens: 8192,
+            jsonMode: true,
+            timeoutMs: 60000,
         });
+        log(`Architect LLM provider: ${architectResult.provider}`);
 
-        const genJson = await genRes.json();
-
-        if (genJson.error) {
-            log(`ERROR: Gemini API Error: ${JSON.stringify(genJson.error)}`);
-            throw new Error(`Gemini API Error: ${genJson.error.message}`);
-        }
-
-        if (!genJson.candidates || genJson.candidates.length === 0) {
-            const blockReason = genJson.promptFeedback?.blockReason || 'Unknown';
-            log(`ERROR: Gemini Blocked Response. Reason: ${blockReason}`);
-            throw new Error(`Gemini Blocked: ${blockReason}`);
-        }
-
-        let aiText = genJson.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        let aiText = architectResult.text || '{}';
 
         // Clean JSON
         aiText = aiText.replace(/```json/g, '').replace(/```/g, '').trim();

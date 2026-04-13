@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai"
+import { callLLM } from '../_shared/llm-client.ts'
 
 // FIX: Declare global Deno
 declare const Deno: any;
@@ -37,10 +37,8 @@ serve(async (req) => {
     try {
         const sbUrl = Deno.env.get('SUPABASE_URL')!
         const sbKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-        const geminiKey = Deno.env.get('GEMINI_API_KEY')!
 
         const supabase = createClient(sbUrl, sbKey)
-        const genAI = new GoogleGenerativeAI(geminiKey)
 
         const { date } = await req.json()
         const targetDate = (date || new Date().toISOString()).split('T')[0]
@@ -442,18 +440,15 @@ IMPORTANTE:
         // ═══════════════════════════════════════════════════════════════
         // FASE 4: LLAMADA A GEMINI
         // ═══════════════════════════════════════════════════════════════
-        console.log('[V2-PremiumParlay] FASE 4: Consultando Gemini...')
+        console.log('[V2-PremiumParlay] FASE 4: Consultando LLM...')
 
-        const model = genAI.getGenerativeModel({
-            model: "gemini-2.0-flash-exp",
-            generationConfig: {
-                responseMimeType: "application/json",
-                temperature: 0.6  // Algo de creatividad pero controlada
-            }
+        const llmResult = await callLLM(superPrompt, {
+            temperature: 0.6,
+            jsonMode: true,
+            timeoutMs: 90000,
         })
-
-        const result = await model.generateContent(superPrompt)
-        const text = result.response.text()
+        const text = llmResult.text
+        console.log(`[V2-PremiumParlay] LLM responded via ${llmResult.provider}/${llmResult.model}`)
 
         // Parsear respuesta
         const clean = text.replace(/```json/g, '').replace(/```/g, '').trim()

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { corsHeaders } from '../_shared/cors.ts'
+import { callLLM } from '../_shared/llm-client.ts'
 
 /**
  * EDGE FUNCTION: analyze-failures
@@ -25,9 +26,6 @@ serve(async (req) => {
         // Setup
         const sbUrl = Deno.env.get('SUPABASE_URL')!;
         const sbKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const geminiKey = Deno.env.get('GEMINI_API_KEY')!;
-
-        if (!geminiKey) throw new Error("Missing GEMINI_API_KEY");
 
         const supabase = createClient(sbUrl, sbKey);
 
@@ -100,28 +98,20 @@ Responde SOLO en formato JSON:
 }
 `;
 
-                const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
-
-                const genRes = await fetch(genUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: postMortemPrompt }] }],
-                        generationConfig: {
-                            temperature: 0.3,
-                            responseMimeType: 'application/json'
-                        }
-                    })
-                });
-
-                if (!genRes.ok) {
-                    console.error(`[POST-MORTEM] Gemini error for ${failure.id}`);
+                let aiText: string;
+                try {
+                    const llmResult = await callLLM(postMortemPrompt, {
+                        temperature: 0.3,
+                        jsonMode: true,
+                        timeoutMs: 30000,
+                    });
+                    aiText = llmResult.text || '{}';
+                    console.log(`[POST-MORTEM] ${llmResult.provider} responded for ${failure.id}`);
+                } catch (llmErr: any) {
+                    console.error(`[POST-MORTEM] LLM error for ${failure.id}: ${llmErr.message}`);
                     errors++;
                     continue;
                 }
-
-                const genJson = await genRes.json();
-                const aiText = genJson.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
 
                 let analysis;
                 try {

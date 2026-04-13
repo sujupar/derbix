@@ -1,74 +1,23 @@
 
 import { supabase } from './supabaseService';
 import { ParlayAnalysisResult } from '../types';
-import { GoogleGenAI, GenerateContentParameters, GenerateContentResponse } from "@google/genai";
 
-// --- Gemini AI Client for Parlay Verification ---
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
-
-const MAX_RETRIES = 3;
-const INITIAL_DELAY_MS = 2000;
-const MAX_DELAY_MS = 10000;
-
-async function generateWithRetry(request: GenerateContentParameters): Promise<GenerateContentResponse> {
-  let retries = 0;
-  let delay = INITIAL_DELAY_MS;
-  while (true) {
-    try {
-      const response = await ai.models.generateContent(request);
-      if (!response.text || response.text.trim() === '') throw new Error('EMPTY_AI_RESPONSE');
-      return response;
-    } catch (error: any) {
-      let isRetryable = false;
-      let statusCode = 0;
-      if (error.message?.includes('EMPTY_AI_RESPONSE')) isRetryable = true;
-      else if (error?.error?.code && error.error.code >= 500) { isRetryable = true; statusCode = error.error.code; }
-      else if (String(error.message).includes('UNAVAILABLE') || String(error.message).includes('503')) { isRetryable = true; statusCode = 503; }
-      if (isRetryable && retries < MAX_RETRIES) {
-        retries++;
-        const waitTime = delay + (Math.random() * 1000);
-        console.warn(`Gemini Retry (${retries}/${MAX_RETRIES}) for status ${statusCode}. Waiting ${Math.round(waitTime)}ms`);
-        await new Promise(r => setTimeout(r, waitTime));
-        delay = Math.min(delay * 2, MAX_DELAY_MS);
-      } else {
-        throw error;
-      }
-    }
-  }
-}
-
+// --- Parlay Leg Verification via Edge Function (Groq/LLM) ---
 async function verifyParlayLeg(predictionText: string, marketReceived: string, matchResultContext: string): Promise<'won' | 'lost' | 'void' | 'pending'> {
-  const prompt = `
-  ERES UN JUEZ IMPARCIAL DE APUESTAS.
-  Tu trabajo es determinar si una apuesta se ganó o perdió basándote en el resultado del partido.
-
-  APUESTA:
-   Mercado: ${marketReceived}
-   Predicción: ${predictionText}
-
-  RESULTADO DEL PARTIDO:
-  ${matchResultContext}
-
-  DECISIÓN:
-  Devuelve SOLO una de las siguientes palabras:
-  "WON" (Si la apuesta se cumplió)
-  "LOST" (Si la apuesta falló)
-  "VOID" (Si el partido se suspendió o la apuesta es nula)
-  "PENDING" (Si no hay suficiente info en el resultado para decidir)
-  `;
-
-  const request: GenerateContentParameters = {
-    model: 'gemini-3.1-pro-preview',
-    contents: { parts: [{ text: prompt }] },
-    config: { responseMimeType: 'text/plain', temperature: 0.1 }
-  };
-
   try {
-    const res = await generateWithRetry(request);
-    const verdict = res.text?.trim().toUpperCase();
-    if (verdict?.includes('WON')) return 'won';
-    if (verdict?.includes('LOST')) return 'lost';
-    if (verdict?.includes('VOID')) return 'void';
+    const { data, error } = await supabase.functions.invoke('verify-parlay-leg', {
+      body: { prediction: predictionText, market: marketReceived, result_context: matchResultContext }
+    });
+
+    if (error) {
+      console.error("Error calling verify-parlay-leg:", error);
+      return 'pending';
+    }
+
+    const verdict = (data?.verdict || '').toUpperCase();
+    if (verdict.includes('WON')) return 'won';
+    if (verdict.includes('LOST')) return 'lost';
+    if (verdict.includes('VOID')) return 'void';
     return 'pending';
   } catch (e) {
     console.error("Error verifying leg:", e);

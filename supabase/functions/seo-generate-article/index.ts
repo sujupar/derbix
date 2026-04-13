@@ -1,9 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-
-const GEMINI_MODEL = "gemini-2.5-flash";
-const GEMINI_FALLBACK = "gemini-2.0-flash";
+import { callLLM } from "../_shared/llm-client.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -18,7 +16,6 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const geminiKey = Deno.env.get("GEMINI_API_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // 1. Fetch report_packet
@@ -64,8 +61,8 @@ serve(async (req) => {
     // 4. Build the prompt with ALL report data
     const prompt = buildPrompt(homeTeam, awayTeam, leagueName, matchDate, rp);
 
-    // 5. Call Gemini
-    const articleHtml = await callGemini(geminiKey, prompt);
+    // 5. Call LLM (multi-provider)
+    const articleHtml = await generateArticle(prompt);
 
     if (!articleHtml || articleHtml.length < 500) {
       console.error(`[SEO-GENERATE-ARTICLE] Article too short (${articleHtml?.length || 0} chars)`);
@@ -304,54 +301,28 @@ INSTRUCCIONES PARA EL ARTICULO:
 Escribe SOLO el HTML del articulo. Nada mas.`;
 }
 
-// ─── Gemini API Call ───
+// ─── LLM API Call (Multi-provider) ───
 
-async function callGemini(apiKey: string, prompt: string): Promise<string> {
-  const models = [GEMINI_MODEL, GEMINI_FALLBACK];
+async function generateArticle(prompt: string): Promise<string> {
+  const result = await callLLM(prompt, {
+    temperature: 0.7,
+    maxTokens: 8192,
+    timeoutMs: 90000,
+  });
 
-  for (const model of models) {
-    try {
-      console.log(`[SEO-GENERATE-ARTICLE] Trying model: ${model}`);
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  console.log(`[SEO-GENERATE-ARTICLE] LLM provider: ${result.provider}`);
 
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 8192,
-          },
-        }),
-      });
+  // Clean up: remove markdown code fences if LLM wraps in ```html
+  let html = result.text
+    .replace(/^```html\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
 
-      if (!res.ok) {
-        const errBody = await res.text();
-        console.warn(`[SEO-GENERATE-ARTICLE] ${model} failed (${res.status}): ${errBody.substring(0, 200)}`);
-        continue;
-      }
-
-      const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-      // Clean up: remove markdown code fences if Gemini wraps in ```html
-      let html = text
-        .replace(/^```html\s*/i, "")
-        .replace(/^```\s*/i, "")
-        .replace(/\s*```$/i, "")
-        .trim();
-
-      if (html.length > 500) {
-        console.log(`[SEO-GENERATE-ARTICLE] ✅ ${model} returned ${html.length} chars`);
-        return html;
-      }
-
-      console.warn(`[SEO-GENERATE-ARTICLE] ${model} returned too short (${html.length} chars), trying next`);
-    } catch (err) {
-      console.error(`[SEO-GENERATE-ARTICLE] ${model} error:`, err);
-    }
+  if (html.length < 500) {
+    throw new Error(`Article too short (${html.length} chars) from ${result.provider}`);
   }
 
-  throw new Error("All Gemini models failed to generate article");
+  console.log(`[SEO-GENERATE-ARTICLE] ✅ ${result.provider} returned ${html.length} chars`);
+  return html;
 }

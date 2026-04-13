@@ -1,15 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai"
+import { callLLM } from '../_shared/llm-client.ts'
 
 serve(async (req) => {
     try {
         const sbUrl = Deno.env.get('SUPABASE_URL')!;
         const sbKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const geminiKey = Deno.env.get('GEMINI_API_KEY')!;
 
         const supabase = createClient(sbUrl, sbKey);
-        const genAI = new GoogleGenerativeAI(geminiKey);
 
         const today = '2026-01-07';
 
@@ -50,18 +48,16 @@ serve(async (req) => {
             return `PARTIDO #${idx + 1} (ID: ${fixtureId}): ${homeName} vs ${awayName}\\n${preds}`;
         }).filter(Boolean).join('\\n\\n');
 
-        // 3. Call Gemini (simple test)
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
-
+        // 3. Call LLM (simple test)
         const prompt = `Genera 1 parlay simple para estos partidos:\\n${matchesSummary}\\n\\nDevuelve JSON: [{ "parlayTitle": "...", "legs": [] }]`;
 
-        const result = await model.generateContent(prompt);
-        const text = result.response.text();
+        const result = await callLLM(prompt, { jsonMode: true });
 
         return new Response(JSON.stringify({
             success: true,
             matchesFound: matches.length,
-            geminiResponse: text.substring(0, 500) // Preview
+            provider: result.provider,
+            llmResponse: result.text.substring(0, 500)
         }), {
             headers: { "Content-Type": "application/json" }
         });

@@ -6,6 +6,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { corsHeaders } from '../_shared/cors.ts'
+import { callLLM } from '../_shared/llm-client.ts'
 
 const MIN_PICKS_FOR_TRAINING = 20;
 const MAX_PICKS_PER_BATCH = 100;
@@ -22,7 +23,6 @@ serve(async (req) => {
     try {
         const sbUrl = Deno.env.get('SUPABASE_URL')!;
         const sbKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const geminiKey = Deno.env.get('GEMINI_API_KEY')!;
         const supabase = createClient(sbUrl, sbKey);
 
         // 1. Count unprocessed picks in pool
@@ -120,63 +120,24 @@ REGLAS ESTRICTAS:
 
         console.log(`[ml-strategic-trainer] Extraction prompt: ${extractionPrompt.length} chars`);
 
-        // 4. Call Gemini
-        const primaryModel = 'gemini-3.1-pro-preview';
-        const fallbackModel = 'gemini-3-pro-preview';
+        // 4. Call LLM (multi-provider with automatic fallback)
         let geminiResponse: any = null;
         let modelUsed = '';
 
-        for (const model of [primaryModel, fallbackModel]) {
-            const elapsed = Date.now() - startTime;
-            if (elapsed > 100000) {
-                console.log(`[ml-strategic-trainer] Time budget exceeded (${elapsed}ms), stopping`);
-                break;
-            }
+        try {
+            console.log(`[ml-strategic-trainer] Calling LLM...`);
+            const llmResult = await callLLM(extractionPrompt, {
+                temperature: 0.4,
+                jsonMode: true,
+                maxTokens: 4096,
+                timeoutMs: GEMINI_TIMEOUT_MS,
+            });
 
-            try {
-                console.log(`[ml-strategic-trainer] Trying model: ${model}...`);
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
-
-                const resp = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: extractionPrompt }] }],
-                            generationConfig: {
-                                temperature: 0.4,
-                                responseMimeType: 'application/json',
-                                maxOutputTokens: 4096,
-                            },
-                        }),
-                        signal: controller.signal,
-                    }
-                );
-                clearTimeout(timeout);
-
-                if (!resp.ok) {
-                    const errText = await resp.text();
-                    console.error(`[ml-strategic-trainer] ${model} returned ${resp.status}: ${errText.substring(0, 200)}`);
-                    continue;
-                }
-
-                const data = await resp.json();
-                const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (!text) {
-                    console.error(`[ml-strategic-trainer] ${model} returned empty response`);
-                    continue;
-                }
-
-                geminiResponse = JSON.parse(text);
-                modelUsed = model;
-                console.log(`[ml-strategic-trainer] ${model} returned ${geminiResponse.insights?.length || 0} insights`);
-                break;
-            } catch (err) {
-                console.error(`[ml-strategic-trainer] Error with ${model}:`, err);
-                continue;
-            }
+            geminiResponse = JSON.parse(llmResult.text);
+            modelUsed = `${llmResult.provider}/${llmResult.model}`;
+            console.log(`[ml-strategic-trainer] ${modelUsed} returned ${geminiResponse.insights?.length || 0} insights`);
+        } catch (err) {
+            console.error(`[ml-strategic-trainer] LLM call failed:`, err);
         }
 
         if (!geminiResponse || !geminiResponse.insights || geminiResponse.insights.length === 0) {

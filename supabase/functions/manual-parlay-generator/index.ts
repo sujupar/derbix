@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai"
+import { callLLM } from '../_shared/llm-client.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -15,10 +15,8 @@ serve(async (req) => {
     try {
         const sbUrl = Deno.env.get('SUPABASE_URL')!
         const sbKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-        const geminiKey = Deno.env.get('GEMINI_API_KEY')!
 
         const supabase = createClient(sbUrl, sbKey)
-        const genAI = new GoogleGenerativeAI(geminiKey)
 
         // Get date from request body
         const { date } = await req.json()
@@ -144,16 +142,13 @@ REGLAS:
 4. SÉ CREATIVO con mercados alternativos
     `
 
-        const model = genAI.getGenerativeModel({
-            model: "gemini-2.0-flash-exp",
-            generationConfig: {
-                responseMimeType: "application/json",
-                temperature: 0.5
-            }
+        const result = await callLLM(prompt, {
+            temperature: 0.5,
+            jsonMode: true,
+            timeoutMs: 60000,
         })
-
-        const result = await model.generateContent(prompt)
-        const text = result.response.text()
+        console.log(`[ManualParlayGen] LLM provider: ${result.provider}`)
+        const text = result.text
 
         // 4. Parse and validate
         const clean = text.replace(/```json/g, '').replace(/```/g, '').trim()
