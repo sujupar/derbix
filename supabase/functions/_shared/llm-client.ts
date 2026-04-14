@@ -20,55 +20,65 @@ export interface LLMResponse {
 }
 
 // ═══ GROQ RATE LIMIT TRACKER ═══
-// Groq free tier: 6,000 tokens per minute (TPM)
-// We track usage within a rolling 60s window to calculate smart delays
-const GROQ_TPM_LIMIT = 6000;
-const GROQ_WINDOW_MS = 60000;
+// Uses live data from Groq's response headers (x-ratelimit-remaining-tokens,
+// x-ratelimit-reset-tokens) instead of manual tracking. Much more accurate.
+//
+// Free tier for gpt-oss-120b: 8000 TPM, 1000 RPD
+// Window resets continuously (rolling), headers tell us exactly when.
 
-interface TokenUsageEntry {
-  timestamp: number;
-  tokens: number;
+interface GroqRateLimitState {
+  remainingTokens: number;
+  resetTokensMs: number; // when the token budget will be restored
+  lastUpdate: number;
 }
 
-const groqUsageLog: TokenUsageEntry[] = [];
+let groqRateLimit: GroqRateLimitState = {
+  remainingTokens: 8000,
+  resetTokensMs: 0,
+  lastUpdate: 0,
+};
 
-function recordGroqUsage(tokens: number): void {
-  groqUsageLog.push({ timestamp: Date.now(), tokens });
-  // Prune entries older than the window
-  const cutoff = Date.now() - GROQ_WINDOW_MS;
-  while (groqUsageLog.length > 0 && groqUsageLog[0].timestamp < cutoff) {
-    groqUsageLog.shift();
+function parseResetDuration(s: string): number {
+  // Format: "5m45.6s", "802ms", "1.5s", "30s"
+  if (!s) return 0;
+  const msMatch = s.match(/^(\d+(?:\.\d+)?)ms$/);
+  if (msMatch) return parseFloat(msMatch[1]);
+  let totalMs = 0;
+  const minMatch = s.match(/(\d+(?:\.\d+)?)m/);
+  if (minMatch) totalMs += parseFloat(minMatch[1]) * 60000;
+  const secMatch = s.match(/(\d+(?:\.\d+)?)s/);
+  if (secMatch) totalMs += parseFloat(secMatch[1]) * 1000;
+  return totalMs;
+}
+
+function updateGroqRateLimit(headers: Headers): void {
+  const remaining = headers.get('x-ratelimit-remaining-tokens');
+  const resetTokens = headers.get('x-ratelimit-reset-tokens');
+  if (remaining !== null) {
+    groqRateLimit.remainingTokens = parseInt(remaining, 10);
+    groqRateLimit.resetTokensMs = parseResetDuration(resetTokens || '0');
+    groqRateLimit.lastUpdate = Date.now();
   }
 }
 
-function getGroqTokensUsedInWindow(): number {
-  const cutoff = Date.now() - GROQ_WINDOW_MS;
-  return groqUsageLog
-    .filter(e => e.timestamp >= cutoff)
-    .reduce((sum, e) => sum + e.tokens, 0);
-}
-
-/** Calculate how many seconds to wait before sending `estimatedTokens` to Groq */
+/** Calculate delay (in seconds) before sending `estimatedTokens` to Groq. */
 export function calcGroqDelay(estimatedTokens: number): number {
-  const usedInWindow = getGroqTokensUsedInWindow();
-  const available = GROQ_TPM_LIMIT - usedInWindow;
+  if (groqRateLimit.lastUpdate === 0) return 0; // first call, no data yet
 
-  if (estimatedTokens <= available) return 0;
+  const elapsed = Date.now() - groqRateLimit.lastUpdate;
+  // Linear interpolation: tokens restore continuously over resetTokensMs
+  const resetProgress = Math.min(1, elapsed / Math.max(groqRateLimit.resetTokensMs, 1));
+  const tokensRestored = resetProgress * (8000 - groqRateLimit.remainingTokens);
+  const currentAvailable = Math.min(8000, groqRateLimit.remainingTokens + tokensRestored);
 
-  // Need to wait for oldest entries to expire
-  const cutoff = Date.now() - GROQ_WINDOW_MS;
-  let tokensToFree = estimatedTokens - available;
-  let waitUntil = 0;
+  if (estimatedTokens <= currentAvailable) return 0;
 
-  for (const entry of groqUsageLog) {
-    if (entry.timestamp < cutoff) continue;
-    tokensToFree -= entry.tokens;
-    waitUntil = entry.timestamp + GROQ_WINDOW_MS;
-    if (tokensToFree <= 0) break;
-  }
-
-  const delayMs = Math.max(0, waitUntil - Date.now());
-  return Math.ceil(delayMs / 1000);
+  // Need to wait: how long until enough tokens accumulate?
+  const tokensNeeded = estimatedTokens - currentAvailable;
+  const restoreRatePerMs = (8000 - groqRateLimit.remainingTokens) / Math.max(groqRateLimit.resetTokensMs, 1);
+  if (restoreRatePerMs <= 0) return Math.ceil(groqRateLimit.resetTokensMs / 1000);
+  const delayMs = tokensNeeded / restoreRatePerMs;
+  return Math.min(60, Math.ceil(delayMs / 1000)); // cap at 60s to avoid wall-clock overrun
 }
 
 interface ProviderDef {
@@ -84,7 +94,7 @@ const PROVIDERS: ProviderDef[] = [
     name: 'groq',
     type: 'openai',
     endpoint: 'https://api.groq.com/openai/v1/chat/completions',
-    model: 'llama-3.3-70b-versatile',
+    model: 'openai/gpt-oss-120b',
     envKey: 'GROQ_API_KEY',
   },
   {
@@ -147,6 +157,13 @@ async function callOpenAICompatible(
     body.response_format = { type: 'json_object' };
   }
 
+  // GPT-OSS models on Groq support reasoning_effort.
+  // "low" dramatically reduces reasoning tokens (~1500 → ~100) without losing quality
+  // for structured JSON tasks. This is critical for the 6K TPM free tier.
+  if (provider.name === 'groq' && provider.model.startsWith('openai/gpt-oss')) {
+    body.reasoning_effort = 'low';
+  }
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${apiKey}`,
@@ -165,6 +182,11 @@ async function callOpenAICompatible(
       signal: controller.signal,
     });
 
+    // Capture Groq rate limit headers for future delay calculations
+    if (provider.name === 'groq') {
+      updateGroqRateLimit(res.headers);
+    }
+
     if (!res.ok) {
       const errText = await res.text().catch(() => '');
       const err = new Error(`[${provider.name}] HTTP ${res.status}: ${errText.slice(0, 200)}`);
@@ -174,9 +196,15 @@ async function callOpenAICompatible(
 
     const data = await res.json();
     const choice = data.choices?.[0];
+    let text = choice?.message?.content || '';
+
+    // Some reasoning models emit <think>...</think> blocks — strip them defensively
+    if (text.includes('<think>')) {
+      text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    }
 
     return {
-      text: choice?.message?.content || '',
+      text,
       provider: provider.name,
       model: data.model || provider.model,
       tokensUsed: data.usage?.total_tokens,
@@ -287,10 +315,7 @@ export async function callLLM(
           ? await callOpenAICompatible(provider, apiKey, prompt, config)
           : await callGeminiREST(provider, apiKey, prompt, config);
 
-      // Track Groq token usage for rate limiting
-      if (provider.name === 'groq' && result.tokensUsed) {
-        recordGroqUsage(result.tokensUsed);
-      }
+      // Rate limit tracking is handled via response headers in callOpenAICompatible
 
       console.log(
         `[llm-client] ✓ ${provider.name} responded (${result.tokensUsed || '?'} tokens, finish: ${result.finishReason || '?'})`

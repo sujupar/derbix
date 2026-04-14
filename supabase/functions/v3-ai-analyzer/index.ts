@@ -962,21 +962,19 @@ Eres un analista estadístico deportivo de élite. Analiza los datos estadístic
 PARTIDO: ${homeTeam} (LOCAL) vs ${awayTeam} (VISITANTE)
 COMPETICIÓN: ${leagueName}
 
-DATOS ESTADÍSTICOS (resumen por espacio):
+DATOS ESTADÍSTICOS (resumen):
 
->>> HISTORIAL ${homeTeam} (LOCAL) — últimos partidos:
-${deepHome.substring(0, 4000)}
+>>> HISTORIAL ${homeTeam} (LOCAL):
+${deepHome.substring(0, 1800)}
 
->>> HISTORIAL ${awayTeam} (VISITANTE) — últimos partidos:
-${deepAway.substring(0, 4000)}
+>>> HISTORIAL ${awayTeam} (VISITANTE):
+${deepAway.substring(0, 1800)}
 
 >>> H2H:
-${h2hText.substring(0, 1500)}
+${h2hText.substring(0, 600)}
 
 >>> CUOTAS:
-${oddsText.substring(0, 2000)}
-
-${(mlCalibration.calibrationText || '').substring(0, 1000)}
+${oddsText.substring(0, 1200)}
 
 INSTRUCCIONES:
 1. ABSORCIÓN DE DATOS: Cruza TIROS, ATAJADAS, CORNERS, TARJETAS, MINUTOS DE GOLES.
@@ -1029,15 +1027,13 @@ Eres un estratega de inteligencia deportiva. Tu trabajo es analizar el CONTEXTO 
 PARTIDO: ${homeTeam} (LOCAL) vs ${awayTeam} (VISITANTE)
 COMPETICIÓN: ${leagueName}
 
-HISTORIAL RECIENTE (últimos partidos):
-${deepHome.substring(0, 3000)}
+HISTORIAL RECIENTE:
+${deepHome.substring(0, 1200)}
 
-${deepAway.substring(0, 3000)}
+${deepAway.substring(0, 1200)}
 
 CONTEXTO EXTERNO:
-${externalContextText}
-
-${mlCalibration.calibrationText}
+${(externalContextText || '').substring(0, 1500)}
 
 INSTRUCCIONES — Analiza estos 5 factores:
 
@@ -1063,13 +1059,21 @@ Responde en JSON:
 }
 `;
 
-        // Helper: wait for Groq rate limit before each call
+        // Helper: wait for Groq rate limit + minimum safety delay between layers
+        // Groq gpt-oss-120b: 8000 TPM, rolling window. Each layer consumes ~3-5K tokens.
+        // We always wait at least MIN_DELAY between layers to let the rolling window restore.
+        const MIN_LAYER_DELAY_SEC = 20;
+        let lastLayerCall = 0;
         const waitForGroq = async (estimatedTokens: number, layerName: string) => {
-            const delaySec = calcGroqDelay(estimatedTokens);
-            if (delaySec > 0) {
-                console.log(`[V3-AI-ANALYZER] ${layerName}: Waiting ${delaySec}s for Groq rate limit (6K TPM)...`);
-                await new Promise(r => setTimeout(r, delaySec * 1000));
+            const sinceLast = Date.now() - lastLayerCall;
+            const minDelay = lastLayerCall > 0 ? Math.max(0, MIN_LAYER_DELAY_SEC * 1000 - sinceLast) : 0;
+            const apiDelay = calcGroqDelay(estimatedTokens) * 1000;
+            const delayMs = Math.max(minDelay, apiDelay);
+            if (delayMs > 0) {
+                console.log(`[V3-AI-ANALYZER] ${layerName}: Waiting ${Math.round(delayMs/1000)}s (min=${Math.round(minDelay/1000)}s, api=${Math.round(apiDelay/1000)}s) for Groq TPM reset...`);
+                await new Promise(r => setTimeout(r, delayMs));
             }
+            lastLayerCall = Date.now();
         };
 
         console.log(`[V3-AI-ANALYZER] Layer 1: Statistical Analysis...`);
@@ -1108,22 +1112,16 @@ Tu misión: encontrar picks con ≥83% de confianza REAL Y cuota ≥ 1.40.
 
 PARTIDO: ${homeTeam} (LOCAL) vs ${awayTeam} (VISITANTE) — ${leagueName}
 
-═══ ANÁLISIS ESTADÍSTICO (Score: ${layer1Data.score_estadistico}/100) ═══
-${(layer1Data.insights_estadisticos || JSON.stringify(layer1Data)).substring(0, 1500)}
-Corners: ${(layer1Data.analisis_corners || 'N/A').substring(0, 300)}
-Tarjetas: ${(layer1Data.analisis_tarjetas || 'N/A').substring(0, 300)}
+═══ ESTADÍSTICAS (Score: ${layer1Data.score_estadistico}/100) ═══
+${(layer1Data.insights_estadisticos || '').substring(0, 800)}
 Modelo: ${JSON.stringify(layer1Data.datos_modelo || {})}
-Valor: ${JSON.stringify((layer1Data.mercados_con_valor || []).slice(0, 5))}
+Valor: ${JSON.stringify((layer1Data.mercados_con_valor || []).slice(0, 3))}
 
-═══ INTELIGENCIA PARTIDO (Score: ${layer2Data.score_inteligencia_partido}/100) ═══
-${(layer2Data.matchup_tactico || 'N/A').substring(0, 500)}
-${(layer2Data.factor_psicologico || 'N/A').substring(0, 300)}
-${(layer2Data.contexto_competitivo || 'N/A').substring(0, 300)}
+═══ CONTEXTO (Score: ${layer2Data.score_inteligencia_partido}/100) ═══
+${(layer2Data.matchup_tactico || '').substring(0, 300)}
 
 ═══ CUOTAS ═══
-${oddsText.substring(0, 2000)}
-
-${(mlCalibration.marketPrioritiesText || '').substring(0, 500)}
+${oddsText.substring(0, 1500)}
 
 PROCESO DE BÚSQUEDA (EN ORDEN):
 1. PRIMERO busca COMBINADOS — cuotas ≥1.50, más ineficiencias.
@@ -1167,19 +1165,24 @@ Responde en JSON:
 }
 `;
 
-        const layer3TimeoutMs = Math.min(60000, remainingMs() - SAVE_RESERVE_MS - 30000);
+        const layer3TimeoutMs = Math.min(60000, remainingMs() - SAVE_RESERVE_MS - 25000);
+        console.log(`[V3-AI-ANALYZER] Layer 3 prompt size: ${layer3Prompt.length} chars, timeout: ${Math.round(layer3TimeoutMs/1000)}s`);
         const layer3Result = await callLLM(layer3Prompt, {
-            temperature: 0.3, jsonMode: true, maxTokens: 3072, timeoutMs: Math.max(layer3TimeoutMs, 15000)
+            temperature: 0.3, jsonMode: true, maxTokens: 3072, timeoutMs: Math.max(layer3TimeoutMs, 20000)
         }).catch(err => {
-            console.error(`[V3-AI-ANALYZER] Layer 3 failed: ${err.message}`);
+            console.error(`[V3-AI-ANALYZER] Layer 3 FAILED: ${err.message}`);
             return null;
         });
+
+        if (layer3Result) {
+            console.log(`[V3-AI-ANALYZER] Layer 3 raw text (first 300): ${layer3Result.text.substring(0, 300)}`);
+        }
 
         const layer3Data = layer3Result ? parseStageJSON(layer3Result.text, 'Layer3') : {
             pronosticos: [], mercados_evaluados: { con_valor_detectado: 0, total_analizados: 0 }
         };
         tokensUsed += layer3Result?.tokensUsed || 0;
-        console.log(`[V3-AI-ANALYZER] Layer 3 (${layer3Result?.provider || 'FAILED'}): ${layer3Data.pronosticos?.length || 0} picks`);
+        console.log(`[V3-AI-ANALYZER] Layer 3 (${layer3Result?.provider || 'FAILED'}): ${layer3Data.pronosticos?.length || 0} picks | keys: ${Object.keys(layer3Data).join(',')}`);
 
         // ═══ CAPA 4: SÍNTESIS Y RESUMEN EJECUTIVO ═══
         console.log(`[V3-AI-ANALYZER] Layer 4: Synthesis (${Math.round(remainingMs()/1000)}s remaining)...`);
@@ -1201,16 +1204,15 @@ SCORES DUALES:
 - Score Inteligencia de Partido: ${layer2Data.score_inteligencia_partido}/100
 - Confianza Final: ${confianzaFinal}/100
 
-ESTADÍSTICO: ${(layer1Data.insights_estadisticos || 'N/A').substring(0, 500)}
-TÁCTICO: ${(layer2Data.matchup_tactico || 'N/A').substring(0, 400)}
-PSICOLÓGICO: ${(layer2Data.factor_psicologico || 'N/A').substring(0, 300)}
-COMPETITIVO: ${(layer2Data.contexto_competitivo || 'N/A').substring(0, 300)}
+ESTADÍSTICO: ${(layer1Data.insights_estadisticos || 'N/A').substring(0, 300)}
+TÁCTICO: ${(layer2Data.matchup_tactico || 'N/A').substring(0, 250)}
+PSICOLÓGICO: ${(layer2Data.factor_psicologico || 'N/A').substring(0, 200)}
 
 PRONÓSTICOS (${numPicks} picks):
 ${JSON.stringify((layer3Data.pronosticos || []).map((p: any) => ({
   m: p.mercado, s: p.seleccion, prob: p.probabilidad_calculada_porcentaje,
   cuota: p.cuota_actual, edge: p.edge_porcentaje, tipo: p.tipo_pick
-})), null, 1).substring(0, 2000)}
+})), null, 1).substring(0, 1200)}
 
 Genera el reporte final. El "razonamiento_central" debe ser un texto DETALLADO (mínimo 200 palabras) que conecte datos duros con factores tácticos, psicológicos y competitivos. Usa lenguaje de "shark" profesional.
 
