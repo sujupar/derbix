@@ -89,12 +89,43 @@ interface ProviderDef {
   envKey: string;
 }
 
+// Each Groq model has its OWN daily TPD quota (200K tokens/day on free tier).
+// By rotating between models, we effectively get 4x the daily budget.
+// Order from highest quality → fallbacks
 const PROVIDERS: ProviderDef[] = [
   {
-    name: 'groq',
+    name: 'groq-gpt-oss-120b',
     type: 'openai',
     endpoint: 'https://api.groq.com/openai/v1/chat/completions',
     model: 'openai/gpt-oss-120b',
+    envKey: 'GROQ_API_KEY',
+  },
+  {
+    name: 'groq-kimi-k2',
+    type: 'openai',
+    endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+    model: 'moonshotai/kimi-k2-instruct-0905',
+    envKey: 'GROQ_API_KEY',
+  },
+  {
+    name: 'groq-llama-3.3',
+    type: 'openai',
+    endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+    model: 'llama-3.3-70b-versatile',
+    envKey: 'GROQ_API_KEY',
+  },
+  {
+    name: 'groq-qwen3-32b',
+    type: 'openai',
+    endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+    model: 'qwen/qwen3-32b',
+    envKey: 'GROQ_API_KEY',
+  },
+  {
+    name: 'groq-gpt-oss-20b',
+    type: 'openai',
+    endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+    model: 'openai/gpt-oss-20b',
     envKey: 'GROQ_API_KEY',
   },
   {
@@ -160,7 +191,7 @@ async function callOpenAICompatible(
   // GPT-OSS models on Groq support reasoning_effort.
   // "low" dramatically reduces reasoning tokens (~1500 → ~100) without losing quality
   // for structured JSON tasks. This is critical for the 6K TPM free tier.
-  if (provider.name === 'groq' && provider.model.startsWith('openai/gpt-oss')) {
+  if (provider.name.startsWith('groq-') && provider.model.startsWith('openai/gpt-oss')) {
     body.reasoning_effort = 'low';
   }
 
@@ -183,7 +214,7 @@ async function callOpenAICompatible(
     });
 
     // Capture Groq rate limit headers for future delay calculations
-    if (provider.name === 'groq') {
+    if (provider.name.startsWith('groq-')) {
       updateGroqRateLimit(res.headers);
     }
 
@@ -327,10 +358,24 @@ export async function callLLM(
       const isAbort = err?.name === 'AbortError';
       const reason = isAbort ? 'TIMEOUT' : `HTTP ${status || 'unknown'}`;
 
-      console.warn(`[llm-client] ✗ ${provider.name} failed: ${reason} — ${err.message?.slice(0, 150)}`);
-      errors.push(`[${provider.name}] ${reason}`);
+      // Detect daily quota exhaustion (Groq TPD or Gemini daily quota)
+      // → skip to next provider immediately, no 1s wait
+      const msg = err.message || '';
+      const isDailyExhausted = status === 429 && (
+        msg.includes('tokens per day') ||
+        msg.includes('TPD') ||
+        msg.includes('daily')
+      );
+
+      console.warn(`[llm-client] ✗ ${provider.name} failed: ${reason}${isDailyExhausted ? ' (DAILY QUOTA EXHAUSTED)' : ''} — ${msg.slice(0, 150)}`);
+      errors.push(`[${provider.name}] ${reason}${isDailyExhausted ? ' (DAILY)' : ''}`);
 
       if (status && SKIP_PROVIDER_STATUS.has(status)) {
+        continue;
+      }
+
+      // Daily quota exhausted → no point waiting, try next provider immediately
+      if (isDailyExhausted) {
         continue;
       }
 
