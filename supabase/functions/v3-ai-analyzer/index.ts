@@ -2398,30 +2398,42 @@ ${strategicInsightsBlock}
         if (fixture_id !== finalFixtureId) idsToClean.push(fixture_id);
 
         // Delete old STANDARD jobs (keep current, preserve parlay jobs).
-        // V9 FIX: also filter by created_at < NOW() to avoid deleting jobs that were
-        // created AFTER this one (race condition when batch analyzes same fixture twice).
-        // Look up current job's created_at to use as cutoff.
-        const { data: currentJobData } = await supabase
+        // V9 FIX: filter by created_at < current job's created_at to avoid deleting jobs
+        // that were created AFTER this one (race condition when batch analyzes same
+        // fixture twice in parallel).
+        const { data: currentJobData, error: currentJobErr } = await supabase
             .from('analysis_jobs_v2')
             .select('created_at')
             .eq('id', job_id)
             .maybeSingle();
-        const currentJobCreatedAt = currentJobData?.created_at || new Date().toISOString();
 
-        for (const fid of idsToClean) {
+        if (currentJobErr || !currentJobData?.created_at) {
+            // V9 SAFE: if we can't determine the cutoff, skip cleanup entirely.
+            // Stale data in DB is less harmful than a race condition delete.
+            console.warn(`[V3-AI-ANALYZER] Cannot determine current job created_at (err=${currentJobErr?.message}, data=${!!currentJobData}). Skipping cleanup.`);
+        } else {
+            const currentJobCreatedAt = currentJobData.created_at;
+
+            for (const fid of idsToClean) {
+                await supabase
+                    .from('analysis_jobs_v2')
+                    .delete()
+                    .eq('fixture_id', fid)
+                    .neq('id', job_id)
+                    .lt('created_at', currentJobCreatedAt)
+                    .or('analysis_type.eq.standard,analysis_type.is.null');
+            }
+
+            // Delete old reports: only those created before current job (avoid deleting a
+            // concurrent analyzer's fresh report).
             await supabase
-                .from('analysis_jobs_v2')
+                .from('reports_v2')
                 .delete()
-                .eq('fixture_id', fid)
-                .neq('id', job_id)
-                .lt('created_at', currentJobCreatedAt)  // ← only delete OLDER jobs
-                .or('analysis_type.eq.standard,analysis_type.is.null');
+                .in('fixture_id', idsToClean)
+                .lt('created_at', currentJobCreatedAt);
+            // Delete any stale reports from this exact job (if previous run wrote partial)
+            await supabase.from('reports_v2').delete().eq('job_id', job_id);
         }
-
-        // Delete ALL old reports for this fixture
-        await supabase.from('reports_v2').delete().in('fixture_id', idsToClean);
-        // Also delete any orphaned reports from old jobs of this fixture
-        await supabase.from('reports_v2').delete().eq('job_id', job_id); // just in case of partial previous save
 
         const { error: reportError } = await supabase
             .from('reports_v2')
@@ -2489,8 +2501,20 @@ ${strategicInsightsBlock}
                 };
             });
 
-            // Delete old picks for this fixture (both original and resolved IDs)
-            await supabase.from('value_picks_v2').delete().in('fixture_id', idsToClean);
+            // Delete old picks for this fixture (both original and resolved IDs).
+            // V9 FIX: only delete picks OLDER than current job to avoid deleting concurrent
+            // analyzer output. If we could not determine the cutoff (currentJobData was null
+            // above), skip deleting picks from other jobs — only delete picks we're about to
+            // replace for this specific job_id.
+            if (currentJobData?.created_at) {
+                await supabase
+                    .from('value_picks_v2')
+                    .delete()
+                    .in('fixture_id', idsToClean)
+                    .lt('created_at', currentJobData.created_at);
+            }
+            // Always clean picks from this exact job (in case of partial previous save)
+            await supabase.from('value_picks_v2').delete().eq('job_id', job_id);
 
             // Insert new
             const { error: pickErr } = await supabase.from('value_picks_v2').insert(picksPayload);

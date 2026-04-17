@@ -487,7 +487,7 @@ export const getAnalysisResultByFixture = async (fixtureId: number): Promise<Vis
         .or('analysis_type.eq.standard,analysis_type.is.null')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
     if (v2Job) {
         console.log(`[V2] Encontrado análisis para fixture ${fixtureId}: job ${v2Job.id}`);
@@ -502,7 +502,7 @@ export const getAnalysisResultByFixture = async (fixtureId: number): Promise<Vis
         .eq('status', 'done')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
     if (v1Job) {
         console.log(`[V1] Encontrado análisis para fixture ${fixtureId}: job ${v1Job.id}`);
@@ -549,7 +549,7 @@ export const getAnalysisResult = async (jobId: string): Promise<VisualAnalysisRe
                 .from('analysis_jobs_v2')
                 .select('fixture_id')
                 .eq('id', jobId)
-                .single();
+                .maybeSingle();
 
             if (v3Analysis?.fixture_id) {
                 const { data: cachedAnalysis } = await supabase
@@ -811,7 +811,7 @@ export const getAnalysisResult = async (jobId: string): Promise<VisualAnalysisRe
             .from('analysis_jobs_v2')
             .select('*')
             .eq('id', jobId)
-            .single();
+            .maybeSingle();
 
         // ═══════════════════════════════════════════════════════════════
         // MEGA-UPGRADE: Obtener TODOS los mercados calculados para mostrar ranking
@@ -1251,7 +1251,7 @@ export const getAnalysisResultByRunId = async (runId: string): Promise<VisualAna
         .from('analysis_runs')
         .select('*, predictions(*)')
         .eq('id', runId)
-        .single();
+        .maybeSingle();
 
     if (runError || !runData) {
         console.error("Error fetching analysis run by ID:", runError);

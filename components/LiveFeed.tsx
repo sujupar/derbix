@@ -387,9 +387,21 @@ export const FixturesFeed: React.FC = () => {
         if (!isJobModalOpen || !currentJob) return;
         if (['done', 'failed', 'insufficient_data'].includes(currentJob.status)) return;
 
+        const startTime = Date.now();
+        const MAX_WAIT_MS = 300000; // 5 min hard cap — prevents silent hang if job is deleted
+        let missingCount = 0;
+
         const interval = setInterval(async () => {
+            // Hard timeout: close the modal if job is not terminal after 5min
+            if (Date.now() - startTime > MAX_WAIT_MS) {
+                console.warn(`[Modal] Job ${currentJob.id} timed out after 5min. Closing modal.`);
+                setIsJobModalOpen(false);
+                return;
+            }
+
             const updatedJob = await getAnalysisJob(currentJob.id);
             if (updatedJob) {
+                missingCount = 0;
                 setCurrentJob(updatedJob);
                 setGameJobStatus(prev => ({ ...prev, [updatedJob.api_fixture_id]: updatedJob.status }));
 
@@ -401,6 +413,14 @@ export const FixturesFeed: React.FC = () => {
                     }, 1500);
                 } else if (updatedJob.status === 'failed' || updatedJob.status === 'insufficient_data') {
                     setTimeout(() => setIsJobModalOpen(false), 8000);
+                }
+            } else {
+                // Job disappeared (race condition con delete del analyzer).
+                // Tolera 3 polls (6s) antes de cerrar el modal.
+                missingCount++;
+                if (missingCount >= 3) {
+                    console.warn(`[Modal] Job ${currentJob.id} confirmed missing (deleted by concurrent analyzer). Closing.`);
+                    setIsJobModalOpen(false);
                 }
             }
         }, 2000);
@@ -454,6 +474,8 @@ export const FixturesFeed: React.FC = () => {
 
         const advanceBatch = (fixtureId: number, result: 'done' | 'failed') => {
             // 5s cooldown between batch analyses to avoid Gemini API overload
+            pollMissingCount.current = 0;  // Reset counter for next job
+            pollErrorCount.current = 0;
             setBatchCooldown(true);
             setActiveBatchJobId(null);
             setProcessingFixtureId(null);
@@ -480,6 +502,7 @@ export const FixturesFeed: React.FC = () => {
                 if (elapsed > MAX_WAIT_MS) {
                     console.warn(`[Batch] Job ${activeBatchJobId} timed out after ${Math.round(elapsed/1000)}s. Skipping.`);
                     pollErrorCount.current = 0;
+                    pollMissingCount.current = 0;
                     // Mark job as failed in DB to prevent "stuck in-progress" in Oportunidades
                     markJobAsTimedOut(activeBatchJobId).catch(() => {});
                     const fid = processingFixtureId || processingFixtureIdRef.current;
@@ -516,6 +539,8 @@ export const FixturesFeed: React.FC = () => {
                                 batchRetries.current.add(fid);
                                 console.log(`[Batch] Retrying failed analysis for fixture ${fid} in 10s...`);
                                 // Clear active job but DON'T dequeue — retry same fixture
+                                pollMissingCount.current = 0;  // Reset for retry
+                                pollErrorCount.current = 0;
                                 setActiveBatchJobId(null);
                                 setProcessingFixtureId(null);
                                 processingFixtureIdRef.current = null;
