@@ -184,6 +184,7 @@ export const FixturesFeed: React.FC = () => {
     const [processingFixtureId, setProcessingFixtureId] = useState<number | null>(null);
     const isProcessingQueue = React.useRef(false); // Ref guard for sequential processing
     const pollErrorCount = React.useRef(0); // Consecutive poll errors before skipping
+    const pollMissingCount = React.useRef(0); // Consecutive "job not found" before skipping (maybeSingle -> null)
     const processingFixtureIdRef = React.useRef<number | null>(null); // Ref backup for closure access
     const batchRetries = React.useRef<Set<number>>(new Set()); // Track retried fixtures (max 1 retry each)
     const [batchCooldown, setBatchCooldown] = useState(false); // 5s cooldown between batch analyses
@@ -500,6 +501,7 @@ export const FixturesFeed: React.FC = () => {
                 pollErrorCount.current = 0;
 
                 if (updatedJob) {
+                    pollMissingCount.current = 0;
                     setGameJobStatus(prev => ({ ...prev, [updatedJob.api_fixture_id]: updatedJob.status }));
 
                     if (['done', 'failed', 'insufficient_data'].includes(updatedJob.status)) {
@@ -527,10 +529,17 @@ export const FixturesFeed: React.FC = () => {
                         }
                     }
                 } else {
-                    console.warn(`[Batch] Job ${activeBatchJobId} not found. Skipping.`);
-                    const fid = processingFixtureId || processingFixtureIdRef.current;
-                    if (fid) advanceBatch(fid, 'failed');
-                    else { setActiveBatchJobId(null); setProcessingFixtureId(null); processingFixtureIdRef.current = null; setAnalysisQueue(prev => prev.slice(1)); }
+                    // Job not found (deleted by another analyzer OR INSERT delay).
+                    // Grace period: tolerate up to 3 consecutive "missing" polls (9s) before skipping.
+                    pollMissingCount.current++;
+                    console.warn(`[Batch] Job ${activeBatchJobId} not found (missing #${pollMissingCount.current}).`);
+                    if (pollMissingCount.current >= 3) {
+                        console.warn(`[Batch] Job ${activeBatchJobId} confirmed missing. Skipping.`);
+                        pollMissingCount.current = 0;
+                        const fid = processingFixtureId || processingFixtureIdRef.current;
+                        if (fid) advanceBatch(fid, 'failed');
+                        else { setActiveBatchJobId(null); setProcessingFixtureId(null); processingFixtureIdRef.current = null; setAnalysisQueue(prev => prev.slice(1)); }
+                    }
                 }
             } catch (e) {
                 pollErrorCount.current++;

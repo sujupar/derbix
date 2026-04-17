@@ -425,12 +425,13 @@ export const createAnalysisJobV1 = async (apiFixtureId: number, timezone: string
  * V2: Busca primero en analysis_jobs_v2, luego en analysis_jobs (V1).
  */
 export const getAnalysisJob = async (jobId: string): Promise<AnalysisJob | null> => {
-    // Intentar V2 primero
+    // Use maybeSingle to avoid 406 errors when the job was deleted or never existed.
+    // (PostgREST returns 406 Not Acceptable with .single() when rowCount != 1)
     const { data: v2Data, error: v2Error } = await supabase
         .from('analysis_jobs_v2')
         .select('*')
         .eq('id', jobId)
-        .single();
+        .maybeSingle();
 
     if (v2Data && !v2Error) {
         // Mapear V2 al formato esperado por la UI (V2 tiene estructura diferente)

@@ -2397,9 +2397,25 @@ ${strategicInsightsBlock}
         const idsToClean = [finalFixtureId];
         if (fixture_id !== finalFixtureId) idsToClean.push(fixture_id);
 
-        // Delete old STANDARD jobs (keep only current, preserve parlay jobs)
+        // Delete old STANDARD jobs (keep current, preserve parlay jobs).
+        // V9 FIX: also filter by created_at < NOW() to avoid deleting jobs that were
+        // created AFTER this one (race condition when batch analyzes same fixture twice).
+        // Look up current job's created_at to use as cutoff.
+        const { data: currentJobData } = await supabase
+            .from('analysis_jobs_v2')
+            .select('created_at')
+            .eq('id', job_id)
+            .maybeSingle();
+        const currentJobCreatedAt = currentJobData?.created_at || new Date().toISOString();
+
         for (const fid of idsToClean) {
-            await supabase.from('analysis_jobs_v2').delete().eq('fixture_id', fid).neq('id', job_id).or('analysis_type.eq.standard,analysis_type.is.null');
+            await supabase
+                .from('analysis_jobs_v2')
+                .delete()
+                .eq('fixture_id', fid)
+                .neq('id', job_id)
+                .lt('created_at', currentJobCreatedAt)  // ← only delete OLDER jobs
+                .or('analysis_type.eq.standard,analysis_type.is.null');
         }
 
         // Delete ALL old reports for this fixture
@@ -2414,6 +2430,7 @@ ${strategicInsightsBlock}
                 fixture_id: finalFixtureId,
                 report_packet: analysisResult,
                 prompt_version: 'V3-PROMPT-1.0',
+                engine_version: ENGINE_VERSION,  // V9 fix: persist actual engine used
                 created_at: new Date().toISOString()
             });
 
