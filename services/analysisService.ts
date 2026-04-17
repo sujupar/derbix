@@ -357,7 +357,7 @@ export const launchParlayForFixture = (fixtureId: number, delayMs: number = 8000
                 .eq('status', 'done')
                 .order('created_at', { ascending: false })
                 .limit(1)
-                .single();
+                .maybeSingle();
 
             if (!standardJob?.etl_context) {
                 console.warn(`[Parlay] No etl_context found for fixture ${fixtureId}. Skipping parlay.`);

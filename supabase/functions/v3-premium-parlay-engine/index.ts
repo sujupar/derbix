@@ -364,7 +364,7 @@ TRADING RULES:
 4. TRUST YOUR ANALYSTS: Use the "analyst_verdict" and "confidence" to weigh your decisions.
 
 INPUT DATA (FIELD REPORTS):
-${JSON.stringify(portfolio)}
+${JSON.stringify(portfolio).substring(0, 18000)}
 
 YOUR MISSION:
 Build these 3 specific parlays:

@@ -454,7 +454,9 @@ OUTPUT FORMAT (JSON STRICTO):
 
     } catch (e: any) {
         log(`Error: ${e.message}`);
+        // V9 FIX C1: return 500 so frontend detects the error properly
         return new Response(JSON.stringify({ success: false, error: e.message, logs }), {
+            status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
     }

@@ -404,14 +404,34 @@ REGLAS FINALES:
         try {
             result = JSON5.parse(aiText);
         } catch (parseErr: any) {
-            console.error('[PARLAY-ANALYZER] JSON parse error:', parseErr.message);
+            console.error('[PARLAY-ANALYZER] JSON parse error:', parseErr.message, 'raw:', aiText.substring(0, 500));
             result = { parlay_picks: [] };
         }
 
-        const parlayPicks = result.parlay_picks || [];
-        console.log(`[PARLAY-ANALYZER] Found ${parlayPicks.length} parlay picks`);
+        // V9 FIX C5: tolerate LLM schema drift. Try multiple key variants.
+        const parlayPicks = (
+            result.parlay_picks ||
+            result.parlayPicks ||
+            result.picks ||
+            result.selecciones ||
+            result.selections ||
+            []
+        );
 
-        if (parlayPicks.length === 0) {
+        // Also normalize individual pick field names (camelCase vs snake_case)
+        const normalizedPicks = Array.isArray(parlayPicks) ? parlayPicks.map((p: any) => ({
+            mercado: p.mercado || p.market || p.marketName || 'Mercado',
+            seleccion: p.seleccion || p.selection || p.selectionName || 'Selección',
+            cuota_mercado: p.cuota_mercado || p.cuota || p.odds || p.marketOdds || null,
+            probabilidad_calculada_porcentaje: p.probabilidad_calculada_porcentaje || p.probabilidad || p.probability || p.probabilityPercentage || 60,
+            nivel_riesgo: p.nivel_riesgo || p.risk_level || p.riskLevel || 'medio',
+            tipo_mercado: p.tipo_mercado || p.market_category || p.marketType || 'otro',
+            razonamiento: p.razonamiento || p.reasoning || p.analysis || '',
+        })) : [];
+
+        console.log(`[PARLAY-ANALYZER] Found ${normalizedPicks.length} parlay picks (raw: ${parlayPicks.length})`);
+
+        if (normalizedPicks.length === 0) {
             await supabase.from('analysis_jobs_v2')
                 .update({ status: 'done', current_motor: 'V1-PARLAY-HUNTER', execution_time_ms: Date.now() - startTime })
                 .eq('id', job_id);
@@ -466,13 +486,30 @@ REGLAS FINALES:
         // SAVE PARLAY PICKS
         // ═══════════════════════════════════════════════════════════════
 
-        // Clean old picks for this fixture
-        await supabase.from('parlay_picks_v2').delete().eq('fixture_id', finalFixtureId);
-        if (fixture_id !== finalFixtureId) {
-            await supabase.from('parlay_picks_v2').delete().eq('fixture_id', fixture_id);
-        }
+        // Clean old picks for this fixture. V9 FIX M2: filter by created_at to avoid
+        // deleting picks from a concurrent parlay analyzer on the same fixture.
+        const { data: curJobCT } = await supabase
+            .from('analysis_jobs_v2')
+            .select('created_at')
+            .eq('id', job_id)
+            .maybeSingle();
 
-        const picksPayload = parlayPicks.map((p: any) => {
+        if (curJobCT?.created_at) {
+            await supabase.from('parlay_picks_v2')
+                .delete()
+                .eq('fixture_id', finalFixtureId)
+                .lt('created_at', curJobCT.created_at);
+            if (fixture_id !== finalFixtureId) {
+                await supabase.from('parlay_picks_v2')
+                    .delete()
+                    .eq('fixture_id', fixture_id)
+                    .lt('created_at', curJobCT.created_at);
+            }
+        }
+        // Always clean picks from THIS exact job (in case of partial previous save)
+        await supabase.from('parlay_picks_v2').delete().eq('job_id', job_id);
+
+        const picksPayload = normalizedPicks.map((p: any) => {
             let prob = p.probabilidad_calculada_porcentaje || 60;
             if (prob > 1) prob = prob / 100;
 

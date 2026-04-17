@@ -170,7 +170,7 @@ export const verifyParlays = async (organizationId: string): Promise<{ checked: 
                 .from('analysis_runs')
                 .select('actual_outcome, post_match_analysis')
                 .eq('fixture_id', leg.fixtureId)
-                .single();
+                .maybeSingle();
 
             // If we have an outcome (JSON) or a text analysis that implies completion
             if (analysis && (analysis.actual_outcome || analysis.post_match_analysis)) {
