@@ -16,6 +16,11 @@ interface VerifiedPick {
     admin_notes: string | null;
     created_at: string;
     system_verified_at: string | null;
+    // Added via JOIN
+    actual_score?: string | null;
+    home_team?: string | null;
+    away_team?: string | null;
+    league_name?: string | null;
 }
 
 type Filter = 'pending' | 'approved' | 'processed' | 'all';
@@ -47,7 +52,29 @@ export const MLLearningGate: React.FC = () => {
 
             const { data, error } = await query;
             if (error) throw error;
-            setPicks(data || []);
+
+            // Enrich with actual_score + team names from pick_results_v2
+            const rows = data || [];
+            const pickIds = rows.map((r) => r.pick_id).filter(Boolean);
+            if (pickIds.length > 0) {
+                const { data: results } = await supabase
+                    .from('pick_results_v2')
+                    .select('pick_id, actual_score, home_team, away_team, league_name')
+                    .in('pick_id', pickIds);
+                const byPickId = new Map<string, any>();
+                (results || []).forEach((r) => byPickId.set(r.pick_id, r));
+                rows.forEach((p: any) => {
+                    const r = byPickId.get(p.pick_id);
+                    if (r) {
+                        p.actual_score = r.actual_score;
+                        p.home_team = r.home_team;
+                        p.away_team = r.away_team;
+                        p.league_name = r.league_name;
+                    }
+                });
+            }
+
+            setPicks(rows);
             setSelectedIds(new Set());
         } catch (e) {
             console.error('Failed to load verified picks:', e);
@@ -71,16 +98,17 @@ export const MLLearningGate: React.FC = () => {
         setSelectedIds(new Set(picks.map((p) => p.id)));
     };
 
-    const approveSelected = async (verdict?: 'WON' | 'LOST' | 'VOID') => {
+    const approveSelected = async (verdict: 'WON' | 'LOST' | 'VOID') => {
+        // V9 Manual Gate: admin MUST specify verdict explicitly.
+        // "Aprobar sin verdict" would be blind approval — forbidden.
         if (selectedIds.size === 0) return;
         const ids = Array.from(selectedIds);
-        const update: any = {
+        const update = {
             approved_for_learning: true,
             approved_at: new Date().toISOString(),
             admin_verified_at: new Date().toISOString(),
+            admin_verdict: verdict,
         };
-        if (verdict) update.admin_verdict = verdict;
-
         const { error } = await supabase.from('ml_verified_picks').update(update).in('id', ids);
         if (error) { alert(`Error: ${error.message}`); return; }
         await loadPicks();
@@ -180,12 +208,7 @@ export const MLLearningGate: React.FC = () => {
             {selectedIds.size > 0 && (
                 <div className="mb-4 p-3 bg-slate-800 rounded flex gap-2 items-center">
                     <span>{selectedIds.size} seleccionado(s)</span>
-                    <button
-                        onClick={() => approveSelected()}
-                        className="px-3 py-1 bg-emerald-600 rounded"
-                    >
-                        ✓ Aprobar (usar veredicto del sistema)
-                    </button>
+                    <span className="text-xs text-slate-400">Veredicto obligatorio →</span>
                     <button
                         onClick={() => approveSelected('WON')}
                         className="px-3 py-1 bg-green-700 rounded"
@@ -225,11 +248,13 @@ export const MLLearningGate: React.FC = () => {
                                     onChange={selectAll}
                                 />
                             </th>
-                            <th className="p-2 text-left">Fixture</th>
+                            <th className="p-2 text-left">Partido</th>
+                            <th className="p-2 text-left">Liga</th>
                             <th className="p-2 text-left">Mercado</th>
                             <th className="p-2 text-left">Selección</th>
                             <th className="p-2 text-right">Prob.</th>
                             <th className="p-2 text-right">Cuota</th>
+                            <th className="p-2 text-center">Resultado</th>
                             <th className="p-2 text-center">Sistema</th>
                             <th className="p-2 text-center">Admin</th>
                             <th className="p-2 text-center">Estado</th>
@@ -237,10 +262,10 @@ export const MLLearningGate: React.FC = () => {
                     </thead>
                     <tbody>
                         {loading && (
-                            <tr><td colSpan={9} className="p-4 text-center text-slate-500">Cargando...</td></tr>
+                            <tr><td colSpan={11} className="p-4 text-center text-slate-500">Cargando...</td></tr>
                         )}
                         {!loading && picks.length === 0 && (
-                            <tr><td colSpan={9} className="p-4 text-center text-slate-500">No hay picks en esta vista.</td></tr>
+                            <tr><td colSpan={11} className="p-4 text-center text-slate-500">No hay picks en esta vista.</td></tr>
                         )}
                         {picks.map((p) => (
                             <tr key={p.id} className="border-t border-slate-700 hover:bg-slate-750">
@@ -251,11 +276,15 @@ export const MLLearningGate: React.FC = () => {
                                         onChange={() => toggleSelect(p.id)}
                                     />
                                 </td>
-                                <td className="p-2 text-slate-400 text-xs">{p.fixture_id || '—'}</td>
+                                <td className="p-2 text-xs">
+                                    {p.home_team && p.away_team ? `${p.home_team} vs ${p.away_team}` : p.fixture_id || '—'}
+                                </td>
+                                <td className="p-2 text-xs text-slate-400">{p.league_name || '—'}</td>
                                 <td className="p-2">{p.market || '—'}</td>
                                 <td className="p-2">{p.selection || '—'}</td>
                                 <td className="p-2 text-right">{p.predicted_probability ? `${(p.predicted_probability * 100).toFixed(0)}%` : '—'}</td>
                                 <td className="p-2 text-right">{p.odds?.toFixed(2) || '—'}</td>
+                                <td className="p-2 text-center font-mono text-emerald-300">{p.actual_score || '—'}</td>
                                 <td className="p-2 text-center">
                                     <VerdictBadge verdict={p.system_verdict} />
                                 </td>

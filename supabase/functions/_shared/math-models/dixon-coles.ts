@@ -62,10 +62,15 @@ function dixonColesTau(x: number, y: number, lambdaH: number, lambdaA: number, r
 }
 
 /**
- * Estimate team's attack/defense strength using simple rate-based approach.
- * For production use, should use MLE with time decay. This is a good approximation.
+ * Estimate team's attack/defense strength using rate-based approach with real home/away split.
+ * The TeamForm returned by buildTeamFormFromHistory carries `homeMatches`/`awayMatches` so we
+ * do NOT need to guess 50/50 splits anymore.
  */
-function estimateStrength(form: TeamForm, leagueAvgGoalsHome: number, leagueAvgGoalsAway: number): {
+function estimateStrength(
+  form: TeamForm & { homeMatches?: number; awayMatches?: number },
+  leagueAvgGoalsHome: number,
+  leagueAvgGoalsAway: number
+): {
   attack_home: number;
   attack_away: number;
   defense_home: number;
@@ -75,9 +80,9 @@ function estimateStrength(form: TeamForm, leagueAvgGoalsHome: number, leagueAvgG
     return { attack_home: 1, attack_away: 1, defense_home: 1, defense_away: 1 };
   }
 
-  // Split matches to approximate ~half home, half away
-  const homeMatches = Math.max(1, Math.floor(form.matchesPlayed / 2));
-  const awayMatches = Math.max(1, form.matchesPlayed - homeMatches);
+  // Use actual home/away counts when present, fallback to 50/50 approximation
+  const homeMatches = Math.max(1, form.homeMatches ?? Math.floor(form.matchesPlayed / 2));
+  const awayMatches = Math.max(1, form.awayMatches ?? (form.matchesPlayed - homeMatches));
 
   const avgHomeGoalsFor = form.homeGoalsFor / homeMatches;
   const avgHomeGoalsAgainst = form.homeGoalsAgainst / homeMatches;
@@ -224,26 +229,37 @@ export function dixonColes(input: DixonColesInput): DixonColesResult {
 
 /**
  * Helper to build TeamForm from history array (V9 ETL structure).
+ * Applies time decay: recent matches weigh more than old ones.
+ * Formula: φ(t) = exp(-ξ · days_since_match), ξ default 0.0025/day (Dixon-Coles 1997).
+ * Also tracks real home/away split counts (no 50/50 assumption).
  */
-export function buildTeamFormFromHistory(history: any[], teamId: number, teamName: string): TeamForm {
+export function buildTeamFormFromHistory(
+  history: any[],
+  teamId: number,
+  teamName: string,
+  options?: { timeDecayXi?: number; referenceDate?: Date }
+): TeamForm & { homeMatches: number; awayMatches: number } {
+  const xi = options?.timeDecayXi ?? 0.0025;
+  const refDate = options?.referenceDate ?? new Date();
+
   let matchesPlayed = 0;
+  let homeMatches = 0, awayMatches = 0;
   let goalsFor = 0, goalsAgainst = 0;
   let homeGoalsFor = 0, homeGoalsAgainst = 0;
   let awayGoalsFor = 0, awayGoalsAgainst = 0;
 
   for (const m of history) {
-    // Handle both raw SportMonks format and normalized format
     const isHome = m.was_home === true ||
       (m.participants && m.participants.find((p: any) => p.id === teamId)?.meta?.location === 'home');
 
     let myGoals = 0, oppGoals = 0;
+    let matchDate: Date | null = null;
 
     if (m.score_home !== undefined && m.score_away !== undefined) {
-      // Normalized format
       myGoals = isHome ? m.score_home : m.score_away;
       oppGoals = isHome ? m.score_away : m.score_home;
+      if (m.date) matchDate = new Date(m.date);
     } else if (m.scores) {
-      // Raw SportMonks format
       const curScores = m.scores.filter((s: any) => s.description === 'CURRENT');
       const myScore = curScores.find((s: any) =>
         (isHome && s.score?.participant === 'home') || (!isHome && s.score?.participant === 'away')
@@ -253,20 +269,30 @@ export function buildTeamFormFromHistory(history: any[], teamId: number, teamNam
       );
       myGoals = myScore?.score?.goals ?? 0;
       oppGoals = oppScore?.score?.goals ?? 0;
+      if (m.starting_at) matchDate = new Date(m.starting_at);
     } else {
       continue;
     }
 
+    // Compute time decay weight
+    let weight = 1;
+    if (matchDate && !isNaN(matchDate.getTime())) {
+      const daysSince = Math.max(0, (refDate.getTime() - matchDate.getTime()) / (24 * 60 * 60 * 1000));
+      weight = Math.exp(-xi * daysSince);
+    }
+
     matchesPlayed++;
-    goalsFor += myGoals;
-    goalsAgainst += oppGoals;
+    goalsFor += myGoals * weight;
+    goalsAgainst += oppGoals * weight;
 
     if (isHome) {
-      homeGoalsFor += myGoals;
-      homeGoalsAgainst += oppGoals;
+      homeMatches++;
+      homeGoalsFor += myGoals * weight;
+      homeGoalsAgainst += oppGoals * weight;
     } else {
-      awayGoalsFor += myGoals;
-      awayGoalsAgainst += oppGoals;
+      awayMatches++;
+      awayGoalsFor += myGoals * weight;
+      awayGoalsAgainst += oppGoals * weight;
     }
   }
 
@@ -274,11 +300,13 @@ export function buildTeamFormFromHistory(history: any[], teamId: number, teamNam
     teamId,
     teamName,
     matchesPlayed,
-    goalsFor,
-    goalsAgainst,
-    homeGoalsFor,
-    homeGoalsAgainst,
-    awayGoalsFor,
-    awayGoalsAgainst,
+    homeMatches,
+    awayMatches,
+    goalsFor: Math.round(goalsFor * 100) / 100,
+    goalsAgainst: Math.round(goalsAgainst * 100) / 100,
+    homeGoalsFor: Math.round(homeGoalsFor * 100) / 100,
+    homeGoalsAgainst: Math.round(homeGoalsAgainst * 100) / 100,
+    awayGoalsFor: Math.round(awayGoalsFor * 100) / 100,
+    awayGoalsAgainst: Math.round(awayGoalsAgainst * 100) / 100,
   };
 }

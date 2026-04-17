@@ -48,29 +48,40 @@ function goalDiffMultiplier(gd: number): number {
 
 /**
  * Compute current Elo rating for a team based on match history.
- * Starts at 1500 baseline and iterates forward through matches.
+ * Uses a co-evolving rating system: team rating AND opponent ratings evolve together
+ * from a shared pool. Matches are processed oldest → newest.
  *
- * history: matches in REVERSE chronological order (newest first, V9 convention)
+ * history: matches in REVERSE chronological order (newest first, V9 convention).
  */
 export function computeTeamElo(
   teamId: number,
   history: any[],
   baselineElo: number = 1500
 ): { rating: number; samples: number } {
-  // Process oldest to newest
+  // Process oldest to newest so rating builds up over time
   const ordered = [...history].reverse();
   let rating = baselineElo;
-  let opponentRating = baselineElo;  // assume opponents are avg unless we have data
+  const opponentRatings: Record<string, number> = {}; // per-opponent rating, starts at baseline
   let samples = 0;
+
+  const getOppRating = (key: string): number => {
+    if (opponentRatings[key] === undefined) opponentRatings[key] = baselineElo;
+    return opponentRatings[key];
+  };
+  const setOppRating = (key: string, v: number) => { opponentRatings[key] = v; };
 
   for (const m of ordered) {
     const isHome = m.was_home === true ||
       (m.participants && m.participants.find((p: any) => p.id === teamId)?.meta?.location === 'home');
 
     let myGoals = 0, oppGoals = 0;
+    let oppKey: string | null = null;
+
     if (m.score_home !== undefined && m.score_away !== undefined) {
       myGoals = isHome ? m.score_home : m.score_away;
       oppGoals = isHome ? m.score_away : m.score_home;
+      // Opponent key from normalized fields
+      oppKey = (isHome ? m.away_team : m.home_team) || m.opponent_name || m.opponent_id?.toString() || null;
     } else if (m.scores) {
       const myScore = m.scores.find((s: any) =>
         s.description === 'CURRENT' &&
@@ -82,6 +93,9 @@ export function computeTeamElo(
       );
       myGoals = myScore?.score?.goals ?? 0;
       oppGoals = oppScore?.score?.goals ?? 0;
+      // Opponent key from raw format
+      const oppParticipant = m.participants?.find((p: any) => p.id !== teamId);
+      oppKey = oppParticipant?.id?.toString() || null;
     } else {
       continue;
     }
@@ -96,10 +110,10 @@ export function computeTeamElo(
       'league';
 
     const K = kFactor(competition as any);
-    const multiplier = goalDiffMultiplier(gd);
-
-    // Home advantage ~65 points
+    const multiplier = Math.min(2.75, goalDiffMultiplier(gd));  // cap at 2.75 (ClubElo std)
     const homeAdv = 65;
+
+    const opponentRating = oppKey ? getOppRating(oppKey) : baselineElo;
     const effectiveMyRating = rating + (isHome ? homeAdv : 0);
     const effectiveOppRating = opponentRating + (isHome ? 0 : homeAdv);
 
@@ -107,6 +121,8 @@ export function computeTeamElo(
     const change = K * multiplier * (actual - expected);
 
     rating += change;
+    // Zero-sum: opponent rating changes inversely
+    if (oppKey) setOppRating(oppKey, opponentRating - change);
     samples++;
   }
 

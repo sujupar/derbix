@@ -79,10 +79,16 @@ serve(async (req) => {
       return '2.50+';
     };
 
+    let skippedNoVerdict = 0;
     for (const row of approvedPicks) {
       const pick = row.value_picks_v2 || row;
-      const adminVerdict = row.admin_verdict || row.system_verdict;
-      if (!adminVerdict || adminVerdict === 'PENDING' || adminVerdict === 'VOID') continue;
+      // V9 MANUAL GATE: admin_verdict MUST be explicitly set (cannot fall back to system).
+      // This prevents "blind approval" where admin clicks approve without verifying the result.
+      const adminVerdict = row.admin_verdict;
+      if (!adminVerdict || adminVerdict === 'PENDING' || adminVerdict === 'VOID') {
+        skippedNoVerdict++;
+        continue;
+      }
 
       const won = adminVerdict === 'WON';
       const predicted = Number(row.predicted_probability || pick.p_model || 0);
@@ -167,9 +173,11 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
-      picks_processed: approvedPicks.length,
+      picks_processed: approvedPicks.length - skippedNoVerdict,
+      skipped_no_verdict: skippedNoVerdict,
       dimensions_updated: updates.length,
       updates: updates.slice(0, 30),
+      note: skippedNoVerdict > 0 ? `${skippedNoVerdict} picks aprobados pero sin admin_verdict explícito fueron saltados. El admin debe marcar WON/LOST/VOID.` : undefined,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (err: any) {

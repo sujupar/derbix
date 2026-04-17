@@ -23,7 +23,7 @@ serve(async (req) => {
 
     const { data: matchesToCapture, error } = await supabase
       .from('daily_matches')
-      .select('api_fixture_id, match_time')
+      .select('api_fixture_id, match_time, home_team, away_team')
       .gte('match_time', nowIso)
       .lte('match_time', in15Iso);
 
@@ -72,7 +72,7 @@ serve(async (req) => {
         if (!picks) continue;
 
         for (const pick of picks) {
-          const marketKey = pickToMarketKey(pick.market, pick.selection);
+          const marketKey = pickToMarketKey(pick.market, pick.selection, m.home_team, m.away_team);
           const closingOdd = marketKey ? closingMap[marketKey] : null;
 
           if (closingOdd && closingOdd > 1.01) {
@@ -108,13 +108,19 @@ serve(async (req) => {
   }
 });
 
-function pickToMarketKey(market: string, selection: string): string | null {
+function pickToMarketKey(market: string, selection: string, homeTeam?: string, awayTeam?: string): string | null {
   const m = (market || '').toLowerCase();
   const s = (selection || '').toLowerCase();
+  const home = (homeTeam || '').toLowerCase();
+  const away = (awayTeam || '').toLowerCase();
 
   if (m.includes('resultado') || m.includes('1x2')) {
-    if (s.includes('empate') || s === 'x') return 'draw';
-    // For 1X2 we need to know home/away — skip for now unless we have team name matching
+    if (s.includes('empate') || s === 'x' || s === 'draw') return 'draw';
+    if (home && s.includes(home.split(' ')[0])) return 'home_win';
+    if (away && s.includes(away.split(' ')[0])) return 'away_win';
+    // Fallback: match by full team name
+    if (home && s.includes(home)) return 'home_win';
+    if (away && s.includes(away)) return 'away_win';
     return null;
   }
   if (m.includes('más de') && s.includes('2.5')) return 'over_25';

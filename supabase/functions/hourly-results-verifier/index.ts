@@ -937,22 +937,40 @@ serve(async (req) => {
                             verified_at: new Date().toISOString()
                         }, { onConflict: 'pick_id' });
 
-                    // V9: Create entry in ml_verified_picks so admin can approve for learning.
-                    // This is the manual gate — admin must review before it feeds ML.
-                    await supabase
+                    // V9: Create/update entry in ml_verified_picks so admin can approve for learning.
+                    // CRITICAL: on re-verification, do NOT overwrite admin fields (approved_for_learning,
+                    // admin_verdict). Only update system_* fields via a two-step check.
+                    const { data: existingVerified } = await supabase
                         .from('ml_verified_picks')
-                        .upsert({
-                            pick_id: pick.id,
-                            fixture_id: fixtureId,
-                            market: pick.market,
-                            selection: pick.selection,
-                            predicted_probability: pick.p_model,
-                            odds: pick.odds,
-                            system_verdict: result,
-                            system_verified_at: new Date().toISOString(),
-                            approved_for_learning: false,
-                            processed_for_learning: false,
-                        }, { onConflict: 'pick_id', ignoreDuplicates: false });
+                        .select('id')
+                        .eq('pick_id', pick.id)
+                        .maybeSingle();
+
+                    if (existingVerified) {
+                        // Update only system fields; leave admin_* untouched
+                        await supabase
+                            .from('ml_verified_picks')
+                            .update({
+                                system_verdict: result,
+                                system_verified_at: new Date().toISOString(),
+                            })
+                            .eq('pick_id', pick.id);
+                    } else {
+                        await supabase
+                            .from('ml_verified_picks')
+                            .insert({
+                                pick_id: pick.id,
+                                fixture_id: fixtureId,
+                                market: pick.market,
+                                selection: pick.selection,
+                                predicted_probability: pick.p_model,
+                                odds: pick.odds,
+                                system_verdict: result,
+                                system_verified_at: new Date().toISOString(),
+                                approved_for_learning: false,
+                                processed_for_learning: false,
+                            });
+                    }
 
                     // Update SEO page with results (best-effort, non-blocking)
                     try {

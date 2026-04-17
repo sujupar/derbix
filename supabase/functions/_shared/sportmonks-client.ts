@@ -171,6 +171,7 @@ export async function getFixtureComplete(fixtureId: number): Promise<any | null>
         [
             'participants',
             'lineups',
+            'lineups.player',
             'statistics.type',
             'events',
             'scores',
@@ -180,6 +181,7 @@ export async function getFixtureComplete(fixtureId: number): Promise<any | null>
             'coaches',
             'sidelined',
             'weatherReport',
+            'xGFixture',
             'league',
             'season',
             'state',

@@ -184,7 +184,8 @@ export interface TeamXGStats {
 
 /**
  * Compute rolling xG from match history (last N matches).
- * Uses SportMonks xGFixture if available, falls back to shot-based estimation.
+ * Works with BOTH raw SportMonks format and normalized V9 format.
+ * Falls back to shots on target × 0.33 when xG is not available.
  */
 export function computeTeamXGRolling(
   history: any[],
@@ -200,49 +201,60 @@ export function computeTeamXGRolling(
   let count = 0;
 
   for (const match of recent) {
-    const participants = match.participants || [];
-    const isHome = participants.find((p: any) => p.id === teamId)?.meta?.location === 'home';
+    // Detect format: normalized has was_home + details; raw has participants
+    const isNormalized = match.was_home !== undefined && match.details !== undefined;
 
-    // Try xGFixture first (SportMonks advanced data)
-    const xgData = match.xGFixture;
+    let isHome: boolean;
+    let myGoals = 0;
+    let mySOT = 0, theirSOT = 0;
     let xgFor: number | null = null, xgAgainst: number | null = null;
 
-    if (xgData) {
-      if (Array.isArray(xgData)) {
-        const ourXG = xgData.find((x: any) => x.team_id === teamId);
-        const theirXG = xgData.find((x: any) => x.team_id !== teamId);
-        xgFor = ourXG?.xg ?? ourXG?.expected_goals ?? null;
-        xgAgainst = theirXG?.xg ?? theirXG?.expected_goals ?? null;
-      } else if (typeof xgData === 'object') {
-        xgFor = isHome ? (xgData.home_xg ?? null) : (xgData.away_xg ?? null);
-        xgAgainst = isHome ? (xgData.away_xg ?? null) : (xgData.home_xg ?? null);
-      }
-    }
+    if (isNormalized) {
+      // Normalized V9 format (from normalizeDetailedMatchHistory)
+      isHome = match.was_home === true;
+      myGoals = isHome ? (match.score_home ?? 0) : (match.score_away ?? 0);
+      const d = match.details || {};
+      mySOT = d.shots_on_target ?? 0;
+      theirSOT = d.opponent_shots_on_target ?? 0;
+      // xG rarely present in normalized form; use SOT fallback
+    } else {
+      // Raw SportMonks format
+      const participants = match.participants || [];
+      isHome = participants.find((p: any) => p.id === teamId)?.meta?.location === 'home';
 
-    // Fallback: estimate xG from shots on target (rough proxy: shots_on_target × 0.33)
-    if (xgFor === null || xgAgainst === null) {
+      const xgData = match.xGFixture;
+      if (xgData) {
+        if (Array.isArray(xgData)) {
+          const ourXG = xgData.find((x: any) => x.team_id === teamId);
+          const theirXG = xgData.find((x: any) => x.team_id !== teamId);
+          xgFor = ourXG?.xg ?? ourXG?.expected_goals ?? null;
+          xgAgainst = theirXG?.xg ?? theirXG?.expected_goals ?? null;
+        } else if (typeof xgData === 'object') {
+          xgFor = isHome ? (xgData.home_xg ?? null) : (xgData.away_xg ?? null);
+          xgAgainst = isHome ? (xgData.away_xg ?? null) : (xgData.home_xg ?? null);
+        }
+      }
+
       const stats = match.statistics || [];
       const ourStats = stats.filter((s: any) => s.participant_id === teamId || s.team_id === teamId);
       const theirStats = stats.filter((s: any) => s.participant_id !== teamId && s.team_id !== teamId);
+      mySOT = ourStats.find((s: any) => s.type?.name === 'Shots On Target' || s.type_id === 86)?.data?.value ?? 0;
+      theirSOT = theirStats.find((s: any) => s.type?.name === 'Shots On Target' || s.type_id === 86)?.data?.value ?? 0;
 
-      const ourSOT = ourStats.find((s: any) => s.type?.name === 'Shots On Target' || s.type_id === 86)?.data?.value ?? 0;
-      const theirSOT = theirStats.find((s: any) => s.type?.name === 'Shots On Target' || s.type_id === 86)?.data?.value ?? 0;
-
-      if (xgFor === null) xgFor = ourSOT * 0.33;
-      if (xgAgainst === null) xgAgainst = theirSOT * 0.33;
+      const scores = match.scores || [];
+      const ourGoalsEntry = scores.find((s: any) =>
+        s.description === 'CURRENT' &&
+        ((isHome && s.score?.participant === 'home') || (!isHome && s.score?.participant === 'away'))
+      );
+      myGoals = ourGoalsEntry?.score?.goals ?? 0;
     }
 
-    // Goals actually scored
-    const scores = match.scores || [];
-    const ourGoalsEntry = scores.find((s: any) =>
-      s.description === 'CURRENT' &&
-      ((isHome && s.score?.participant === 'home') || (!isHome && s.score?.participant === 'away'))
-    );
-    const ourGoals = ourGoalsEntry?.score?.goals ?? 0;
+    if (xgFor === null) xgFor = mySOT * 0.33;
+    if (xgAgainst === null) xgAgainst = theirSOT * 0.33;
 
     totalXGFor += xgFor;
     totalXGAgainst += xgAgainst;
-    totalGoalsFor += ourGoals;
+    totalGoalsFor += myGoals;
     count++;
   }
 
@@ -290,21 +302,33 @@ export function computeKeyPlayerImpact(
   const assisterCounts: Record<string, { name: string; assists: number }> = {};
 
   for (const match of history.slice(0, 10)) {
-    const events = match.events || [];
-    for (const e of events) {
-      if (e.participant_id !== teamId) continue;
-      if (e.type?.name === 'Goal' || e.type_id === 14) {
-        const pid = String(e.player_id || e.player?.id);
-        const name = e.player_name || e.player?.name || 'Unknown';
-        scorerCounts[pid] = scorerCounts[pid] || { name, goals: 0 };
-        scorerCounts[pid].goals++;
+    // Events can be in two shapes:
+    //  - Normalized V9: match.details.events = [{ minute, type, player, related_player }]
+    //  - Raw SportMonks: match.events = [{ type_id, participant_id, player_name, ... }]
+    const normalizedEvents = match.details?.events;
+    const rawEvents = match.events;
+    const events = Array.isArray(normalizedEvents) ? normalizedEvents : (Array.isArray(rawEvents) ? rawEvents : []);
 
-        if (e.related_player_id) {
-          const apid = String(e.related_player_id);
-          const aname = e.related_player_name || 'Unknown';
-          assisterCounts[apid] = assisterCounts[apid] || { name: aname, assists: 0 };
-          assisterCounts[apid].assists++;
-        }
+    for (const e of events) {
+      const typeStr = String(e.type || e.type?.name || '').toLowerCase();
+      const isGoal = typeStr.includes('goal') || e.type_id === 14;
+      if (!isGoal) continue;
+
+      // Normalized format has player as string; raw has participant_id + player_name
+      const isOurGoal = rawEvents ? e.participant_id === teamId : true;  // normalized is already filtered
+      if (!isOurGoal) continue;
+
+      const name = e.player || e.player_name || e.player?.name || 'Unknown';
+      if (!name || name === 'Unknown') continue;
+      const pid = String(name).toLowerCase();
+      scorerCounts[pid] = scorerCounts[pid] || { name, goals: 0 };
+      scorerCounts[pid].goals++;
+
+      const assistName = e.related_player || e.related_player_name;
+      if (assistName) {
+        const apid = String(assistName).toLowerCase();
+        assisterCounts[apid] = assisterCounts[apid] || { name: assistName, assists: 0 };
+        assisterCounts[apid].assists++;
       }
     }
   }

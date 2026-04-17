@@ -22,13 +22,19 @@ DATOS MATEMÁTICOS BASE (modelos Dixon-Coles + Elo + Monte Carlo):
 - Consistencia modelos: ${m.diagnostics.model_consistency} (0-1)
 `;
 
+  const ragContext = context.similar_past_picks && context.similar_past_picks.length > 0
+    ? `\n📚 PICKS HISTÓRICOS SIMILARES (aprendizaje de casos pasados):\n${context.similar_past_picks.slice(0, 5).map((s, i) =>
+        `  ${i+1}. ${s.summary} → ${s.outcome}`
+      ).join('\n')}\n`
+    : '';
+
   const baseContext = `
 PARTIDO: ${context.homeTeam} vs ${context.awayTeam}
 COMPETICIÓN: ${context.league}
 FECHA: ${context.date}
 
 ${mathSummary}
-`;
+${ragContext}`;
 
   // Different agents need different data focus
   let specificContext = '';
@@ -165,7 +171,26 @@ Responde ÚNICAMENTE con JSON válido siguiendo ESTA estructura:
 }
 
 /**
- * Parse JSON response from agent, with fallback.
+ * Repair truncated JSON by balancing braces/brackets.
+ */
+function repairTruncatedJSON(text: string): string {
+  let openBraces = 0, openBrackets = 0;
+  let inString = false, escaped = false;
+  for (const ch of text) {
+    if (escaped) { escaped = false; continue; }
+    if (ch === '\\') { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') openBraces++;
+    if (ch === '}') openBraces--;
+    if (ch === '[') openBrackets++;
+    if (ch === ']') openBrackets--;
+  }
+  return text + ']'.repeat(Math.max(0, openBrackets)) + '}'.repeat(Math.max(0, openBraces));
+}
+
+/**
+ * Parse JSON response from agent, with multi-strategy fallback including brace repair.
  */
 function parseAgentResponse(text: string, agentKey: string): Partial<AgentAnalysis> {
   let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -176,7 +201,12 @@ function parseAgentResponse(text: string, agentKey: string): Partial<AgentAnalys
   try { return JSON5.parse(cleaned); } catch {}
   try { return JSON.parse(cleaned); } catch {}
 
-  console.warn(`[agent-${agentKey}] JSON parse failed for response: ${cleaned.slice(0, 200)}`);
+  // Strategy 3: repair truncated JSON (brace balancer)
+  const repaired = repairTruncatedJSON(cleaned);
+  try { return JSON5.parse(repaired); } catch {}
+  try { return JSON.parse(repaired); } catch {}
+
+  console.warn(`[agent-${agentKey}] JSON parse failed after repair: ${cleaned.slice(0, 200)}`);
   return {
     agent_name: AGENTS[agentKey].name,
     agent_role: AGENTS[agentKey].role,
@@ -250,7 +280,14 @@ async function runAgent(
 function buildJudgePrompt(context: MatchContext, analyses: AgentAnalysis[]): string {
   const m = context.math;
 
-  const agentSummaries = analyses.map((a) => `
+  const successful = analyses.filter((a) => !a.error);
+  const failed = analyses.filter((a) => !!a.error);
+
+  const failedNote = failed.length > 0
+    ? `\n⚠️ AGENTES NO DISPONIBLES (${failed.length}/${analyses.length}): ${failed.map(f => f.agent_name).join(', ')}. AJUSTA la confianza a la baja si el consenso es débil.\n`
+    : '';
+
+  const agentSummaries = successful.map((a) => `
 ═══ ${a.agent_name} (confianza: ${a.confidence_overall}%) ═══
 Hallazgos clave: ${a.key_findings.join(' | ')}
 Picks recomendados:
@@ -269,7 +306,7 @@ MODELO MATEMÁTICO (baseline):
 - Over 2.5: ${(m.ensemble_probabilities.over_25*100).toFixed(1)}%
 - BTTS: ${(m.ensemble_probabilities.btts_yes*100).toFixed(1)}%
 - Consistencia: ${m.diagnostics.model_consistency} (modelos acuerdan)
-
+${failedNote}
 ${agentSummaries}
 
 ═══ TU TAREA ═══
@@ -333,28 +370,57 @@ Responde JSON estricto:
 
 /**
  * Main orchestrator: runs 6 agents sequentially + judge.
- * Total budget: ~120s (within Supabase 150s limit).
+ * Total budget: ~130s (within Supabase 150s limit with 20s DB save reserve).
+ * Respects wall clock: if time runs out, skip remaining agents and go to judge.
  */
+const WALL_CLOCK_BUDGET_MS = 125000;  // 125s total for debate + judge (20s margin)
+const JUDGE_RESERVE_MS = 35000;        // keep 35s for the judge + DB save
+
 export async function runDebate(context: MatchContext): Promise<DebateResult> {
   const startTime = Date.now();
   const analyses: AgentAnalysis[] = [];
   let totalTokens = 0;
 
+  const remainingBudgetMs = () => WALL_CLOCK_BUDGET_MS - (Date.now() - startTime);
+
   console.log(`[orchestrator] Starting multi-agent debate for ${context.homeTeam} vs ${context.awayTeam}...`);
 
-  // Run 6 debate agents sequentially (Groq TPM doesn't allow parallel)
+  // Run 6 debate agents sequentially (Groq TPM doesn't allow parallel).
+  // Skip remaining agents if we're running out of wall clock time.
   for (const agentKey of DEBATE_AGENTS) {
-    const agentTimeout = 20000;  // 20s per agent
-    console.log(`[orchestrator] Running agent: ${agentKey}...`);
+    const budget = remainingBudgetMs();
+    if (budget < JUDGE_RESERVE_MS) {
+      console.warn(`[orchestrator] Only ${Math.round(budget/1000)}s left, skipping ${agentKey} to preserve budget for judge`);
+      analyses.push({
+        agent_name: agentKey,
+        agent_role: 'skipped',
+        key_findings: [],
+        recommended_picks: [],
+        confidence_overall: 0,
+        key_risks: ['Skipped due to wall-clock budget'],
+        error: 'wall_clock_skip',
+      });
+      continue;
+    }
+
+    // Per-agent timeout: min of 20s or remaining budget minus reserve
+    const agentTimeout = Math.min(20000, Math.max(10000, budget - JUDGE_RESERVE_MS));
+    console.log(`[orchestrator] Running agent: ${agentKey} (timeout ${Math.round(agentTimeout/1000)}s, budget ${Math.round(budget/1000)}s)...`);
     const analysis = await runAgent(agentKey, context, agentTimeout);
     analyses.push(analysis);
     totalTokens += analysis.tokens_used || 0;
     console.log(`[orchestrator] ${agentKey} done (${analysis.recommended_picks.length} picks, provider ${analysis.provider_used || 'FAILED'})`);
   }
 
-  // Aggregate consensus picks
+  // Aggregate consensus picks — only from agents that SUCCEEDED (filter failed/skipped)
+  const successfulAgents = analyses.filter((a) => !a.error);
+  const failedCount = analyses.length - successfulAgents.length;
+  if (failedCount > 0) {
+    console.warn(`[orchestrator] ${failedCount}/${analyses.length} agents failed or were skipped`);
+  }
+
   const pickMap = new Map<string, { count: number; probabilities: number[]; markets: any[] }>();
-  for (const a of analyses) {
+  for (const a of successfulAgents) {
     if (a.agent_role === 'skeptic') continue; // skeptic doesn't add picks, only vetoes
     for (const pick of a.recommended_picks) {
       const key = `${pick.market}|${pick.selection}`;

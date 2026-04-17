@@ -969,7 +969,47 @@ serve(async (req) => {
         // Activado via env var USE_V9_ENGINE=true
         // ═══════════════════════════════════════════════════════════════
         if (USE_V9) {
-            console.log('[V9-HYBRID] Running V9 engine: math models + multi-agent debate...');
+            console.log('[V9-HYBRID] Running V9 engine: math models + multi-agent debate + RAG...');
+
+            // ═══ RAG: Fetch similar past picks using embeddings ═══
+            // This is best-effort; if embeddings/pgvector fail, we skip without blocking.
+            let similarPastPicks: Array<{ summary: string; outcome: string; features: any }> = [];
+            try {
+                const queryText = `${homeTeam} vs ${awayTeam}. ${leagueName}. Key factors.`;
+                const embeddingRes = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${geminiKey}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            model: 'models/text-embedding-004',
+                            content: { parts: [{ text: queryText }] },
+                        }),
+                    }
+                );
+                if (embeddingRes.ok) {
+                    const embJson = await embeddingRes.json();
+                    const queryEmbedding = embJson.embedding?.values;
+                    if (queryEmbedding) {
+                        const { data: similar } = await supabase.rpc('match_similar_picks', {
+                            query_embedding: queryEmbedding,
+                            match_threshold: 0.70,
+                            match_count: 5,
+                            filter_league: leagueName,
+                        });
+                        if (similar && similar.length > 0) {
+                            similarPastPicks = similar.map((s: any) => ({
+                                summary: `${s.features?.market || 'N/A'}: ${s.features?.selection || 'N/A'} @ ${s.features?.odds || '?'}`,
+                                outcome: s.outcome || 'UNKNOWN',
+                                features: s.features,
+                            }));
+                            console.log(`[V9-HYBRID] RAG: ${similarPastPicks.length} similar past picks retrieved`);
+                        }
+                    }
+                }
+            } catch (ragErr: any) {
+                console.warn(`[V9-HYBRID] RAG retrieval failed (non-blocking): ${ragErr.message}`);
+            }
 
             // Step 1: Run mathematical models (Dixon-Coles + Elo + Monte Carlo)
             const homeHistoryRaw = homeData.as_home || [];
@@ -977,24 +1017,42 @@ serve(async (req) => {
             const combinedHomeHistory = [...homeHistoryRaw, ...(homeData.as_away || [])];
             const combinedAwayHistory = [...awayHistoryRaw, ...(awayData.as_home || [])];
 
-            // Build odds dict for value detection
+            // Build odds dict for value detection.
+            // Canon keys from sportmonks-normalizer.ts organizeOddsForAI use format like
+            // '1x2_home', '1x2_draw', '1x2_away', 'goals_over_2.5', 'goals_under_2.5', 'btts_yes', 'btts_no'.
+            // We check several candidate patterns since SportMonks canons have evolved.
             const oddsDict: Record<string, number> = {};
             const organizedOdds = payload.odds || {};
             for (const section of ['MAIN', 'GOALS', 'TEAMS']) {
                 const items = organizedOdds[section] || [];
                 for (const o of items) {
-                    if (o.canon && typeof o.val === 'number') {
-                        const key = o.canon.replace('1x2_', '').replace('ou_', '').replace('_', '_');
-                        if (o.canon.includes('1x2_home_win')) oddsDict.home_win = o.val;
-                        else if (o.canon.includes('1x2_away_win')) oddsDict.away_win = o.val;
-                        else if (o.canon.includes('1x2_draw')) oddsDict.draw = o.val;
-                        else if (o.canon.includes('2.5_over')) oddsDict.over_25 = o.val;
-                        else if (o.canon.includes('2.5_under')) oddsDict.under_25 = o.val;
-                        else if (o.canon.includes('btts_yes')) oddsDict.btts_yes = o.val;
-                        else if (o.canon.includes('btts_no')) oddsDict.btts_no = o.val;
-                    }
+                    if (!o.canon || typeof o.val !== 'number') continue;
+                    const canon = String(o.canon).toLowerCase();
+                    // 1X2
+                    if (canon.includes('1x2') && (canon.includes('home') || canon.endsWith('_1'))) oddsDict.home_win = o.val;
+                    else if (canon.includes('1x2') && (canon.includes('away') || canon.endsWith('_2'))) oddsDict.away_win = o.val;
+                    else if (canon.includes('1x2') && (canon.includes('draw') || canon.endsWith('_x'))) oddsDict.draw = o.val;
+                    // Over/Under 2.5
+                    else if ((canon.includes('over') || canon.includes('mas')) && canon.includes('2.5')) oddsDict.over_25 = o.val;
+                    else if ((canon.includes('under') || canon.includes('menos')) && canon.includes('2.5')) oddsDict.under_25 = o.val;
+                    // BTTS
+                    else if (canon.includes('btts') && canon.includes('yes')) oddsDict.btts_yes = o.val;
+                    else if (canon.includes('btts') && canon.includes('no')) oddsDict.btts_no = o.val;
+                    // Double chance
+                    else if (canon.includes('dc') && (canon.includes('home_or_draw') || canon.endsWith('_1x'))) oddsDict.home_or_draw = o.val;
+                    else if (canon.includes('dc') && (canon.includes('away_or_draw') || canon.endsWith('_x2'))) oddsDict.away_or_draw = o.val;
                 }
             }
+            // Also probe from the preformatted oddsText as a last resort (label fallback)
+            if (Object.keys(oddsDict).length === 0 && organizedOdds.MAIN) {
+                for (const o of organizedOdds.MAIN) {
+                    const lbl = String(o.lbl || '').toLowerCase();
+                    if (lbl.includes('home') || lbl === '1') oddsDict.home_win = o.val;
+                    else if (lbl.includes('away') || lbl === '2') oddsDict.away_win = o.val;
+                    else if (lbl.includes('draw') || lbl === 'x') oddsDict.draw = o.val;
+                }
+            }
+            console.log(`[V9-HYBRID] Odds dict built: ${Object.keys(oddsDict).length} markets (${Object.keys(oddsDict).join(',')})`);
 
             const mathResult = runMathModels({
                 homeTeamId: payload.match?.teams?.home?.id || 0,
@@ -1072,6 +1130,11 @@ serve(async (req) => {
                 external_context: typeof payload.external_context === 'string'
                     ? payload.external_context
                     : payload.external_context?.raw_text,
+                similar_past_picks: similarPastPicks.length > 0 ? similarPastPicks.map((s) => ({
+                    summary: s.summary,
+                    outcome: s.outcome as 'WON' | 'LOST' | 'VOID',
+                    features: s.features,
+                })) : undefined,
             };
 
             // Step 4: Run debate

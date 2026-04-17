@@ -130,9 +130,9 @@ serve(async (req) => {
         // ═══════════════════════════════════════════════════════════════
         console.log('[v2-create-job-sportmonks] Stage 2: Fetching data (V8 Deep Dive + Perplexity)...');
 
-        // V9: Include lineups, coaches, xGFixture for rich context (used by V9 math + agents).
-        // Historical matches only include essentials to keep payload size manageable.
-        const deepIncludes = ['participants', 'scores', 'venue', 'league', 'statistics', 'events', 'formations', 'referees'];
+        // V9: Historical matches include xGFixture when available (for rolling xG).
+        // Lineups/coaches/weather are not included in history to limit payload size.
+        const deepIncludes = ['participants', 'scores', 'venue', 'league', 'statistics', 'events', 'formations', 'referees', 'xGFixture'];
 
         // Fetch Perplexity context in parallel with data fetching (with 10s timeout)
         const sbUrl2 = Deno.env.get('SUPABASE_URL')!;
