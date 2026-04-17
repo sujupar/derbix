@@ -130,8 +130,8 @@ serve(async (req) => {
         // ═══════════════════════════════════════════════════════════════
         console.log('[v2-create-job-sportmonks] Stage 2: Fetching data (V8 Deep Dive + Perplexity)...');
 
-        // V8: 25 matches per team (enough for 10 home + 10 away split)
-        // OPTIMIZED: Removed 'lineups' (not used in normalizer) to reduce payload size
+        // V9: Include lineups, coaches, xGFixture for rich context (used by V9 math + agents).
+        // Historical matches only include essentials to keep payload size manageable.
         const deepIncludes = ['participants', 'scores', 'venue', 'league', 'statistics', 'events', 'formations', 'referees'];
 
         // Fetch Perplexity context in parallel with data fetching (with 10s timeout)
@@ -205,7 +205,7 @@ serve(async (req) => {
         console.log(`  - Home splits: ${homeAsHome.length} as home, ${homeAsAway.length} as away, ${homeGeneralForm.length} general`);
         console.log(`  - Away splits: ${awayAsHome.length} as home, ${awayAsAway.length} as away, ${awayGeneralForm.length} general`);
 
-        // Build V8 normalized payload
+        // Build V8/V9 normalized payload
         const normalizedPayload = {
             match: {
                 fixture_id: fixtureData.id,
@@ -223,6 +223,17 @@ serve(async (req) => {
                     name: fixtureData.league?.name,
                     country: fixtureData.league?.country?.name,
                     round: fixtureData.round?.name
+                },
+                // V9: Raw data for enrichers (lineups, coaches, weather, xG)
+                _raw_fixture: {
+                    lineups: fixtureData.lineups || [],
+                    coaches: fixtureData.coaches || [],
+                    formations: fixtureData.formations || [],
+                    weatherReport: fixtureData.weatherReport || null,
+                    referees: fixtureData.referees || [],
+                    xGFixture: fixtureData.xGFixture || null,
+                    events: fixtureData.events || [],
+                    sidelined: fixtureData.sidelined || []
                 }
             },
             // V8: Structured datasets by venue

@@ -7,6 +7,17 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import JSON5 from "https://esm.sh/json5@2.2.3"
 import { corsHeaders } from '../_shared/cors.ts'
 import { callLLM, calcGroqDelay } from '../_shared/llm-client.ts'
+import { runMathModels } from '../_shared/math-models/index.ts'
+import { runDebate } from '../_shared/agents/orchestrator.ts'
+import type { MatchContext } from '../_shared/agents/types.ts'
+import {
+  normalizeLineups,
+  normalizeCoaches,
+  normalizeWeather,
+  computeTeamXGRolling,
+  computeKeyPlayerImpact,
+  computeFatigueIndex,
+} from '../_shared/sportmonks-enrichers.ts'
 
 // ENGINE_VERSION is declared inside serve() handler (line ~425) — single source of truth
 
@@ -722,7 +733,8 @@ serve(async (req) => {
 
     const startTime = Date.now();
     const GEMINI_MODEL = 'gemini-3.1-pro-preview';
-    const ENGINE_VERSION = 'V8.2-STRATEGIC';
+    const ENGINE_VERSION = Deno.env.get('USE_V9_ENGINE') === 'true' ? 'V9-HYBRID' : 'V8.2-STRATEGIC';
+    const USE_V9 = Deno.env.get('USE_V9_ENGINE') === 'true';
     let _jobId: string | null = null; // For error handler access
 
     try {
@@ -952,7 +964,190 @@ serve(async (req) => {
         let analysisResult: any;
         let tokensUsed = 0;
 
-        if (USE_STAGED) {
+        // ═══════════════════════════════════════════════════════════════
+        // V9 HYBRID ENGINE — Math Models + Multi-Agent Debate
+        // Activado via env var USE_V9_ENGINE=true
+        // ═══════════════════════════════════════════════════════════════
+        if (USE_V9) {
+            console.log('[V9-HYBRID] Running V9 engine: math models + multi-agent debate...');
+
+            // Step 1: Run mathematical models (Dixon-Coles + Elo + Monte Carlo)
+            const homeHistoryRaw = homeData.as_home || [];
+            const awayHistoryRaw = awayData.as_away || [];
+            const combinedHomeHistory = [...homeHistoryRaw, ...(homeData.as_away || [])];
+            const combinedAwayHistory = [...awayHistoryRaw, ...(awayData.as_home || [])];
+
+            // Build odds dict for value detection
+            const oddsDict: Record<string, number> = {};
+            const organizedOdds = payload.odds || {};
+            for (const section of ['MAIN', 'GOALS', 'TEAMS']) {
+                const items = organizedOdds[section] || [];
+                for (const o of items) {
+                    if (o.canon && typeof o.val === 'number') {
+                        const key = o.canon.replace('1x2_', '').replace('ou_', '').replace('_', '_');
+                        if (o.canon.includes('1x2_home_win')) oddsDict.home_win = o.val;
+                        else if (o.canon.includes('1x2_away_win')) oddsDict.away_win = o.val;
+                        else if (o.canon.includes('1x2_draw')) oddsDict.draw = o.val;
+                        else if (o.canon.includes('2.5_over')) oddsDict.over_25 = o.val;
+                        else if (o.canon.includes('2.5_under')) oddsDict.under_25 = o.val;
+                        else if (o.canon.includes('btts_yes')) oddsDict.btts_yes = o.val;
+                        else if (o.canon.includes('btts_no')) oddsDict.btts_no = o.val;
+                    }
+                }
+            }
+
+            const mathResult = runMathModels({
+                homeTeamId: payload.match?.teams?.home?.id || 0,
+                homeTeamName: homeTeam,
+                awayTeamId: payload.match?.teams?.away?.id || 0,
+                awayTeamName: awayTeam,
+                homeHistory: combinedHomeHistory,
+                awayHistory: combinedAwayHistory,
+                marketOdds: oddsDict,
+            });
+
+            console.log(`[V9-HYBRID] Math models: λ_h=${mathResult.dixon_coles.lambdaHome}, λ_a=${mathResult.dixon_coles.lambdaAway}, Elo ${mathResult.elo.homeElo}/${mathResult.elo.awayElo}, ${mathResult.value_opportunities.length} value ops`);
+
+            // Step 2: Enrich context (lineups, coaches, weather, xG, fatigue, key players)
+            const rawFixture = (payload.match?._raw_fixture) || payload.match || {};
+            const homeTeamId = payload.match?.teams?.home?.id || 0;
+            const awayTeamId = payload.match?.teams?.away?.id || 0;
+
+            const lineupsNorm = normalizeLineups(rawFixture, homeTeamId, awayTeamId);
+            const coachesNorm = normalizeCoaches(rawFixture, homeTeamId, awayTeamId);
+            const weatherNorm = normalizeWeather(rawFixture);
+            const homeXG = computeTeamXGRolling(combinedHomeHistory, homeTeamId, 10);
+            const awayXG = computeTeamXGRolling(combinedAwayHistory, awayTeamId, 10);
+            const homeKeyPlayers = computeKeyPlayerImpact(homeTeamId, combinedHomeHistory, homeData.injuries || [], lineupsNorm.home);
+            const awayKeyPlayers = computeKeyPlayerImpact(awayTeamId, combinedAwayHistory, awayData.injuries || [], lineupsNorm.away);
+            const matchDateIso = payload.match?.date_time_utc || new Date().toISOString();
+            const homeFatigue = computeFatigueIndex(combinedHomeHistory, matchDateIso);
+            const awayFatigue = computeFatigueIndex(combinedAwayHistory, matchDateIso);
+
+            // Step 3: Build MatchContext for the agents
+            const matchContext: MatchContext = {
+                homeTeam,
+                awayTeam,
+                league: leagueName,
+                date: matchDateIso.split('T')[0],
+                math: mathResult,
+                homeHistory: deepHome,
+                awayHistory: deepAway,
+                h2h: h2hText,
+                odds: oddsText,
+                lineups: lineupsNorm.home.has_confirmed_lineup || lineupsNorm.away.has_confirmed_lineup ? {
+                    home: {
+                        formation: lineupsNorm.home.formation,
+                        starters: lineupsNorm.home.starters.map((s) => s.player_name),
+                        missing: homeKeyPlayers.missing_key_players.map((m) => `${m.name} (${m.role})`),
+                    },
+                    away: {
+                        formation: lineupsNorm.away.formation,
+                        starters: lineupsNorm.away.starters.map((s) => s.player_name),
+                        missing: awayKeyPlayers.missing_key_players.map((m) => `${m.name} (${m.role})`),
+                    },
+                } : undefined,
+                weather: weatherNorm ? {
+                    description: weatherNorm.description || 'Normal',
+                    impact: [
+                        weatherNorm.impact_factors.rain_heavy && 'Lluvia fuerte (-0.3 goles esperados)',
+                        weatherNorm.impact_factors.wind_strong && 'Viento fuerte (+15% corners)',
+                        weatherNorm.impact_factors.temp_extreme && 'Temperatura extrema (-0.15 goles)',
+                        weatherNorm.impact_factors.altitude_high && 'Altitud alta (+0.4 ventaja local)',
+                    ].filter(Boolean).join(' | ') || 'Sin impacto relevante',
+                } : null,
+                coaches: (coachesNorm.home || coachesNorm.away) ? {
+                    home: { name: coachesNorm.home?.name || 'Unknown', is_new: coachesNorm.home?.is_new_coach || false },
+                    away: { name: coachesNorm.away?.name || 'Unknown', is_new: coachesNorm.away?.is_new_coach || false },
+                } : undefined,
+                xg: (homeXG.sample_size > 0 || awayXG.sample_size > 0) ? {
+                    home: { for: homeXG.xg_for_avg, against: homeXG.xga_avg, overperf: homeXG.xg_overperformance },
+                    away: { for: awayXG.xg_for_avg, against: awayXG.xga_avg, overperf: awayXG.xg_overperformance },
+                } : undefined,
+                fatigue: { home: homeFatigue.fatigue_score, away: awayFatigue.fatigue_score },
+                key_players: {
+                    home_missing: homeKeyPlayers.missing_key_players.map((m) => `${m.name} — ${m.role} (${m.reason})`),
+                    away_missing: awayKeyPlayers.missing_key_players.map((m) => `${m.name} — ${m.role} (${m.reason})`),
+                },
+                external_context: typeof payload.external_context === 'string'
+                    ? payload.external_context
+                    : payload.external_context?.raw_text,
+            };
+
+            // Step 4: Run debate
+            const debate = await runDebate(matchContext);
+            tokensUsed = debate.total_tokens;
+
+            console.log(`[V9-HYBRID] Debate complete: ${debate.agents.length} agents, ${debate.consensus.strong_picks.length} strong picks, ${debate.final_verdict.picks.length} final picks, verdict=${debate.final_verdict.veredicto}`);
+
+            // Step 5: Assemble final analysisResult (compatible with existing save/normalize pipeline)
+            // @ts-expect-error _judgeOutput exposed from orchestrator
+            const judgeOutput = debate._judgeOutput;
+
+            analysisResult = {
+                meta: { modelo: 'v9-multi-provider', version: ENGINE_VERSION, engine: 'V9-HYBRID' },
+                resumen_ejecutivo: judgeOutput?.resumen_ejecutivo || {
+                    titular: debate.final_verdict.summary,
+                    veredicto: debate.final_verdict.veredicto,
+                    confianza_global: debate.final_verdict.overall_confidence >= 82 ? 'ALTA' :
+                                      debate.final_verdict.overall_confidence >= 70 ? 'MEDIA' : 'BAJA',
+                    picks_principales: debate.final_verdict.picks.slice(0, 2).map((p: any) => `${p.mercado}: ${p.seleccion}`),
+                },
+                scores_duales: judgeOutput?.scores_duales || {
+                    score_estadistico: Math.round(mathResult.ensemble_probabilities.home_win * 100),
+                    score_inteligencia_partido: debate.final_verdict.overall_confidence,
+                    confianza_final_calculada: debate.final_verdict.overall_confidence,
+                    justificacion_balance: `Modelos matemáticos + ${debate.agents.filter(a => !a.error).length}/${debate.agents.length} agentes`,
+                },
+                analisis_profundo: judgeOutput?.analisis_profundo || {
+                    razonamiento_central: debate.final_verdict.summary,
+                    matchup_tactico: 'Ver análisis de agente táctico',
+                    factor_psicologico: 'Ver análisis de agente contextual',
+                    contexto_competitivo: 'Ver análisis de agente contextual',
+                },
+                pronosticos: debate.final_verdict.picks,
+                patrones_detectados: {
+                    goles_por_tiempo: { insight: 'Detectado por agentes' },
+                    disciplina: { insight: 'Detectado por agentes' },
+                },
+                factores_riesgo: judgeOutput?.factores_riesgo || {
+                    riesgo_principal: 'Evaluado por Abogado del Diablo',
+                    nivel_incertidumbre: debate.final_verdict.overall_confidence >= 80 ? 'BAJO' :
+                                          debate.final_verdict.overall_confidence >= 65 ? 'MEDIO' : 'ALTO',
+                },
+                datos_modelo: {
+                    goles_esperados_partido: mathResult.dixon_coles.expected_total_goals,
+                    corners_esperados: 9,
+                    probabilidad_btts_porcentaje: Math.round(mathResult.ensemble_probabilities.btts_yes * 100),
+                    lambda_home: mathResult.dixon_coles.lambdaHome,
+                    lambda_away: mathResult.dixon_coles.lambdaAway,
+                    elo_home: mathResult.elo.homeElo,
+                    elo_away: mathResult.elo.awayElo,
+                    model_consistency: mathResult.diagnostics.model_consistency,
+                },
+                mercados_evaluados: judgeOutput?.mercados_evaluados || {
+                    con_valor_detectado: mathResult.value_opportunities.filter((v) => v.recommendation !== 'AVOID' && v.recommendation !== 'NEUTRAL').length,
+                    total_analizados: mathResult.value_opportunities.length,
+                },
+                escenarios_proyectados: {
+                    escenario_base: `Resultado más probable: ${mathResult.monte_carlo.stats.median_scoreline}`,
+                    escenario_optimista: 'Ver agentes',
+                    escenario_alternativo: 'Ver agentes',
+                },
+                v9_debate: {
+                    agents_used: debate.agents.map((a) => ({
+                        name: a.agent_name,
+                        confidence: a.confidence_overall,
+                        provider: a.provider_used,
+                        failed: !!a.error,
+                    })),
+                    consensus: debate.consensus,
+                    total_time_ms: debate.total_time_ms,
+                },
+            };
+
+            console.log(`[V9-HYBRID] Analysis assembled. Picks: ${analysisResult.pronosticos?.length || 0}, verdict: ${analysisResult.resumen_ejecutivo.veredicto}`);
+        } else if (USE_STAGED) {
         // ═══ CAPA 1 + 2 EN PARALELO ═══
         console.log(`[V3-AI-ANALYZER] Starting staged analysis (4 layers)...`);
 
