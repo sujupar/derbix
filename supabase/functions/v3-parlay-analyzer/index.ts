@@ -83,12 +83,19 @@ serve(async (req) => {
     const startTime = Date.now();
     const GEMINI_MODEL = 'gemini-3.1-pro-preview';
 
+    // V9 FIX: parse body ONCE at top level so catch can access job_id without req.clone()
+    let parsedBody: any = null;
+    try { parsedBody = await req.json(); } catch { /* ignore */ }
+
+    let job_id: string | undefined = parsedBody?.job_id;
+    let fixture_id: number | undefined = parsedBody?.fixture_id;
+    let payload: any = parsedBody?.payload;
+
     try {
         const sbUrl = Deno.env.get('SUPABASE_URL')!;
         const sbKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(sbUrl, sbKey);
 
-        let { job_id, fixture_id, payload } = await req.json();
         if (!job_id || !fixture_id) {
             throw new Error('job_id and fixture_id are required');
         }
@@ -100,7 +107,7 @@ serve(async (req) => {
                 .from('analysis_jobs_v2')
                 .select('etl_context, fixture_id')
                 .eq('id', job_id)
-                .single();
+                .maybeSingle();
             if (jobErr || !jobData?.etl_context) {
                 throw new Error(`Cannot read etl_context for job ${job_id}: ${jobErr?.message || 'no data'}`);
             }
@@ -319,18 +326,19 @@ PARTIDO: ${homeTeam} (LOCAL) vs ${awayTeam} (VISITANTE)
 COMPETICIÓN: ${leagueName}
 ${standingsText}
 
->>> HISTORIAL ${homeTeam} (Equipo LOCAL):
-${deepHome}
+>>> HISTORIAL ${homeTeam} (Equipo LOCAL) — resumen:
+${deepHome.substring(0, 3500)}
 
->>> HISTORIAL ${awayTeam} (Equipo VISITANTE):
-${deepAway}
+>>> HISTORIAL ${awayTeam} (Equipo VISITANTE) — resumen:
+${deepAway.substring(0, 3500)}
 
->>> ENFRENTAMIENTOS DIRECTOS (H2H):
-${h2hText}
+>>> H2H:
+${h2hText.substring(0, 1000)}
 
 >>> CUOTAS DE MERCADO:
-${oddsText}
-${externalContextText}
+${oddsText.substring(0, 2500)}
+
+${(externalContextText || '').substring(0, 1200)}
 
 ════════════════════════════════════════════════════════════════════════════════
 FORMATO DE SALIDA (JSON ESTRICTO)
@@ -372,10 +380,11 @@ REGLAS FINALES:
         // ═══════════════════════════════════════════════════════════════
         // CALL LLM (multi-provider with automatic fallback)
         // ═══════════════════════════════════════════════════════════════
+        console.log(`[PARLAY-ANALYZER] Prompt size: ${prompt.length} chars (~${Math.ceil(prompt.length/4)} tokens)`);
         const llmResult = await callLLM(prompt, {
             temperature: 0.5,
             jsonMode: true,
-            maxTokens: 4096,
+            maxTokens: 2500,   // V9 FIX: reduced from 4096 to fit Groq TPM
             timeoutMs: 90000,
         });
 
@@ -488,15 +497,27 @@ REGLAS FINALES:
         if (pickErr) console.error('[PARLAY-ANALYZER] Error saving picks:', pickErr);
         else console.log(`[PARLAY-ANALYZER] Saved ${picksPayload.length} picks for fixture ${finalFixtureId}`);
 
-        // Clean old parlay jobs for same fixture (keep only current)
-        const idsToClean = [finalFixtureId];
-        if (fixture_id !== finalFixtureId) idsToClean.push(fixture_id);
-        for (const fid of idsToClean) {
-            await supabase.from('analysis_jobs_v2')
-                .delete()
-                .eq('fixture_id', fid)
-                .eq('analysis_type', 'parlay')
-                .neq('id', job_id);
+        // Clean OLD parlay jobs for same fixture (keep current).
+        // V9 FIX: filter by created_at < current to avoid deleting concurrent fresh jobs.
+        const { data: curJob } = await supabase
+            .from('analysis_jobs_v2')
+            .select('created_at')
+            .eq('id', job_id)
+            .maybeSingle();
+
+        if (curJob?.created_at) {
+            const idsToClean = [finalFixtureId];
+            if (fixture_id !== finalFixtureId) idsToClean.push(fixture_id);
+            for (const fid of idsToClean) {
+                await supabase.from('analysis_jobs_v2')
+                    .delete()
+                    .eq('fixture_id', fid)
+                    .eq('analysis_type', 'parlay')
+                    .neq('id', job_id)
+                    .lt('created_at', curJob.created_at);
+            }
+        } else {
+            console.warn('[PARLAY-ANALYZER] Cannot determine current job created_at. Skipping cleanup.');
         }
 
         // Update job to done
@@ -518,24 +539,26 @@ REGLAS FINALES:
 
     } catch (e: any) {
         const errorMsg = e.name === 'AbortError'
-            ? 'Gemini timeout (90s) - el modelo no respondió a tiempo'
+            ? 'LLM timeout (90s) - el modelo no respondió a tiempo'
             : e.message?.substring(0, 500) || 'Error desconocido';
         console.error(`[PARLAY-ANALYZER] Fatal error: ${errorMsg}`);
 
-        // Try to mark job as failed
-        try {
-            const { job_id } = await req.clone().json();
-            if (job_id) {
+        // V9 FIX: use job_id from the top-level parse (no req.clone() — already consumed).
+        if (job_id) {
+            try {
                 const sbUrl = Deno.env.get('SUPABASE_URL')!;
                 const sbKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
                 const supabase = createClient(sbUrl, sbKey);
                 await supabase.from('analysis_jobs_v2')
                     .update({ status: 'failed', error_message: errorMsg, execution_time_ms: Date.now() - startTime })
                     .eq('id', job_id);
+                console.log(`[PARLAY-ANALYZER] Marked job ${job_id} as failed`);
+            } catch (dbErr: any) {
+                console.error(`[PARLAY-ANALYZER] Could not mark job failed: ${dbErr.message}`);
             }
-        } catch (_) { /* ignore */ }
+        }
 
-        return new Response(JSON.stringify({ success: false, error: e.message }), {
+        return new Response(JSON.stringify({ success: false, error: errorMsg }), {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
