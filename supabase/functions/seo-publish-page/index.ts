@@ -103,31 +103,45 @@ serve(async (req) => {
 
     console.log(`[SEO-PUBLISH-PAGE] Path: ${fullPath}`);
 
-    // 4. Upsert into seo_pages
+    // 4a. Check if the page already exists — preserve article_status if already 'ready'
+    const { data: existingPage } = await supabase
+      .from("seo_pages")
+      .select("article_status, article_html")
+      .eq("full_path", fullPath)
+      .maybeSingle();
+
+    const shouldInitArticleState =
+      !existingPage || (existingPage.article_status == null && existingPage.article_html == null);
+
+    const upsertPayload: Record<string, unknown> = {
+      fixture_id,
+      league_slug: leagueSlug,
+      match_slug: matchSlug,
+      home_team_slug: homeTeamSlug,
+      away_team_slug: awayTeamSlug,
+      full_path: fullPath,
+      home_team: homeTeam,
+      away_team: awayTeam,
+      league_name: match.league_name || "Fútbol",
+      match_date: matchDate,
+      match_time: match.match_time || null,
+      home_logo: match.home_team_logo || null,
+      away_logo: match.away_team_logo || null,
+      meta_title: metaTitle,
+      meta_description: metaDescription,
+      has_analysis: true,
+      published_at: new Date().toISOString(),
+    };
+
+    if (shouldInitArticleState) {
+      upsertPayload.article_status = "pending";
+      upsertPayload.article_attempts = 0;
+    }
+
+    // 4b. Upsert into seo_pages
     const { error: upsertErr } = await supabase
       .from("seo_pages")
-      .upsert(
-        {
-          fixture_id,
-          league_slug: leagueSlug,
-          match_slug: matchSlug,
-          home_team_slug: homeTeamSlug,
-          away_team_slug: awayTeamSlug,
-          full_path: fullPath,
-          home_team: homeTeam,
-          away_team: awayTeam,
-          league_name: match.league_name || "Fútbol",
-          match_date: matchDate,
-          match_time: match.match_time || null,
-          home_logo: match.home_team_logo || null,
-          away_logo: match.away_team_logo || null,
-          meta_title: metaTitle,
-          meta_description: metaDescription,
-          has_analysis: true,
-          published_at: new Date().toISOString(),
-        },
-        { onConflict: "full_path" }
-      );
+      .upsert(upsertPayload, { onConflict: "full_path" });
 
     if (upsertErr) {
       console.error(`[SEO-PUBLISH-PAGE] Upsert failed:`, upsertErr);
@@ -137,7 +151,13 @@ serve(async (req) => {
       );
     }
 
-    // 5. Generate editorial article via Gemini (awaited, non-critical)
+    // 5. Generate editorial article (state-tracked, non-critical)
+    const attemptNum = (existingPage?.article_attempts ?? 0) + 1;
+    await supabase
+      .from("seo_pages")
+      .update({ article_status: "generating", article_attempts: attemptNum })
+      .eq("fixture_id", fixture_id);
+
     try {
       const articleUrl = `${supabaseUrl}/functions/v1/seo-generate-article`;
       const articleRes = await fetch(articleUrl, {
@@ -148,14 +168,37 @@ serve(async (req) => {
         },
         body: JSON.stringify({ fixture_id }),
       });
+
       if (articleRes.ok) {
         const artData = await articleRes.json();
         console.log(`[SEO-PUBLISH-PAGE] Article generated (${artData.article_length} chars)`);
+        await supabase
+          .from("seo_pages")
+          .update({ article_status: "ready", article_last_error: null, article_next_retry_at: null })
+          .eq("fixture_id", fixture_id);
       } else {
+        const errText = (await articleRes.text().catch(() => `HTTP ${articleRes.status}`)).slice(0, 500);
         console.warn(`[SEO-PUBLISH-PAGE] Article generation failed: ${articleRes.status}`);
+        await supabase
+          .from("seo_pages")
+          .update({
+            article_status: "failed",
+            article_last_error: errText,
+            article_next_retry_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+          })
+          .eq("fixture_id", fixture_id);
       }
     } catch (artErr) {
-      console.warn("[SEO-PUBLISH-PAGE] Article generation failed (non-critical):", artErr);
+      const msg = artErr instanceof Error ? artErr.message : String(artErr);
+      console.warn("[SEO-PUBLISH-PAGE] Article generation failed (non-critical):", msg);
+      await supabase
+        .from("seo_pages")
+        .update({
+          article_status: "failed",
+          article_last_error: msg.slice(0, 500),
+          article_next_retry_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        })
+        .eq("fixture_id", fixture_id);
     }
 
     // 6. Ping Google Indexing API (non-blocking, best-effort)
