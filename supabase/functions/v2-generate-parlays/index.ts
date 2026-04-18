@@ -606,6 +606,9 @@ serve(async (req) => {
                     selection: p.selection,
                     p_model: p.p_model, // already 0-1
                     odds: p.odds || null,
+                    // These picks reached here via the odds validation in Sources A/B/C,
+                    // so their odds are already filtered to real (1.01–15.0, cuota_actual only).
+                    odds_source: p.odds ? 'real' : 'unavailable',
                     decision: 'BET',
                     confidence: 8,
                     engine_version: 'V8-SYNC',

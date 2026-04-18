@@ -39,3 +39,19 @@ CREATE INDEX IF NOT EXISTS idx_seo_pages_article_retry
 UPDATE seo_pages
 SET article_status = 'ready'
 WHERE article_html IS NOT NULL AND article_status = 'pending';
+
+-- Trigger para mantener updated_at al día en cada UPDATE — necesario para detectar
+-- artículos atascados en estado 'generating' en seo-retry-pending-articles.
+CREATE OR REPLACE FUNCTION public.seo_pages_touch_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_seo_pages_touch_updated_at ON public.seo_pages;
+CREATE TRIGGER trg_seo_pages_touch_updated_at
+  BEFORE UPDATE ON public.seo_pages
+  FOR EACH ROW
+  EXECUTE FUNCTION public.seo_pages_touch_updated_at();

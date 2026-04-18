@@ -106,7 +106,7 @@ serve(async (req) => {
     // 4a. Check if the page already exists — preserve article_status if already 'ready'
     const { data: existingPage } = await supabase
       .from("seo_pages")
-      .select("article_status, article_html")
+      .select("article_status, article_html, article_attempts")
       .eq("full_path", fullPath)
       .maybeSingle();
 

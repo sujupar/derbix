@@ -13,6 +13,17 @@ serve(async (req) => {
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
+  // Stale threshold: articles stuck in "generating" for more than 10 minutes are treated
+  // as failures (the worker probably died mid-generation).
+  const staleThreshold = new Date(Date.now() - 10 * 60_000).toISOString();
+
+  // First pass: recycle articles stuck in "generating" by flipping them back to "failed".
+  await supabase
+    .from("seo_pages")
+    .update({ article_status: "failed", article_last_error: "stuck in generating" })
+    .eq("article_status", "generating")
+    .lt("updated_at", staleThreshold);
+
   const { data: pending, error } = await supabase
     .from("seo_pages")
     .select("fixture_id, article_status, article_attempts, article_next_retry_at")

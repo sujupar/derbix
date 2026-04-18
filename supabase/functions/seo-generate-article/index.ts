@@ -72,12 +72,16 @@ serve(async (req) => {
       );
     }
 
-    // 6. Store in seo_pages
+    // 6. Store in seo_pages — also flip status to 'ready' so the function is
+    // idempotent when invoked directly (not only from seo-publish-page or seo-retry).
     const { error: updateErr } = await supabase
       .from("seo_pages")
       .update({
         article_html: articleHtml,
         article_generated_at: new Date().toISOString(),
+        article_status: "ready",
+        article_last_error: null,
+        article_next_retry_at: null,
       })
       .eq("fixture_id", fixture_id);
 

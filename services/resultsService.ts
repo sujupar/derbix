@@ -812,13 +812,14 @@ export async function getAdvancedAnalytics(filters: AdvancedAnalyticsFilters): P
         return emptyAnalytics(filters.startingBankroll);
     }
 
-    // Step 2: Get verified picks (Oportunidades: p_model >= 0.83, odds >= 1.40)
+    // Step 2: Get verified picks (Oportunidades: p_model >= 0.83, odds >= 1.40, odds_source real/legacy)
     let query = supabase
         .from('value_picks_v2')
         .select('id, fixture_id, market, selection, p_model, odds, result, verified_at, actual_score, created_at')
         .in('fixture_id', fixtureIds)
         .gte('p_model', 0.83)
         .or('odds.gte.1.40,odds.is.null')
+        .or('odds_source.eq.real,odds_source.is.null')
         .in('result', ['WON', 'LOST', 'VOID'])
         .order('verified_at', { ascending: true });
 
@@ -836,6 +837,7 @@ export async function getAdvancedAnalytics(filters: AdvancedAnalyticsFilters): P
         .in('fixture_id', fixtureIds)
         .gte('p_model', 0.83)
         .or('odds.gte.1.40,odds.is.null')
+        .or('odds_source.eq.real,odds_source.is.null')
         .eq('result', 'PENDING');
 
     const verified = verifiedPicks || [];
