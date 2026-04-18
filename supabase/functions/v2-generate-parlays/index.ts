@@ -129,7 +129,7 @@ serve(async (req) => {
         // 2B: Get value_picks directly by fixture_id
         const { data: valuePicks, error: vpError } = await supabase
             .from('value_picks_v2')
-            .select('job_id, fixture_id, market, selection, p_model, odds, decision, confidence, result, verified_at, actual_score')
+            .select('job_id, fixture_id, market, selection, p_model, odds, odds_source, decision, confidence, result, verified_at, actual_score')
             .in('fixture_id', fixtureIds)
             .gte('p_model', 0.50);
 
@@ -287,10 +287,23 @@ serve(async (req) => {
                     // Auto-detect decimal format (0.85 → 85)
                     if (prob > 0 && prob < 1) prob = prob * 100;
 
-                    // Extract odds from any possible field name
-                    const rawOdds = p.cuota_actual || p.cuota || p.odds || p.odd || p.price || null;
-                    const odds = rawOdds ? (typeof rawOdds === 'string' ? parseFloat(rawOdds) : rawOdds) : null;
-                    const validOdds = odds && !isNaN(odds) && odds > 1.0 ? odds : null;
+                    // Only cuota_actual is trusted — other fields were inventable slots.
+                    const rawOdds = p.cuota_actual ?? null;
+                    const odds = rawOdds !== null
+                        ? (typeof rawOdds === 'string' ? parseFloat(rawOdds) : rawOdds)
+                        : null;
+                    // Range: 1.01 (min mathematical) to 15.0 (above = inventado for common markets).
+                    const MIN_ODDS = 1.01;
+                    const MAX_ODDS = 15.0;
+                    const validOdds = odds !== null && !isNaN(odds) && odds >= MIN_ODDS && odds <= MAX_ODDS
+                        ? odds
+                        : null;
+
+                    // Discard pick if no real odds (gets reported in logs for audit).
+                    if (validOdds === null) {
+                        log(`[OPP-V8.1]   Pick[${idx}] DISCARDED (no real odds): ${p.mercado} | ${p.seleccion}`);
+                        return; // exits the current forEach callback
+                    }
 
                     // Log every pick for debugging
                     if (idx < 5) {
@@ -351,7 +364,17 @@ serve(async (req) => {
                 const dailyMatch = dailyByFixture.get(vp.fixture_id);
                 if (!dailyMatch) continue;
 
-                const validOdds = vp.odds && vp.odds > 1.0 ? vp.odds : null;
+                const MIN_ODDS = 1.01;
+                const MAX_ODDS = 15.0;
+                // Two conditions: reasonable range + odds_source='real' (traceability).
+                // If odds_source is null (pre-migration pick), accept by range (safety net).
+                const inRange = vp.odds && vp.odds >= MIN_ODDS && vp.odds <= MAX_ODDS;
+                const isRealOrLegacy = vp.odds_source === 'real' || vp.odds_source == null;
+                const validOdds = inRange && isRealOrLegacy ? vp.odds : null;
+                if (validOdds === null) {
+                    log(`[OPP-V8.1] ValuePick DISCARDED (odds=${vp.odds}, source=${vp.odds_source}): ${vp.market} | ${vp.selection}`);
+                    continue;
+                }
 
                 highProbPicks.push({
                     id: `vp_${vp.job_id}_${vp.market}_${vp.selection}`,
