@@ -64,7 +64,7 @@ serve(async (req) => {
     // 5. Call LLM (multi-provider)
     const articleHtml = await generateArticle(prompt);
 
-    if (!articleHtml || articleHtml.length < 500) {
+    if (!articleHtml || articleHtml.length < 3000) {
       console.error(`[SEO-GENERATE-ARTICLE] Article too short (${articleHtml?.length || 0} chars)`);
       return new Response(
         JSON.stringify({ success: false, error: "Article generation failed - too short" }),
@@ -265,19 +265,16 @@ INSTRUCCIONES PARA EL ARTICULO:
    - <table class="stats-table"><thead><tr><th>...</th></tr></thead><tbody><tr><td>...</td></tr></tbody></table> para datos numericos
 
 2. SECCIONES OBLIGATORIAS (en este orden):
-   a) APERTURA GANCHO (1 parrafo potente que enganche al lector, sin titulo h2)
-   b) "El Contexto: Lo Que Se Juegan" — situacion en la tabla, momento de temporada, importancia del partido
-   c) "Cara a Cara: El Duelo Tactico" — formaciones, estilo de juego, matchups clave, como se neutralizan
-   d) "Los Numeros No Mienten" — tabla con estadisticas clave (goles esperados, corners, BTTS%, forma reciente, rendimiento local/visitante)
-   e) "El Factor Mental" — presion, confianza, rachas, efecto del resultado anterior
-   f) "Lesiones, Bajas y Noticias" — ausencias confirmadas, cambios forzados, contexto externo
-   g) "Los Tres Escenarios" — base, optimista, alternativo, escritos narrativamente
-   h) "Factores de Riesgo" — que podria romper el pronostico, variables impredecibles
-   i) "El Veredicto" — parrafo de cierre que resume TODO sin revelar la prediccion exacta. Termina con algo como "Para conocer nuestra prediccion exacta con probabilidades calculadas, registrate gratis en Derbix."
+   a) APERTURA GANCHO (1 parrafo potente, sin titulo h2)
+   b) "El Contexto: Lo Que Se Juegan" — situacion en la tabla, momento de temporada
+   c) "Cara a Cara: El Duelo Tactico" — formaciones, estilo, matchups clave
+   d) "Los Numeros No Mienten" — tabla HTML con estadisticas clave
+   e) "Factores de Riesgo" — ausencias, variables impredecibles
+   f) "El Veredicto" — parrafo de cierre que resume sin revelar la prediccion. Termina con "Para conocer nuestra prediccion exacta, registrate gratis en Derbix."
 
 3. TONO Y ESTILO:
    - Tercera persona, periodismo neutral pero con personalidad
-   - MINIMO 1500 palabras, MAXIMO 2500 palabras
+   - MINIMO 1000 palabras, MAXIMO 1500 palabras
    - Cada parrafo debe tener minimo 3 oraciones
    - Usa datos especificos del analisis (porcentajes, goles, rachas) tejidos en la narrativa
    - NO uses listas de bullets excepto donde el formato lo requiera (estadisticas)
@@ -306,20 +303,19 @@ Escribe SOLO el HTML del articulo. Nada mas.`;
 async function generateArticle(prompt: string): Promise<string> {
   const result = await callLLM(prompt, {
     temperature: 0.7,
-    maxTokens: 8192,
-    timeoutMs: 90000,
+    maxTokens: 4000, // Groq free tier: 8000 TPM total (input+output). 4000 leaves room for prompt.
+    timeoutMs: 60000, // 60s fits comfortably within Supabase's 150s Edge Function limit.
   });
 
   console.log(`[SEO-GENERATE-ARTICLE] LLM provider: ${result.provider}`);
 
-  // Clean up: remove markdown code fences if LLM wraps in ```html
   let html = result.text
     .replace(/^```html\s*/i, "")
     .replace(/^```\s*/i, "")
     .replace(/\s*```$/i, "")
     .trim();
 
-  if (html.length < 500) {
+  if (html.length < 3000) {
     throw new Error(`Article too short (${html.length} chars) from ${result.provider}`);
   }
 
