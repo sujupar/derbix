@@ -653,22 +653,25 @@ const SinglePickCard: React.FC<{
 
 // Mini component: link to SEO page (admin only)
 const SeoPageLink: React.FC<{ fixtureId: number }> = ({ fixtureId }) => {
-    const [path, setPath] = useState<string | null>(null);
+    const [page, setPage] = useState<{ path: string; status: string | null } | null>(null);
     useEffect(() => {
-        supabase.from('seo_pages').select('full_path').eq('fixture_id', fixtureId).single()
-            .then(({ data }) => { if (data?.full_path) setPath(data.full_path); });
+        supabase.from('seo_pages').select('full_path, article_status').eq('fixture_id', fixtureId).single()
+            .then(({ data }) => {
+                if (data?.full_path) setPage({ path: data.full_path, status: data.article_status ?? null });
+            });
     }, [fixtureId]);
-    if (!path) return null;
+    if (!page) return null;
+    const label = page.status === 'ready' || page.status === null ? 'Ver Página SEO' : 'Vista previa';
     return (
         <a
-            href={`https://derbix.co${path}`}
+            href={`https://derbix.co${page.path}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
             className="w-full py-1.5 flex items-center justify-center gap-1.5 text-[10px] font-medium text-blue-400/70 hover:text-blue-300 border border-blue-500/10 rounded-lg hover:border-blue-500/30 transition-all"
         >
             <ArrowTopRightOnSquareIcon className="w-3 h-3" />
-            Ver Página SEO
+            {label}
         </a>
     );
 };
