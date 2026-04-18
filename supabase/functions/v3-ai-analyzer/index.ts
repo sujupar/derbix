@@ -2204,9 +2204,10 @@ ${strategicInsightsBlock}
                     || 50;
                 const edge = p.edge_porcentaje || p.edge || p.valor || 0;
 
-                // ROBUST ODDS EXTRACTION
-                const rawOdds = p.cuota_actual || p.cuota || p.odds || p.odd || p.price || null;
-                const odds = rawOdds ? (typeof rawOdds === 'string' ? parseFloat(rawOdds) : rawOdds) : null;
+                // STRICT: only cuota_actual. Other fields (cuota/odds/odd/price) were
+                // fallback slots for the old "invent your own odds" flow — now removed.
+                const rawOdds = p.cuota_actual ?? null;
+                const odds = rawOdds !== null ? (typeof rawOdds === 'string' ? parseFloat(rawOdds) : rawOdds) : null;
 
                 return {
                     ...p,
