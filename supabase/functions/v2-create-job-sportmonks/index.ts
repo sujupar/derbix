@@ -12,7 +12,8 @@ import {
     getH2H,
     getStandings,
     getPredictions,
-    getValueBets
+    getValueBets,
+    getOdds
 } from '../_shared/sportmonks-client.ts'
 import { organizeOddsForAI, normalizeDetailedMatchHistory, normalizeSimpleForm } from '../_shared/sportmonks-normalizer.ts'
 
@@ -164,7 +165,8 @@ serve(async (req) => {
             standings,
             predictions,
             valueBets,
-            perplexityResult
+            perplexityResult,
+            oddsRaw
         ] = await Promise.all([
             getTeamFixtures(homeTeamId, 25, deepIncludes), // 25 matches (enough for 10 home + 10 away)
             getTeamFixtures(awayTeamId, 25, deepIncludes), // 25 matches
@@ -172,7 +174,11 @@ serve(async (req) => {
             seasonId ? getStandings(seasonId) : Promise.resolve([]),
             getPredictions(fixture_id),
             getValueBets(fixture_id),
-            perplexityPromise
+            perplexityPromise,
+            getOdds(fixture_id).catch((e) => {
+                console.warn(`[v2-create-job-sportmonks] Odds fetch failed: ${e.message}`);
+                return [];
+            })
         ]);
 
         console.log(`[v2-create-job-sportmonks] Data fetched:`);
@@ -183,6 +189,7 @@ serve(async (req) => {
         console.log(`  - Predictions: ${predictions ? 'YES' : 'NO'}`);
         console.log(`  - Value Bets: ${valueBets.length} bets`);
         console.log(`  - Perplexity context: ${perplexityResult?.success ? 'YES' : 'NO/SKIPPED'}`);
+        console.log(`  - Odds markets: ${oddsRaw?.length || 0}`);
 
         // ═══════════════════════════════════════════════════════════════
         // STAGE 3: BUILD NORMALIZED PAYLOAD (V8 STRUCTURED)
@@ -265,7 +272,7 @@ serve(async (req) => {
             external_context: perplexityResult?.success ? perplexityResult.context : null,
             predictions,
             value_bets: valueBets,
-            odds: organizeOddsForAI(fixtureData.odds || [])
+            odds: organizeOddsForAI(oddsRaw || [])
         };
 
         // Calculate coverage score
@@ -273,7 +280,7 @@ serve(async (req) => {
             fixture: !!fixtureData,
             lineups: (fixtureData.lineups?.length || 0) > 0,
             statistics: (fixtureData.statistics?.length || 0) > 0,
-            odds: (fixtureData.odds?.length || 0) > 0,
+            odds: (oddsRaw?.length || 0) > 0,
             predictions: !!predictions,
             h2h: h2h.length > 0,
             standings: standings.length > 0,
