@@ -442,9 +442,20 @@ serve(async (req) => {
                         const cResKey = `${row.partido_id}_${(p.mercado || '').toLowerCase()}_${(p.seleccion || '').toLowerCase()}`;
                         const cRes = vpResultMap.get(cResKey);
 
-                        // Aligned odds extraction (same 5 fields as Source A)
-                        const cOddsRaw = p.cuota_actual || p.cuota || p.odds || p.odd || p.price || null;
-                        const cOdds = cOddsRaw ? (typeof cOddsRaw === 'string' ? parseFloat(cOddsRaw) : cOddsRaw) : null;
+                        // Only cuota_actual is trusted (same as Source A).
+                        const cOddsRaw = p.cuota_actual ?? null;
+                        const cOdds = cOddsRaw !== null
+                            ? (typeof cOddsRaw === 'string' ? parseFloat(cOddsRaw) : cOddsRaw)
+                            : null;
+                        const MIN_ODDS_C = 1.01;
+                        const MAX_ODDS_C = 15.0;
+                        const cValidOdds = cOdds !== null && !isNaN(cOdds) && cOdds >= MIN_ODDS_C && cOdds <= MAX_ODDS_C
+                            ? cOdds
+                            : null;
+                        if (cValidOdds === null) {
+                            log(`[OPP-V8.1]   Source C pick DISCARDED (no real odds): ${p.mercado} | ${p.seleccion}`);
+                            continue;
+                        }
 
                         highProbPicks.push({
                             id: `analisis_${row.partido_id}_${p.mercado}_${p.seleccion}`,
@@ -457,7 +468,7 @@ serve(async (req) => {
                             home_team: dailyMatch.home_team,
                             away_team: dailyMatch.away_team,
                             league: dailyMatch.league_name,
-                            odds: cOdds && !isNaN(cOdds) && cOdds > 1.0 ? cOdds : null,
+                            odds: cValidOdds,
                             logo_home: dailyMatch.home_team_logo,
                             logo_away: dailyMatch.away_team_logo,
                             tesis: "Análisis IA V8.",
