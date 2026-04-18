@@ -1,6 +1,8 @@
 // supabase/functions/_shared/sportmonks-normalizer.ts
 // Normaliza datos de SportMonks al formato esperado por v3-ai-analyzer
 
+import { selectOdds, type SelectedOdd, type OddsSelection } from './odds-selector.ts';
+
 export interface NormalizedPayload {
     match: {
         fixture_id: number;
@@ -912,47 +914,43 @@ export function normalizeLegacyStandings(standings: any[]): any[][] | null {
 
 /**
  * Organize Odds for AI Processing
- * Groups flat market list into structured categories to prevent hallucinations
+ * Groups markets into categories AND selects a preferred bookmaker per market.
+ * Returns { info: "No odds available" } if input is empty.
  */
 export function organizeOddsForAI(odds: any[]): any {
     if (!odds || odds.length === 0) return { info: "No odds available" };
 
-    const structured = {
-        MAIN: [] as any[],    // 1x2, DC, DNB
-        GOALS: [] as any[],   // Over/Under, Exact Goals
-        TEAMS: [] as any[],   // BTTS, Team to Score, Team Totals
-        HALVES: [] as any[],  // HT Results, HT Goals
+    const selection: OddsSelection = selectOdds(odds);
+    if (!selection.has_coverage) return { info: "No odds available" };
+
+    const structured: any = {
+        MAIN: [] as any[],
+        GOALS: [] as any[],
+        TEAMS: [] as any[],
+        HALVES: [] as any[],
         CORNERS: [] as any[],
-        COMBOS: [] as any[],  // Combined Markets: Result+BTTS, Result+O/U, HT/FT
-        OTHERS: [] as any[]
+        COMBOS: [] as any[],
+        OTHERS: [] as any[],
+        _meta: {
+            bookmaker: selection.preferred_bookmaker_used,
+            total_bookmakers: selection.total_bookmakers,
+        },
     };
 
-    // Helper to format output odd
-    const fmt = (o: any) => ({
+    const fmt = (o: SelectedOdd) => ({
         m_id: o.market_id,
         b_id: o.bookmaker_id,
         lbl: o.label,
         val: o.value,
-        canon: getCanonicalMarketId(o.market_id, o.label)
     });
 
-    // Known SportMonks market IDs for combined markets
-    // 37 = Result & Both Teams To Score
-    // 47 = Halftime/Fulltime
-    // 97 = Result & Total Goals
     const COMBO_MARKET_IDS = new Set([37, 47, 97]);
 
-    for (const o of odds) {
+    for (const o of selection.picks) {
         const mid = o.market_id;
         const label = (o.label || '').toLowerCase();
 
-        // ═══ COMBOS DETECTION (must be BEFORE other categories) ═══
-        // Detect by market ID first (most reliable)
-        if (COMBO_MARKET_IDS.has(mid)) {
-            structured.COMBOS.push(fmt(o));
-            continue;
-        }
-        // Detect by label patterns (catches other bookmaker-specific combos)
+        if (COMBO_MARKET_IDS.has(mid)) { structured.COMBOS.push(fmt(o)); continue; }
         if (
             (label.includes('&') && (label.includes('over') || label.includes('under') || label.includes('btts') || label.includes('both teams'))) ||
             label.includes('halftime/fulltime') ||
@@ -963,18 +961,13 @@ export function organizeOddsForAI(odds: any[]): any {
             (label.includes('win') && label.includes('under')) ||
             (label.includes('draw') && label.includes('over')) ||
             (label.includes('draw') && label.includes('under'))
-        ) {
-            structured.COMBOS.push(fmt(o));
-            continue;
-        }
+        ) { structured.COMBOS.push(fmt(o)); continue; }
 
-        // ═══ Standard Categorization ═══
-        if (mid === 1 || mid === 2 || mid === 10) { // 1x2, Double Chance
+        if (mid === 1 || mid === 2 || mid === 10) {
             structured.MAIN.push(fmt(o));
         } else if (label.includes('double chance') || label.includes('draw no bet') || label.includes(' or ')) {
             structured.MAIN.push(fmt(o));
         } else if (mid === 12 || label.includes('over') || label.includes('under')) {
-            // Distinguish Team Overs vs Match Overs
             if (label.includes('team') || label.includes('home') || label.includes('away')) {
                 structured.TEAMS.push(fmt(o));
             } else {
