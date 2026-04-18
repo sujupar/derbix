@@ -443,7 +443,12 @@ const EmptyState: React.FC<{ onRetry: () => void; message?: string | null; inPro
         </h3>
         <p className="text-slate-400 max-w-md mb-6 leading-relaxed">
             {message || (
-                <>No encontramos picks con <span className="text-amber-400 font-bold">Probabilidad {'\u2265'} 83%</span> para esta fecha. Intenta revisar otras jornadas.</>
+                <>
+                    No encontramos picks con <span className="text-amber-400 font-bold">Probabilidad {'\u2265'} 83%</span> y cuota real del mercado para esta fecha.
+                    <span className="block mt-2 text-xs text-slate-500">
+                        Las oportunidades se publican solo cuando los bookmakers han emitido cuotas — si aún no están disponibles, vuelve en unos minutos.
+                    </span>
+                </>
             )}
         </p>
         <button onClick={onRetry} className="flex items-center gap-2 px-5 py-2.5 bg-brand text-white font-bold rounded-xl hover:bg-brand/80 transition-all shadow-lg hover:shadow-brand/20">
@@ -580,10 +585,17 @@ const SinglePickCard: React.FC<{
                     <p className="text-white font-bold text-sm">{pick.selection}</p>
                 </div>
                 <div className="text-right">
-                    <span className={`block text-lg sm:text-xl font-black ${pick.odds ? 'text-amber-400' : 'text-slate-500'}`}>
-                        {pick.odds ? `@${pick.odds.toFixed(2)}` : 'Sin cuota'}
-                    </span>
-                    <span className="text-[10px] text-slate-500 uppercase">{pick.odds ? 'Cuota' : 'Estimada'}</span>
+                    {(() => {
+                        const validOdds = pick.odds != null && pick.odds >= 1.01 && pick.odds <= 15.0;
+                        return (
+                            <>
+                                <span className={`block text-lg sm:text-xl font-black ${validOdds ? 'text-amber-400' : 'text-slate-500'}`}>
+                                    {validOdds ? `@${pick.odds!.toFixed(2)}` : 'Sin cuota'}
+                                </span>
+                                <span className="text-[10px] text-slate-500 uppercase">{validOdds ? 'Cuota' : 'Sin datos'}</span>
+                            </>
+                        );
+                    })()}
                 </div>
             </div>
 
