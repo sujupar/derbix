@@ -63,12 +63,13 @@ export async function getPublicResults(startDate: string, endDate: string, filte
         return emptyResults(baseBankroll, baseBankroll + totalProfit, totalProfit);
     }
 
-    // Step 2: Get verified picks — ONLY persisted opportunities (is_opportunity=true)
+    // Step 2: Get verified picks — ONLY persisted opportunities with real (or legacy NULL) odds
     const { data: picks, error } = await supabase
         .from('value_picks_v2')
         .select('id, fixture_id, market, selection, p_model, odds, result, verified_at, actual_score')
         .in('result', ['WON', 'LOST'])
         .eq('is_opportunity', true)
+        .or('odds_source.eq.real,odds_source.is.null')
         .in('fixture_id', fixtureIdsInRange)
         .order('verified_at', { ascending: false });
 
@@ -77,12 +78,13 @@ export async function getPublicResults(startDate: string, endDate: string, filte
         throw error;
     }
 
-    // Step 2.5: Count PENDING picks — ONLY persisted opportunities
+    // Step 2.5: Count PENDING picks — ONLY persisted opportunities with real (or legacy NULL) odds
     const { count: pendingCount } = await supabase
         .from('value_picks_v2')
         .select('id', { count: 'exact', head: true })
         .in('fixture_id', fixtureIdsInRange)
         .eq('is_opportunity', true)
+        .or('odds_source.eq.real,odds_source.is.null')
         .eq('result', 'PENDING');
 
     const results = picks || [];
@@ -362,12 +364,13 @@ async function calculateProfitFromPicks(baseBankroll: number, startDate: string,
     const { fixtureIds } = await getFixtureIdsForDateRange(startDate, endDate);
     if (fixtureIds.length === 0) return { totalProfit: 0, totalStaked: 0, totalUnitsProfit: 0, totalUnitsStaked: 0 };
 
-    // Get verified Oportunidades — ONLY persisted opportunities
+    // Get verified Oportunidades — ONLY persisted opportunities with real (or legacy NULL) odds
     const { data: picks } = await supabase
         .from('value_picks_v2')
         .select('result, odds, p_model')
         .in('fixture_id', fixtureIds)
         .eq('is_opportunity', true)
+        .or('odds_source.eq.real,odds_source.is.null')
         .in('result', ['WON', 'LOST']);
 
     const config = DEFAULT_STAKING_CONFIG;
