@@ -686,7 +686,9 @@ function normalizePrediction(p: any, index: number) {
     const prob = typeof probRaw === 'string' ? parseFloat(probRaw.replace('%', '').replace('+', '')) : probRaw;
     const edgeRaw = p.edge_porcentaje || p.edge_calculado || p.edge || "0%";
     const edge = typeof edgeRaw === 'string' ? parseFloat(edgeRaw.replace('%', '').replace('+', '')) : edgeRaw;
-    const odds = p.cuota_actual || p.cuota_estimada || p.cuota_referencia || null;
+    // Solo cuota_actual es fuente válida. cuota_estimada / cuota_referencia eran
+    // campos para cuotas inventadas — ya no se permiten.
+    const odds = (typeof p.cuota_actual === 'number' && p.cuota_actual > 1.0) ? p.cuota_actual : null;
     const justText = p.razonamiento || p.justificacion?.estadistica || p.justificacion?.tactica || "Análisis IA completado";
 
     return {
@@ -712,7 +714,9 @@ function normalizeOpportunity(p: any) {
     const prob = typeof probRaw === 'string' ? parseFloat(probRaw.replace('%', '')) : probRaw;
     const edgeRaw = p.edge_porcentaje || p.edge_calculado || p.edge || "0%";
     const edge = typeof edgeRaw === 'string' ? parseFloat(edgeRaw.replace('%', '').replace('+', '')) : edgeRaw;
-    const odds = p.cuota_actual || p.cuota_estimada || p.cuota_referencia || null;
+    // Solo cuota_actual es fuente válida. cuota_estimada / cuota_referencia eran
+    // campos para cuotas inventadas — ya no se permiten.
+    const odds = (typeof p.cuota_actual === 'number' && p.cuota_actual > 1.0) ? p.cuota_actual : null;
     const probImpl = p.probabilidad_implicita;
     const probTipica = typeof probImpl === 'string' ? parseFloat(probImpl.replace('%', '')) : (p.probabilidad_implicita_porcentaje || 50);
 
@@ -2470,6 +2474,13 @@ ${strategicInsightsBlock}
                 return 5;
             };
 
+            // Real odds coverage = the ETL successfully pulled odds from a SportMonks bookmaker.
+            // This is the source of truth for odds_source — NOT whether the LLM put a number somewhere.
+            const hasRealOddsCoverage = !!(payload?.odds?._meta?.bookmaker);
+            if (!hasRealOddsCoverage) {
+                console.warn(`[V3-FIX] No real odds coverage — all picks will be marked odds_source='unavailable'`);
+            }
+
             const picksPayload = betPicks.map((p: any) => {
                 // Aligned probability extraction (same 7 fallback fields as v2-generate-parlays)
                 let prob = p.probabilidad_calculada_porcentaje
@@ -2491,9 +2502,18 @@ ${strategicInsightsBlock}
                     decision = 'BET';
                 }
 
-                // Aligned odds extraction (same 5 fallback fields as v2-generate-parlays)
-                const rawPickOdds = p.cuota_actual || p.cuota || p.odds || p.odd || p.price || null;
-                const pickOdds = rawPickOdds ? (typeof rawPickOdds === 'string' ? parseFloat(rawPickOdds) : rawPickOdds) : null;
+                // Only cuota_actual is valid (no fallbacks to inventable fields).
+                const rawPickOdds = p.cuota_actual ?? null;
+                const pickOdds = rawPickOdds !== null
+                    ? (typeof rawPickOdds === 'string' ? parseFloat(rawPickOdds) : rawPickOdds)
+                    : null;
+                const validPickOdds = typeof pickOdds === 'number' && !isNaN(pickOdds) && pickOdds > 1.0
+                    ? pickOdds
+                    : null;
+
+                // odds_source: 'real' if ETL got SportMonks odds AND this pick has a numeric cuota_actual.
+                // Otherwise 'unavailable' (pick will be discarded by v2-generate-parlays).
+                const oddsSource = (hasRealOddsCoverage && validPickOdds !== null) ? 'real' : 'unavailable';
 
                 return {
                     job_id: job_id,
@@ -2504,7 +2524,8 @@ ${strategicInsightsBlock}
                     decision: decision,
                     confidence: mapConf(p.nivel_confianza || p.confianza),
                     engine_version: ENGINE_VERSION,
-                    odds: pickOdds && !isNaN(pickOdds) && pickOdds > 1.0 ? pickOdds : null,
+                    odds: validPickOdds,
+                    odds_source: oddsSource,
                     created_at: new Date().toISOString()
                 };
             });
