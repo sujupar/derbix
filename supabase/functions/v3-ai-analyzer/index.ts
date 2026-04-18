@@ -906,23 +906,23 @@ serve(async (req) => {
             return `${m.date}: ${m.home_team} ${m.score_home}-${m.score_away} ${m.away_team}${statsInfo}`;
         }).join('\n') || 'Sin H2H recientes';
         let oddsText = '';
-        if (odds && (odds.MAIN || odds.GOALS)) {
-            const fmtSection = (name: string, items: any[]) => {
-                if (!items || items.length === 0) return '';
-                return `>>> ${name}:\n` + items.map((o: any) => `- ${o.lbl}: ${o.val}`).join('\n') + '\n';
-            };
-
-            oddsText += fmtSection('PRINCIPALES (1X2, DC)', odds.MAIN);
-            oddsText += fmtSection('GOLES (O/U)', odds.GOALS);
-            oddsText += fmtSection('EQUIPOS (BTTS, Team Score)', odds.TEAMS);
-            oddsText += fmtSection('🎯 MERCADOS COMBINADOS (Result+BTTS, Result+O/U, HT/FT)', odds.COMBOS);
-            oddsText += fmtSection('POR MITADES', odds.HALVES);
-            oddsText += fmtSection('CORNERS', odds.CORNERS);
-            oddsText += fmtSection('OTROS (ASIATICOS/ESPECIALES)', odds.OTHERS); // Include ALL odds
+        if (odds && (odds.MAIN?.length || odds.GOALS?.length || odds.TEAMS?.length || odds.COMBOS?.length)) {
+            const bm = odds._meta?.bookmaker ? ` (bookmaker: ${odds._meta.bookmaker})` : '';
+            oddsText = `CUOTAS REALES DEL MERCADO${bm}:\n`;
+            for (const cat of ['MAIN', 'GOALS', 'TEAMS', 'HALVES', 'CORNERS', 'COMBOS', 'OTHERS']) {
+                const list = (odds as any)[cat];
+                if (!list?.length) continue;
+                oddsText += `\n[${cat}]\n`;
+                for (const o of list) {
+                    oddsText += `  - ${o.lbl}: ${o.val}\n`;
+                }
+            }
+            oddsText += `\nREGLA: Solo genera pronósticos cuyo mercado/selección aparezca en esta lista. cuota_actual debe ser el número de esta lista, no uno inventado.`;
         } else if (odds?.bookmakers?.[0]) {
-            oddsText = `${odds.bookmakers[0].title || 'Bookmaker'}:\n` + (odds.bookmakers[0].markets || []).map((m: any) => `${m.key}: ` + (m.outcomes || []).map((o: any) => `${o.name} @ ${o.price}`).join(' | ')).join('\n');
+            // Legacy format compatibility
+            oddsText = `CUOTAS (formato legacy):\n${JSON.stringify(odds.bookmakers[0]).slice(0, 500)}`;
         } else {
-            oddsText = 'SIN CUOTAS VIVAS (USAR FALLBACK)';
+            oddsText = 'SIN CUOTAS DISPONIBLES — establece veredicto: NO_BET y pronosticos: [].';
         }
 
         // ═══ ML AUTO-LEARNING: Build dynamic calibration block ═══
@@ -1850,9 +1850,17 @@ Para el campo "seleccion" en pronosticos:
 🚨 INSTRUCCIONES DE EMERGENCIA Y FALLBACKS
 ════════════════════════════════════════════════════════════════════════════════
 
-Si faltan datos de cuotas (Bookmaker Odds Missing):
-1. NO TE DETENGAS. Genera TUS PROPIAS CUOTAS JUSTAS basadas en tu probabilidad.
-2. Advierte: "Cuota de Mercado Referencial No Disponible - Entrar si paga más de X.XX".
+Si faltan datos de cuotas (Bookmaker Odds Missing) para UN MERCADO ESPECÍFICO:
+1. Establece "cuota_actual": null en ese pronóstico — NO INVENTES NÚMEROS.
+2. El sistema descartará automáticamente los picks sin cuota real, no es tu problema.
+3. Prefiere analizar mercados donde SÍ hay cuotas reales en el bloque BOOKMAKER ODDS.
+
+Si NO HAY CUOTAS EN ABSOLUTO para este partido:
+1. Establece "veredicto": "NO_BET" en el nivel superior del JSON.
+2. Coloca pronosticos: [] (array vacío).
+3. Añade "razon_no_bet": "Sin cuotas de mercado disponibles para validar picks".
+
+NUNCA uses campos como cuota_estimada o cuota_referencia — solo cuota_actual (del mercado) o null.
 
 Si faltan alineaciones confirmadas:
 1. Asume la más probable basada en los últimos 3 partidos.
