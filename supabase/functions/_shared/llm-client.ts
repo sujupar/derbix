@@ -89,10 +89,27 @@ interface ProviderDef {
   envKey: string;
 }
 
-// Each Groq model has its OWN daily TPD quota (200K tokens/day on free tier).
-// By rotating between models, we effectively get 4x the daily budget.
-// Order from highest quality → fallbacks
+// Provider order: balanced reliability + quality.
+// DeepSeek-V4 Flash is primary when funded (fast, ~15-30s, very high quality).
+// V4 Pro is the fallback (reasoning model, ~60-130s).
+// Groq is the safety net (free tier, fastest, lowest reasoning depth).
+// NOTE: DeepSeek returns 402 Insufficient Balance when the account runs dry.
+// We treat 402 as a skip-immediately status so the cascade doesn't waste 1s/attempt.
 const PROVIDERS: ProviderDef[] = [
+  {
+    name: 'deepseek-v4-flash',
+    type: 'openai',
+    endpoint: 'https://api.deepseek.com/chat/completions',
+    model: 'deepseek-v4-flash',
+    envKey: 'DEEPSEEK_API_KEY',
+  },
+  {
+    name: 'deepseek-v4-pro',
+    type: 'openai',
+    endpoint: 'https://api.deepseek.com/chat/completions',
+    model: 'deepseek-v4-pro',
+    envKey: 'DEEPSEEK_API_KEY',
+  },
   {
     name: 'groq-gpt-oss-120b',
     type: 'openai',
@@ -152,7 +169,9 @@ const PROVIDERS: ProviderDef[] = [
 ];
 
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
-const SKIP_PROVIDER_STATUS = new Set([401, 403]);
+// 401 = bad key, 402 = insufficient balance, 403 = forbidden — all permanent for the
+// rest of this call, so skip the 1s inter-provider delay and move on immediately.
+const SKIP_PROVIDER_STATUS = new Set([401, 402, 403]);
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -177,11 +196,18 @@ async function callOpenAICompatible(
 
   messages.push({ role: 'user', content: prompt });
 
+  // DeepSeek-V4 Pro is a reasoning model: it consumes "thinking tokens" against the
+  // max_tokens budget BEFORE producing output. Default 4096 is too low for structured JSON.
+  // Auto-bump to a generous ceiling so reasoning + output fit (Flash needs no bump).
+  const isReasoningModel = provider.name === 'deepseek-v4-pro';
+  const requestedMax = config.maxTokens ?? 4096;
+  const effectiveMax = isReasoningModel ? Math.max(requestedMax * 3, 12000) : requestedMax;
+
   const body: Record<string, unknown> = {
     model: provider.model,
     messages,
     temperature: config.temperature ?? 0.3,
-    max_tokens: config.maxTokens ?? 4096,
+    max_tokens: effectiveMax,
   };
 
   if (config.jsonMode) {
@@ -327,6 +353,13 @@ export async function callLLM(
     }
   }
 
+  // Wall-clock budget: the caller's timeoutMs is the TOTAL budget across all fallbacks.
+  // We track elapsed time and reduce the per-attempt timeout for later providers so the
+  // whole chain fits within the caller's deadline (e.g. Supabase 150s wall clock).
+  const totalBudgetMs = config.timeoutMs ?? 60000;
+  const callStart = Date.now();
+  const remainingBudget = () => Math.max(0, totalBudgetMs - (Date.now() - callStart));
+
   const errors: string[] = [];
 
   for (let i = 0; i < providers.length; i++) {
@@ -338,13 +371,25 @@ export async function callLLM(
       continue;
     }
 
+    const remaining = remainingBudget();
+    if (remaining < 5000) {
+      errors.push(`[${provider.name}] Skipped: only ${remaining}ms left in budget`);
+      continue;
+    }
+
+    // Give the FIRST attempt most of the budget (it's most likely to succeed).
+    // Later attempts get whatever remains. Last attempt uses the full remaining.
+    const isLast = i === providers.length - 1;
+    const perAttemptTimeout = isLast ? remaining : Math.max(15000, Math.floor(remaining * 0.8));
+    const attemptConfig: LLMConfig = { ...config, timeoutMs: perAttemptTimeout };
+
     try {
-      console.log(`[llm-client] Trying ${provider.name} (${provider.model})...`);
+      console.log(`[llm-client] Trying ${provider.name} (${provider.model}) with ${perAttemptTimeout}ms budget (${remaining}ms total left)...`);
 
       const result =
         provider.type === 'openai'
-          ? await callOpenAICompatible(provider, apiKey, prompt, config)
-          : await callGeminiREST(provider, apiKey, prompt, config);
+          ? await callOpenAICompatible(provider, apiKey, prompt, attemptConfig)
+          : await callGeminiREST(provider, apiKey, prompt, attemptConfig);
 
       // Rate limit tracking is handled via response headers in callOpenAICompatible
 

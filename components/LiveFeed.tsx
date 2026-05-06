@@ -11,7 +11,7 @@ import { GameCard as DetailsGameCard } from './live/GameCard';
 import FlashscoreLeagueGroup from './live/FlashscoreLeagueGroup';
 import MatchDetailModal from './live/MatchDetailModal';
 import HighProbPicks from './ai/HighProbPicks';
-import SmartParlays from './ai/SmartParlays';
+// SmartParlays component disabled (parlay system removed to save budget). See LiveFeed below.
 import BatchProgressBanner from './ai/BatchProgressBanner';
 // ResultadosPublic moved to standalone ResultadosPage (sidebar section)
 import { useAuth } from '../hooks/useAuth';
@@ -107,19 +107,12 @@ const AnalysisGameCard: React.FC<{
                             <span className="md:hidden">...</span>
                         </button>
                     ) : hasReport ? (
-                        <div className="flex items-center gap-2 shrink-0">
-                            <button
-                                onClick={onViewReport}
-                                className="bg-brand/10 hover:bg-brand/20 text-brand border border-brand/50 px-3 md:px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:shadow-[0_0_15px_rgba(16,185,129,0.3)] shrink-0"
-                            >
-                                <CheckCircleIcon className="w-4 h-4" /> <span className="hidden sm:inline">INFORME</span><span className="sm:hidden">VER</span>
-                            </button>
-                            {isAdmin && (
-                                <button onClick={(e) => { e.stopPropagation(); onAnalyze(); }} className="p-2 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-colors shrink-0" title="Regenerar Análisis">
-                                    <ArrowPathIcon className="w-4 h-4" />
-                                </button>
-                            )}
-                        </div>
+                        <button
+                            onClick={onViewReport}
+                            className="bg-brand/10 hover:bg-brand/20 text-brand border border-brand/50 px-3 md:px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all shadow-[0_0_10px_rgba(16,185,129,0.1)] hover:shadow-[0_0_15px_rgba(16,185,129,0.3)] shrink-0"
+                        >
+                            <CheckCircleIcon className="w-4 h-4" /> <span className="hidden sm:inline">INFORME</span><span className="sm:hidden">VER</span>
+                        </button>
                     ) : isFailed ? (
                         isAdmin && (
                             <button onClick={(e) => { e.stopPropagation(); onAnalyze(); }} className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/50 px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-colors shrink-0">
@@ -388,13 +381,17 @@ export const FixturesFeed: React.FC = () => {
         if (['done', 'failed', 'insufficient_data'].includes(currentJob.status)) return;
 
         const startTime = Date.now();
-        const MAX_WAIT_MS = 300000; // 5 min hard cap — prevents silent hang if job is deleted
+        // 12 min cap. The V9-CHAIN runs 6 agents serially (~5-10 min with Groq stalls
+        // and monitor recovery). The chain ALWAYS finishes in the backend even if we
+        // close the modal — we just stop the foreground UI feedback here.
+        const MAX_WAIT_MS = 720000;
         let missingCount = 0;
 
         const interval = setInterval(async () => {
-            // Hard timeout: close the modal if job is not terminal after 5min
+            // Soft timeout: close the modal but DO NOT cancel the chain. The judge will
+            // write the report when it finishes; user can re-open the report from the list.
             if (Date.now() - startTime > MAX_WAIT_MS) {
-                console.warn(`[Modal] Job ${currentJob.id} timed out after 5min. Closing modal.`);
+                console.warn(`[Modal] Job ${currentJob.id} polling abandoned after 12min. Chain continues in backend.`);
                 setIsJobModalOpen(false);
                 return;
             }
@@ -470,7 +467,9 @@ export const FixturesFeed: React.FC = () => {
         if (!activeBatchJobId) return;
 
         const startTime = Date.now();
-        const MAX_WAIT_MS = 300000; // 5 minutes max per job
+        // 12 min cap per job. V9-CHAIN runs 6 agents serially with possible monitor
+        // recoveries between agents — total ~5-10 min nominal, up to 12 min with stalls.
+        const MAX_WAIT_MS = 720000;
 
         const advanceBatch = (fixtureId: number, result: 'done' | 'failed') => {
             // 5s cooldown between batch analyses to avoid Gemini API overload
@@ -500,14 +499,14 @@ export const FixturesFeed: React.FC = () => {
                 const elapsed = Date.now() - startTime;
 
                 if (elapsed > MAX_WAIT_MS) {
-                    console.warn(`[Batch] Job ${activeBatchJobId} timed out after ${Math.round(elapsed/1000)}s. Skipping.`);
+                    console.warn(`[Batch] Job ${activeBatchJobId} polling abandoned after ${Math.round(elapsed/1000)}s — chain continues in backend.`);
                     pollErrorCount.current = 0;
                     pollMissingCount.current = 0;
-                    // Mark job as failed in DB to prevent "stuck in-progress" in Oportunidades
-                    markJobAsTimedOut(activeBatchJobId).catch(() => {});
+                    // DO NOT mark the job as failed — the v9-debate-monitor cron + judge
+                    // will determine the real final state. The frontend just stops watching.
                     const fid = processingFixtureId || processingFixtureIdRef.current;
                     if (fid) {
-                        setGameJobStatus(prev => ({ ...prev, [fid]: 'failed' }));
+                        setGameJobStatus(prev => ({ ...prev, [fid]: 'analyzing' }));
                         advanceBatch(fid, 'failed');
                     } else {
                         console.warn('[Batch] No fixtureId available for timeout cleanup. Force-advancing queue.');
@@ -831,14 +830,6 @@ export const FixturesFeed: React.FC = () => {
                                 <TrophyIcon className="w-5 h-5 sm:mr-2" /> <span className="hidden sm:inline">Oportunidades</span>
                             </button>
                             <button
-                                onClick={() => setViewMode('parlays')}
-                                data-onboarding="tab-parlays"
-                                className={`flex-1 sm:flex-none flex items-center justify-center px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${viewMode === 'parlays' ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/20' : 'text-slate-400 hover:text-white'
-                                    }`}
-                            >
-                                <SparklesIcon className="w-5 h-5 sm:mr-2" /> <span className="hidden sm:inline">Parlays</span>
-                            </button>
-                            <button
                                 onClick={() => setViewMode('fixtures')}
                                 className={`flex-1 sm:flex-none flex items-center justify-center px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewMode === 'fixtures' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-white'
                                     }`}
@@ -859,7 +850,7 @@ export const FixturesFeed: React.FC = () => {
                     </div>
                 </div>
 
-                {viewMode === 'top-picks' ? (
+                {viewMode === 'top-picks' || viewMode === 'parlays' ? (
                     <div className="glass rounded-2xl p-3 sm:p-4 md:p-6 min-h-[500px] animate-fade-in border border-white/5">
                         <HighProbPicks
                             date={selectedDate}
@@ -867,10 +858,6 @@ export const FixturesFeed: React.FC = () => {
                             onPickOverridden={handlePickOverridden}
                             onAccessibleFixturesChange={setPickBasedAccessibleIds}
                         />
-                    </div>
-                ) : viewMode === 'parlays' ? (
-                    <div className="animate-fade-in">
-                        <SmartParlays date={selectedDate} />
                     </div>
                 ) : (
                     <>

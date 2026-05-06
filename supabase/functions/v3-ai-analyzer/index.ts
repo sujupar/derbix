@@ -18,6 +18,7 @@ import {
   computeKeyPlayerImpact,
   computeFatigueIndex,
 } from '../_shared/sportmonks-enrichers.ts'
+import { findOddInOrganized, oddsWithinTolerance } from '../_shared/odds-selector.ts'
 
 // ENGINE_VERSION is declared inside serve() handler (line ~425) — single source of truth
 
@@ -737,8 +738,9 @@ serve(async (req) => {
 
     const startTime = Date.now();
     const GEMINI_MODEL = 'gemini-3.1-pro-preview';
-    const ENGINE_VERSION = Deno.env.get('USE_V9_ENGINE') === 'true' ? 'V9-HYBRID' : 'V8.2-STRATEGIC';
-    const USE_V9 = Deno.env.get('USE_V9_ENGINE') === 'true';
+    const USE_V9_CHAIN = Deno.env.get('USE_V9_CHAIN') === 'true';
+    const USE_V9 = Deno.env.get('USE_V9_ENGINE') === 'true' || USE_V9_CHAIN;
+    const ENGINE_VERSION = USE_V9_CHAIN ? 'V9-CHAIN' : (USE_V9 ? 'V9-HYBRID' : 'V8.2-STRATEGIC');
     let _jobId: string | null = null; // For error handler access
 
     try {
@@ -927,6 +929,99 @@ serve(async (req) => {
             oddsText = `CUOTAS (formato legacy):\n${JSON.stringify(odds.bookmakers[0]).slice(0, 500)}`;
         } else {
             oddsText = 'SIN CUOTAS DISPONIBLES — establece veredicto: NO_BET y pronosticos: [].';
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ENRICHMENT CONTEXT — lineups, coaches, weather, xG, fatigue,
+        // key players. Shared by STAGED and Monolithic branches (V9 has
+        // its own enrichment inside the MatchContext builder).
+        // Toggle via USE_ENRICHED_STAGED=false for rollback (default on).
+        // ═══════════════════════════════════════════════════════════════
+        const USE_ENRICHED_STAGED = Deno.env.get('USE_ENRICHED_STAGED') !== 'false';
+        const rawFixture = payload?.match?._raw_fixture || payload?.match || {};
+        const homeTeamIdEnrich = payload?.match?.teams?.home?.id || 0;
+        const awayTeamIdEnrich = payload?.match?.teams?.away?.id || 0;
+        const matchDateIsoEnrich = payload?.match?.date_time_utc || new Date().toISOString();
+        const combinedHomeHistoryEnrich = [...(homeData.as_home || []), ...(homeData.as_away || [])];
+        const combinedAwayHistoryEnrich = [...(awayData.as_home || []), ...(awayData.as_away || [])];
+
+        let criticalDataBlock = '';
+        let hasAnyConfirmedLineup = false;
+        const enrichMeta: { lineups: boolean; xg: boolean; weather: boolean; fatigue: boolean; coaches: boolean; key_players: boolean } = {
+            lineups: false, xg: false, weather: false, fatigue: false, coaches: false, key_players: false
+        };
+
+        if (USE_ENRICHED_STAGED) {
+            try {
+                const lineups = normalizeLineups(rawFixture, homeTeamIdEnrich, awayTeamIdEnrich);
+                const coaches = normalizeCoaches(rawFixture, homeTeamIdEnrich, awayTeamIdEnrich);
+                const weather = normalizeWeather(rawFixture);
+                const homeXG = computeTeamXGRolling(combinedHomeHistoryEnrich, homeTeamIdEnrich, 10);
+                const awayXG = computeTeamXGRolling(combinedAwayHistoryEnrich, awayTeamIdEnrich, 10);
+                const homeKey = computeKeyPlayerImpact(homeTeamIdEnrich, combinedHomeHistoryEnrich, homeData.injuries || [], lineups.home);
+                const awayKey = computeKeyPlayerImpact(awayTeamIdEnrich, combinedAwayHistoryEnrich, awayData.injuries || [], lineups.away);
+                const homeFatigue = computeFatigueIndex(combinedHomeHistoryEnrich, matchDateIsoEnrich);
+                const awayFatigue = computeFatigueIndex(combinedAwayHistoryEnrich, matchDateIsoEnrich);
+
+                hasAnyConfirmedLineup = lineups.home.has_confirmed_lineup || lineups.away.has_confirmed_lineup;
+                enrichMeta.lineups = hasAnyConfirmedLineup;
+                enrichMeta.xg = homeXG.sample_size > 0 || awayXG.sample_size > 0;
+                enrichMeta.weather = !!weather;
+                enrichMeta.fatigue = homeFatigue.matches_last_14_days > 0 || awayFatigue.matches_last_14_days > 0;
+                enrichMeta.coaches = !!(coaches.home || coaches.away);
+                enrichMeta.key_players = (homeKey.missing_key_players?.length || 0) + (awayKey.missing_key_players?.length || 0) > 0;
+
+                const parts: string[] = [];
+
+                parts.push('>>> ALINEACIONES CONFIRMADAS:');
+                parts.push(lineups.home.has_confirmed_lineup
+                    ? `${homeTeam} (${lineups.home.formation || '?'}): ${lineups.home.starters.map((s: any) => s.player_name).slice(0, 11).join(', ')}`
+                    : `${homeTeam}: NO CONFIRMADA`);
+                parts.push(lineups.away.has_confirmed_lineup
+                    ? `${awayTeam} (${lineups.away.formation || '?'}): ${lineups.away.starters.map((s: any) => s.player_name).slice(0, 11).join(', ')}`
+                    : `${awayTeam}: NO CONFIRMADA`);
+
+                parts.push('\n>>> JUGADORES CLAVE AUSENTES:');
+                const homeMissing = homeKey.missing_key_players?.slice(0, 5).map((m: any) => `${m.name} (${m.role})`).join(', ') || 'Ninguno significativo';
+                const awayMissing = awayKey.missing_key_players?.slice(0, 5).map((m: any) => `${m.name} (${m.role})`).join(', ') || 'Ninguno significativo';
+                parts.push(`${homeTeam}: ${homeMissing}`);
+                parts.push(`${awayTeam}: ${awayMissing}`);
+
+                if (enrichMeta.xg) {
+                    const overperfLabel = (v: number) => v > 0.3 ? 'LUCKY/regresión probable' : v < -0.3 ? 'UNLUCKY/rebote probable' : 'alineado';
+                    parts.push('\n>>> xG ROLLING (últimos 10):');
+                    parts.push(`${homeTeam}: ${homeXG.xg_for_avg.toFixed(2)} FOR / ${homeXG.xga_avg.toFixed(2)} AGAINST | Diff=${homeXG.xg_diff.toFixed(2)} | OverPerf=${homeXG.xg_overperformance.toFixed(2)} (${overperfLabel(homeXG.xg_overperformance)})`);
+                    parts.push(`${awayTeam}: ${awayXG.xg_for_avg.toFixed(2)} FOR / ${awayXG.xga_avg.toFixed(2)} AGAINST | Diff=${awayXG.xg_diff.toFixed(2)} | OverPerf=${awayXG.xg_overperformance.toFixed(2)} (${overperfLabel(awayXG.xg_overperformance)})`);
+                }
+
+                if (enrichMeta.fatigue) {
+                    parts.push('\n>>> FATIGA:');
+                    parts.push(`${homeTeam}: ${homeFatigue.matches_last_7_days} matches en 7d, ${homeFatigue.days_since_last_match}d descansó, score: ${homeFatigue.fatigue_score}/100${homeFatigue.has_european_midweek ? ' [MIDWEEK EUROPEO]' : ''}`);
+                    parts.push(`${awayTeam}: ${awayFatigue.matches_last_7_days} matches en 7d, ${awayFatigue.days_since_last_match}d descansó, score: ${awayFatigue.fatigue_score}/100${awayFatigue.has_european_midweek ? ' [MIDWEEK EUROPEO]' : ''}`);
+                }
+
+                if (enrichMeta.weather && weather) {
+                    const impacts: string[] = [];
+                    if (weather.impact_factors?.rain_heavy) impacts.push('Lluvia intensa (-0.3 goles)');
+                    if (weather.impact_factors?.wind_strong) impacts.push('Viento fuerte (+15% corners)');
+                    if (weather.impact_factors?.temp_extreme) impacts.push('Temperatura extrema (-0.15 goles)');
+                    if (weather.impact_factors?.altitude_high) impacts.push('Altitud alta (+0.4 ventaja local)');
+                    parts.push('\n>>> CLIMA:');
+                    parts.push(`${weather.description || 'Condiciones normales'}${impacts.length ? ` | ${impacts.join(' | ')}` : ''}`);
+                }
+
+                if (enrichMeta.coaches) {
+                    parts.push('\n>>> TÉCNICOS:');
+                    parts.push(`${homeTeam}: ${coaches.home?.name || '?'}${coaches.home?.is_new_coach ? ' [NUEVO DT — LUNA DE MIEL <60d, ~+15% rendimiento]' : ''}`);
+                    parts.push(`${awayTeam}: ${coaches.away?.name || '?'}${coaches.away?.is_new_coach ? ' [NUEVO DT — LUNA DE MIEL]' : ''}`);
+                }
+
+                criticalDataBlock = parts.join('\n');
+                console.log(`[ENRICH] STAGED enrichment built: lineups=${enrichMeta.lineups}, xg=${enrichMeta.xg}, weather=${enrichMeta.weather}, fatigue=${enrichMeta.fatigue}, coaches=${enrichMeta.coaches}, key_players=${enrichMeta.key_players}, total_chars=${criticalDataBlock.length}`);
+            } catch (enrichErr: any) {
+                console.warn(`[ENRICH] Failed to build enrichment context (non-fatal): ${enrichErr.message}`);
+                criticalDataBlock = '';
+            }
         }
 
         // ═══ ML AUTO-LEARNING: Build dynamic calibration block ═══
@@ -1141,7 +1236,96 @@ serve(async (req) => {
                 })) : undefined,
             };
 
-            // Step 4: Run debate
+            // ═══════════════════════════════════════════════════════════════
+            // V9-CHAIN MODE: dispatch agents to per-function 150s wall clocks.
+            // We create a debate run + 6 pending agent_outputs, then fire
+            // v9-agent-runner × 6 in parallel. Each runs DeepSeek-V4 Pro and
+            // writes its output. The last agent fires v9-judge-runner, which
+            // synthesizes + cross-validates + persists everything.
+            // We return immediately (job stays 'analyzing' until judge done).
+            // ═══════════════════════════════════════════════════════════════
+            if (USE_V9_CHAIN) {
+                const sbUrlChain = Deno.env.get('SUPABASE_URL')!;
+                const sbKeyChain = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+                const payloadMeta = {
+                    odds: payload.odds || null,
+                    match_start_iso: matchDateIso,
+                    has_confirmed_lineup: lineupsNorm.home.has_confirmed_lineup || lineupsNorm.away.has_confirmed_lineup,
+                };
+
+                const { data: runRow, error: runErr } = await supabase
+                    .from('v9_debate_runs')
+                    .insert({
+                        job_id: job_id,
+                        fixture_id: fixture_id,
+                        status: 'agents_running',
+                        context_json: matchContext,
+                        payload_meta: payloadMeta,
+                        agents_total: 6,
+                    })
+                    .select('id')
+                    .single();
+
+                if (runErr || !runRow) throw new Error(`v9_debate_runs insert failed: ${runErr?.message}`);
+                const runId = runRow.id;
+
+                // SERIAL CHAIN: only ONE agent runs at any time across the whole system.
+                // We dispatch only the FIRST agent (OFFENSIVE). When it completes, it fires
+                // the next agent (DEFENSIVE), and so on. The last agent fires the judge.
+                // This guarantees ZERO concurrency on DeepSeek-V4 Pro.
+                const AGENT_CHAIN = ['OFFENSIVE', 'DEFENSIVE', 'TACTICAL', 'CONTEXTUAL', 'MARKET', 'SKEPTIC'];
+                const pendingRows = AGENT_CHAIN.map(k => ({ run_id: runId, agent_key: k, status: 'pending' }));
+                await supabase.from('v9_agent_outputs').insert(pendingRows);
+
+                console.log(`[V9-CHAIN-SERIAL] Dispatching ONLY first agent (${AGENT_CHAIN[0]}) for run ${runId}. The rest will chain automatically.`);
+
+                // Mark job as analyzing BEFORE dispatch so DB state is correct even if the dispatch lags
+                await supabase
+                    .from('analysis_jobs_v2')
+                    .update({ current_motor: ENGINE_VERSION, error_message: `v9_chain_run=${runId}` })
+                    .eq('id', job_id);
+
+                // AWAITED dispatch (5s ack-timeout) so the request commits to Supabase routing
+                // before this worker exits. Pure fire-and-forget gets cancelled on teardown.
+                {
+                    const ctrl = new AbortController();
+                    const timer = setTimeout(() => ctrl.abort(), 5000);
+                    try {
+                        const r = await fetch(`${sbUrlChain}/functions/v1/v9-agent-runner`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${sbKeyChain}`, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ run_id: runId, agent_key: AGENT_CHAIN[0] }),
+                            signal: ctrl.signal,
+                        });
+                        console.log(`[V9-CHAIN-SERIAL] ${AGENT_CHAIN[0]} dispatched (HTTP ${r.status})`);
+                    } catch (e: any) {
+                        if (e?.name === 'AbortError') {
+                            console.log(`[V9-CHAIN-SERIAL] ${AGENT_CHAIN[0]} dispatch sent (ack-timeout, fire-forward)`);
+                        } else {
+                            console.error(`[V9-CHAIN-SERIAL] dispatch ${AGENT_CHAIN[0]} failed: ${e.message}`);
+                        }
+                    } finally {
+                        clearTimeout(timer);
+                    }
+                }
+
+                const dispatchMs = Date.now() - startTime;
+                console.log(`[V9-CHAIN] dispatched in ${dispatchMs}ms — judge will fire when last agent completes`);
+
+                return new Response(JSON.stringify({
+                    success: true,
+                    mode: 'v9-chain-dispatched',
+                    run_id: runId,
+                    job_id: job_id,
+                    fixture_id: fixture_id,
+                    engine_version: ENGINE_VERSION,
+                    dispatch_time_ms: dispatchMs,
+                    summary: { veredicto: 'PENDING', picks: 0, titular: 'Análisis en progreso (V9 chain)' },
+                }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
+
+            // Step 4: Run debate (legacy V9-HYBRID inline)
             const debate = await runDebate(matchContext);
             tokensUsed = debate.total_tokens;
 
@@ -1160,12 +1344,38 @@ serve(async (req) => {
                                       debate.final_verdict.overall_confidence >= 70 ? 'MEDIA' : 'BAJA',
                     picks_principales: debate.final_verdict.picks.slice(0, 2).map((p: any) => `${p.mercado}: ${p.seleccion}`),
                 },
-                scores_duales: judgeOutput?.scores_duales || {
-                    score_estadistico: Math.round(mathResult.ensemble_probabilities.home_win * 100),
-                    score_inteligencia_partido: debate.final_verdict.overall_confidence,
-                    confianza_final_calculada: debate.final_verdict.overall_confidence,
-                    justificacion_balance: `Modelos matemáticos + ${debate.agents.filter(a => !a.error).length}/${debate.agents.length} agentes`,
-                },
+                scores_duales: (() => {
+                    // Always compute REAL dual scores so the UI never shows empty boxes.
+                    const modelConsistency = mathResult?.diagnostics?.model_consistency ?? 0.5;
+                    const topProb = Math.max(
+                        mathResult?.ensemble_probabilities?.home_win ?? 0,
+                        mathResult?.ensemble_probabilities?.draw ?? 0,
+                        mathResult?.ensemble_probabilities?.away_win ?? 0,
+                    );
+                    const computedEstadistico = Math.round(((modelConsistency * 0.6) + (topProb * 0.4)) * 100);
+
+                    const ctxAgents = debate.agents.filter((a) =>
+                        !a.error && (a.agent_role === 'tactical_analyst' || a.agent_role === 'contextual_analyst' || a.agent_role === 'skeptic')
+                    );
+                    const computedContexto = ctxAgents.length
+                        ? Math.round(ctxAgents.reduce((s, a) => s + (a.confidence_overall || 0), 0) / ctxAgents.length)
+                        : 50;
+
+                    // If the judge gave us scores, prefer them but back-fill any missing with computed values.
+                    const j = judgeOutput?.scores_duales || {};
+                    const finalEstadistico = (typeof j.score_estadistico === 'number' && j.score_estadistico > 0) ? j.score_estadistico : computedEstadistico;
+                    const finalContexto = (typeof j.score_inteligencia_partido === 'number' && j.score_inteligencia_partido > 0) ? j.score_inteligencia_partido : computedContexto;
+                    const finalConfianza = (typeof j.confianza_final_calculada === 'number' && j.confianza_final_calculada > 0)
+                        ? Math.min(95, j.confianza_final_calculada)
+                        : Math.round((finalEstadistico + finalContexto) / 2);
+
+                    return {
+                        score_estadistico: finalEstadistico,
+                        score_inteligencia_partido: finalContexto,
+                        confianza_final_calculada: finalConfianza,
+                        justificacion_balance: j.justificacion_balance || `Estadístico: consistencia modelos ${(modelConsistency*100).toFixed(0)}% + prob. dominante ${(topProb*100).toFixed(0)}%. Contexto: ${ctxAgents.length} agentes (${computedContexto}% promedio).`,
+                    };
+                })(),
                 analisis_profundo: judgeOutput?.analisis_profundo || {
                     razonamiento_central: debate.final_verdict.summary,
                     matchup_tactico: 'Ver análisis de agente táctico',
@@ -1173,10 +1383,101 @@ serve(async (req) => {
                     contexto_competitivo: 'Ver análisis de agente contextual',
                 },
                 pronosticos: debate.final_verdict.picks,
-                patrones_detectados: {
-                    goles_por_tiempo: { insight: 'Detectado por agentes' },
-                    disciplina: { insight: 'Detectado por agentes' },
-                },
+                patrones_detectados: (() => {
+                    // Compute REAL patterns from history (no LLM hallucination).
+                    // We need to filter goals scored BY teamId, not by the opponent. Strategy:
+                    // - Raw events (m.events): match on e.participant_id === teamId
+                    // - Normalized events (m.details.events): the normalizer puts the team's own
+                    //   stats in m.details, but the events array can include both teams. Since
+                    //   the normalized event objects don't carry participant_id reliably, we
+                    //   fall back to using m.details.goal_timings (string like "12,45+1,67") if
+                    //   present, otherwise skip the match for timing purposes.
+                    const computeGoalTimingPct = (history: any[], teamId: number) => {
+                        let goalsFirst = 0, goalsSecond = 0, total = 0;
+                        for (const m of (history || []).slice(0, 10)) {
+                            // 1) Raw events with participant_id (most accurate)
+                            const rawEvents = Array.isArray(m.events) ? m.events : null;
+                            if (rawEvents) {
+                                for (const e of rawEvents) {
+                                    const isGoal = String(e.type || '').toLowerCase().includes('goal') || e.type_id === 14;
+                                    if (!isGoal) continue;
+                                    if (e.participant_id !== teamId) continue;
+                                    const min = parseInt(String(e.minute || 0), 10);
+                                    if (min <= 45) goalsFirst++; else goalsSecond++;
+                                    total++;
+                                }
+                                continue;
+                            }
+                            // 2) Normalized goal_timings string (only timings of OUR goals)
+                            const gt = m.details?.goal_timings;
+                            if (typeof gt === 'string' && gt.length > 0) {
+                                const minutes = gt.split(',').map((s: string) => parseInt(s.replace(/\D/g, ''), 10)).filter((n: number) => n > 0);
+                                for (const min of minutes) {
+                                    if (min <= 45) goalsFirst++; else goalsSecond++;
+                                    total++;
+                                }
+                            }
+                            // Else: skip this match — we cannot reliably attribute goals to teamId
+                        }
+                        if (total === 0) return null;
+                        return {
+                            first_pct: Math.round((goalsFirst / total) * 100),
+                            second_pct: Math.round((goalsSecond / total) * 100),
+                        };
+                    };
+
+                    const homeTiming = computeGoalTimingPct(combinedHomeHistory, homeTeamId);
+                    const awayTiming = computeGoalTimingPct(combinedAwayHistory, awayTeamId);
+
+                    const computeAvgCards = (history: any[]) => {
+                        let total = 0, count = 0;
+                        for (const m of (history || []).slice(0, 10)) {
+                            // Only count matches where we have a real card datapoint (defined number).
+                            // Defaulting missing values to 0 would dilute the average toward 0.
+                            const yc = m.details?.yellow_cards;
+                            const rc = m.details?.red_cards;
+                            if (yc === undefined && rc === undefined) continue;
+                            const cards = (yc ?? 0) + (rc ?? 0);
+                            total += cards;
+                            count++;
+                        }
+                        return count > 0 ? Math.round((total / count) * 10) / 10 : null;
+                    };
+
+                    const homeCards = computeAvgCards(combinedHomeHistory);
+                    const awayCards = computeAvgCards(combinedAwayHistory);
+
+                    const homeFormation = lineupsNorm.home.formation || (combinedHomeHistory[0]?.details?.formation_used) || null;
+                    const awayFormation = lineupsNorm.away.formation || (combinedAwayHistory[0]?.details?.formation_used) || null;
+
+                    return {
+                        goles_por_tiempo: (homeTiming || awayTiming) ? {
+                            home_1er_tiempo_pct: homeTiming?.first_pct ?? null,
+                            home_2do_tiempo_pct: homeTiming?.second_pct ?? null,
+                            away_1er_tiempo_pct: awayTiming?.first_pct ?? null,
+                            away_2do_tiempo_pct: awayTiming?.second_pct ?? null,
+                            insight: homeTiming && awayTiming
+                                ? `${homeTeam} marca ${homeTiming.second_pct > homeTiming.first_pct ? 'más en 2do' : 'más en 1er'} tiempo (${Math.max(homeTiming.first_pct, homeTiming.second_pct)}%); ${awayTeam} ${awayTiming.second_pct > awayTiming.first_pct ? '2do' : '1er'} tiempo (${Math.max(awayTiming.first_pct, awayTiming.second_pct)}%)`
+                                : 'Datos parciales de timing de goles',
+                        } : null,
+                        formacion_rendimiento: (homeFormation || awayFormation) ? {
+                            home_formacion_usual: homeFormation || 'No confirmada',
+                            home_win_pct_con_formacion: null,
+                            away_formacion_usual: awayFormation || 'No confirmada',
+                            away_win_pct_con_formacion: null,
+                            insight: lineupsNorm.home.has_confirmed_lineup || lineupsNorm.away.has_confirmed_lineup
+                                ? `Alineaciones confirmadas — formaciones: ${homeFormation || '?'} vs ${awayFormation || '?'}`
+                                : `Formaciones recientes: ${homeFormation || '?'} vs ${awayFormation || '?'} (no confirmadas)`,
+                        } : null,
+                        disciplina: (homeCards !== null || awayCards !== null) ? {
+                            home_avg_tarjetas: homeCards,
+                            away_avg_tarjetas: awayCards,
+                            insight: (homeCards !== null && awayCards !== null)
+                                ? `Promedio de tarjetas: ${homeTeam} ${homeCards} | ${awayTeam} ${awayCards} (últimos 10 partidos)`
+                                : 'Datos disciplinarios parciales',
+                        } : null,
+                    };
+                })(),
                 factores_riesgo: judgeOutput?.factores_riesgo || {
                     riesgo_principal: 'Evaluado por Abogado del Diablo',
                     nivel_incertidumbre: debate.final_verdict.overall_confidence >= 80 ? 'BAJO' :
@@ -1213,7 +1514,10 @@ serve(async (req) => {
                 },
             };
 
-            console.log(`[V9-HYBRID] Analysis assembled. Picks: ${analysisResult.pronosticos?.length || 0}, verdict: ${analysisResult.resumen_ejecutivo.veredicto}`);
+            const v9AgentsFailed = debate.agents.filter((a: any) => !!a.error).length;
+            analysisResult.meta = { ...(analysisResult.meta || {}), layers_failed: v9AgentsFailed, total_layers: debate.agents.length, engine_mode: 'V9-HYBRID' };
+
+            console.log(`[V9-HYBRID] Analysis assembled. Picks: ${analysisResult.pronosticos?.length || 0}, verdict: ${analysisResult.resumen_ejecutivo.veredicto}, agents_failed: ${v9AgentsFailed}/${debate.agents.length}`);
         } else if (USE_STAGED) {
         // ═══ CAPA 1 + 2 EN PARALELO ═══
         console.log(`[V3-AI-ANALYZER] Starting staged analysis (4 layers)...`);
@@ -1223,7 +1527,7 @@ Eres un analista estadístico deportivo de élite. Analiza los datos estadístic
 
 PARTIDO: ${homeTeam} (LOCAL) vs ${awayTeam} (VISITANTE)
 COMPETICIÓN: ${leagueName}
-
+${criticalDataBlock ? `\n>>> DATOS CRÍTICOS DEL PARTIDO:\n${criticalDataBlock}\n` : ''}
 DATOS ESTADÍSTICOS (resumen):
 
 >>> HISTORIAL ${homeTeam} (LOCAL):
@@ -1245,6 +1549,7 @@ INSTRUCCIONES:
 4. ANÁLISIS DISCIPLINARIO: Faltas promedio + árbitro.
 5. ANÁLISIS DE CUOTAS: Para cada mercado, calcula Edge = Prob_Estimada - (100/Cuota).
 6. PATRONES TEMPORALES: ¿Goles en 1er o 2do tiempo? ¿Tarjetas tempraneras?
+7. xG OVERPERFORMANCE: Si xG FOR diverge de goles reales >0.5, flagea overperformance (lucky → regresión) o underperformance (unlucky → rebote).
 
 Responde en JSON:
 {
@@ -1288,7 +1593,7 @@ Eres un estratega de inteligencia deportiva. Tu trabajo es analizar el CONTEXTO 
 
 PARTIDO: ${homeTeam} (LOCAL) vs ${awayTeam} (VISITANTE)
 COMPETICIÓN: ${leagueName}
-
+${criticalDataBlock ? `\n>>> DATOS CRÍTICOS DEL PARTIDO:\n${criticalDataBlock.substring(0, 1200)}\n` : ''}
 HISTORIAL RECIENTE:
 ${deepHome.substring(0, 1200)}
 
@@ -1303,7 +1608,7 @@ INSTRUCCIONES — Analiza estos 5 factores:
 🧠 B2. PSICOLOGÍA DEPORTIVA: Presión, motivación, momentum, factor vestuario, derby.
 🏟️ B3. CONTEXTO COMPETITIVO: ¿Qué se juegan? ¿Fase del torneo? ¿Rotaciones esperadas?
 🔮 B4. ESCENARIOS: Optimista, base, alternativo — ¿cuál es más probable?
-⚡ B5. FACTORES INVISIBLES: Debuts, regresos de lesión, clima, horario.
+⚡ B5. FACTORES INVISIBLES: Debuts, regresos de lesión, clima, horario. Si el DT es NUEVO (luna de miel <60d), asume ~+15% rendimiento. Si falta un TOP SCORER/ASSISTER, penaliza prob del equipo ≥5pts; si faltan varios jugadores clave, ≥10pts.
 
 Responde en JSON:
 {
@@ -1546,7 +1851,10 @@ Responde en JSON:
             escenarios_proyectados: layer2Data.escenarios || { escenario_optimista: '', escenario_base: '', escenario_alternativo: '' }
         };
 
-        console.log(`[V3-AI-ANALYZER] Staged analysis complete. Total tokens: ${tokensUsed}. Providers used: L1=${layer1Result?.provider || 'FAILED'}, L2=${layer2Result?.provider || 'FAILED'}, L3=${layer3Result?.provider || 'FAILED'}, L4=${layer4Result?.provider || 'FAILED'}`);
+        const stagedLayersFailed = [layer1Result, layer2Result, layer3Result, layer4Result].filter(r => !r).length;
+        analysisResult.meta = { ...(analysisResult.meta || {}), layers_failed: stagedLayersFailed, total_layers: 4, engine_mode: 'V8.2-STAGED' };
+
+        console.log(`[V3-AI-ANALYZER] Staged analysis complete. Total tokens: ${tokensUsed}. Providers used: L1=${layer1Result?.provider || 'FAILED'}, L2=${layer2Result?.provider || 'FAILED'}, L3=${layer3Result?.provider || 'FAILED'}, L4=${layer4Result?.provider || 'FAILED'}, layers_failed=${stagedLayersFailed}/4`);
 
         } else {
         // ═══ MODO MONOLÍTICO (FALLBACK) ═══
@@ -2243,6 +2551,89 @@ ${strategicInsightsBlock}
             }
         }
 
+        // ═══════════════════════════════════════════════════════════════
+        // ODDS CROSS-VALIDATION — reject picks whose cuota_actual does not
+        // match the real bookmaker catalog, OR whose market+selection is
+        // not present in the organized odds. This is the single source of
+        // truth for "real odds" — LLM-invented prices never make it to DB.
+        // Runs BEFORE dashboardData/betPicks construction so UI reflects filtered picks.
+        // ═══════════════════════════════════════════════════════════════
+        {
+            const hasRealOddsCoverage = !!(payload?.odds?._meta?.bookmaker);
+            const xvalCtx = { homeTeam, awayTeam };
+            const picksBeforeXval = (analysisResult.pronosticos || []).length;
+            const xvalRejects: Array<{ m: string; s: string; reason: string; llm_odds: any }> = [];
+
+            if (!hasRealOddsCoverage) {
+                console.warn(`[ODDS-XVAL] No real odds coverage — discarding all ${picksBeforeXval} picks`);
+                (analysisResult.pronosticos || []).forEach((p: any) => {
+                    xvalRejects.push({ m: p.mercado, s: p.seleccion, reason: 'no_coverage', llm_odds: p.cuota_actual });
+                });
+                analysisResult.pronosticos = [];
+            } else {
+                const kept: any[] = [];
+                for (const p of (analysisResult.pronosticos || [])) {
+                    const xv = findOddInOrganized(payload.odds, p.mercado || '', p.seleccion || '', xvalCtx);
+                    if (!xv.match) {
+                        xvalRejects.push({ m: p.mercado, s: p.seleccion, reason: xv.reason, llm_odds: p.cuota_actual });
+                        continue;
+                    }
+                    const llmOddsRaw = p.cuota_actual ?? null;
+                    const llmOdds = typeof llmOddsRaw === 'string' ? parseFloat(llmOddsRaw) : llmOddsRaw;
+                    if (llmOdds !== null && isFinite(llmOdds) && !oddsWithinTolerance(llmOdds, xv.match.val, 0.05)) {
+                        xvalRejects.push({ m: p.mercado, s: p.seleccion, reason: `tolerance_exceeded (llm=${llmOdds} vs real=${xv.match.val})`, llm_odds: llmOdds });
+                        continue;
+                    }
+                    // Authoritative: always overwrite with real bookmaker odds.
+                    p.cuota_actual = xv.match.val;
+                    p._xval_category = xv.category;
+                    p._xval_reason = xv.reason;
+                    kept.push(p);
+                }
+                analysisResult.pronosticos = kept;
+            }
+
+            console.log(`[ODDS-XVAL] kept=${analysisResult.pronosticos.length}/${picksBeforeXval}, rejected=${xvalRejects.length}`);
+            if (xvalRejects.length > 0) {
+                console.log(`[ODDS-XVAL] rejects sample:`, JSON.stringify(xvalRejects.slice(0, 5)));
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // LINEUP-AWARE CONFIDENCE ADJUSTMENT — if kickoff is <2h away and
+        // no lineup was confirmed, cut confianza_final by 15pts. Tactical
+        // analysis is speculative without confirmed lineups close to kickoff.
+        // ═══════════════════════════════════════════════════════════════
+        if (USE_ENRICHED_STAGED) {
+            const matchStartMs = matchDateIsoEnrich ? new Date(matchDateIsoEnrich).getTime() : 0;
+            const hoursToKickoff = matchStartMs > 0 ? (matchStartMs - Date.now()) / 3600000 : 99;
+            if (!hasAnyConfirmedLineup && hoursToKickoff < 2 && hoursToKickoff > -1 && analysisResult?.scores_duales) {
+                const prev = Number(analysisResult.scores_duales.confianza_final_calculada || 0);
+                analysisResult.scores_duales.confianza_final_calculada = Math.max(0, prev - 15);
+                console.log(`[LINEUP-ADJ] -15pts confianza: lineup no confirmada, ${hoursToKickoff.toFixed(1)}h al kickoff (${prev} → ${analysisResult.scores_duales.confianza_final_calculada})`);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ANALYSIS QUALITY GATE — only fires if the LLM layers themselves
+        // failed (>= 3 of 4 layers/agents dropped). Picks being empty due
+        // to cross-val is NOT a failure — the analysis is still useful.
+        // ═══════════════════════════════════════════════════════════════
+        {
+            const layersFailed = analysisResult.meta?.layers_failed ?? 0;
+            const totalLayers = analysisResult.meta?.total_layers ?? 4;
+            if (layersFailed >= 3 && totalLayers >= 3) {
+                await supabase
+                    .from('analysis_jobs_v2')
+                    .update({ status: 'failed', error_message: `validation_gate: layers_failed=${layersFailed}/${totalLayers}` })
+                    .eq('id', job_id);
+                console.error(`[VAL-GATE] Analysis failed quality gate: ${layersFailed}/${totalLayers} layers failed`);
+                // Keep "validation_gate" (snake_case) in the message so downstream retry logic
+                // in daily-analysis-generator can detect it and skip intra-batch retries.
+                throw new Error(`validation_gate: insufficient analysis quality (${layersFailed}/${totalLayers} layers failed)`);
+            }
+        }
+
         // SAVE RESULTS
         // ═══════════════════════════════════════════════════════════════
         // NOTE: reports_v2 save moved below after finalFixtureId resolution
@@ -2462,8 +2853,11 @@ ${strategicInsightsBlock}
         if (reportError) console.error('[V3-AI-ANALYZER] Error saving reports_v2:', reportError);
 
         // 2. Insert Picks to value_picks_v2
-        if (betPicks.length > 0) {
-            console.log(`[V3-FIX] Syncing ${betPicks.length} picks to value_picks_v2 for ID ${finalFixtureId}`);
+        // IMPORTANT: use analysisResult.pronosticos (post cross-val) — betPicks was captured
+        // before cross-val and is stale.
+        const picksForInsert = analysisResult.pronosticos || [];
+        if (picksForInsert.length > 0) {
+            console.log(`[V3-FIX] Syncing ${picksForInsert.length} picks (post-xval) to value_picks_v2 for ID ${finalFixtureId}`);
 
             // Map confidence string to integer
             const mapConf = (str: string) => {
@@ -2475,14 +2869,7 @@ ${strategicInsightsBlock}
                 return 5;
             };
 
-            // Real odds coverage = the ETL successfully pulled odds from a SportMonks bookmaker.
-            // This is the source of truth for odds_source — NOT whether the LLM put a number somewhere.
-            const hasRealOddsCoverage = !!(payload?.odds?._meta?.bookmaker);
-            if (!hasRealOddsCoverage) {
-                console.warn(`[V3-FIX] No real odds coverage — all picks will be marked odds_source='unavailable'`);
-            }
-
-            const picksPayload = betPicks.map((p: any) => {
+            const picksPayload = picksForInsert.map((p: any) => {
                 // Aligned probability extraction (same 7 fallback fields as v2-generate-parlays)
                 let prob = p.probabilidad_calculada_porcentaje
                     || p.probabilidad_estimado_porcentaje
@@ -2495,26 +2882,15 @@ ${strategicInsightsBlock}
                 if (typeof prob === 'string') prob = parseFloat(prob.replace('%', ''));
                 if (prob > 1) prob = prob / 100;
 
-                // Strict Enum Mapping
                 let decision = 'AVOID';
                 const d = (p.decision || '').toUpperCase();
-                // Basic rules: High prob or explicit BET
                 if (d === 'BET' || d === 'APOSTAR' || prob >= 0.70) {
                     decision = 'BET';
                 }
 
-                // Only cuota_actual is valid (no fallbacks to inventable fields).
-                const rawPickOdds = p.cuota_actual ?? null;
-                const pickOdds = rawPickOdds !== null
-                    ? (typeof rawPickOdds === 'string' ? parseFloat(rawPickOdds) : rawPickOdds)
-                    : null;
-                const validPickOdds = typeof pickOdds === 'number' && !isNaN(pickOdds) && pickOdds > 1.0
-                    ? pickOdds
-                    : null;
-
-                // odds_source: 'real' if ETL got SportMonks odds AND this pick has a numeric cuota_actual.
-                // Otherwise 'unavailable' (pick will be discarded by v2-generate-parlays).
-                const oddsSource = (hasRealOddsCoverage && validPickOdds !== null) ? 'real' : 'unavailable';
+                // Post cross-val: p.cuota_actual is the REAL bookmaker odds (not LLM's).
+                const pickOdds = typeof p.cuota_actual === 'number' ? p.cuota_actual : parseFloat(String(p.cuota_actual));
+                const validPickOdds = isFinite(pickOdds) && pickOdds > 1.0 ? pickOdds : null;
 
                 return {
                     job_id: job_id,
@@ -2526,7 +2902,7 @@ ${strategicInsightsBlock}
                     confidence: mapConf(p.nivel_confianza || p.confianza),
                     engine_version: ENGINE_VERSION,
                     odds: validPickOdds,
-                    odds_source: oddsSource,
+                    odds_source: validPickOdds !== null ? 'real' : 'unavailable',
                     created_at: new Date().toISOString()
                 };
             });
