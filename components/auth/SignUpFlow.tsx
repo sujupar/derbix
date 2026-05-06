@@ -14,6 +14,7 @@ interface SignUpData {
     confirmPassword: string;
     phoneNumber: string;
     phoneCountryCode: string;
+    telegramUsername: string;
 }
 
 export const SignUpFlow: React.FC = () => {
@@ -30,7 +31,8 @@ export const SignUpFlow: React.FC = () => {
         password: '',
         confirmPassword: '',
         phoneNumber: '',
-        phoneCountryCode: '+57'
+        phoneCountryCode: '+57',
+        telegramUsername: ''
     });
 
     const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
@@ -135,6 +137,18 @@ export const SignUpFlow: React.FC = () => {
                         phone_number: fullPhone,
                         phone_country_code: signUpData.phoneCountryCode
                     })
+                    .eq('id', authData.user.id)
+                    .then(() => {})
+                    .catch(() => {});
+            }
+
+            // Guardar telegram username si fue proporcionado (fire-and-forget)
+            if (signUpData.telegramUsername.trim()) {
+                const tgRaw = signUpData.telegramUsername.trim();
+                const tgNormalized = tgRaw.startsWith('@') ? tgRaw : `@${tgRaw}`;
+                supabase
+                    .from('profiles')
+                    .update({ telegram_username: tgNormalized })
                     .eq('id', authData.user.id)
                     .then(() => {})
                     .catch(() => {});
@@ -483,6 +497,25 @@ export const SignUpFlow: React.FC = () => {
                                     </div>
                                     <p className="text-xs text-slate-500 mt-1">
                                         Recibe alertas de oportunidades y resultados por WhatsApp
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm text-slate-300 mb-2">
+                                        Tu usuario de Telegram <span className="text-slate-500">(opcional)</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={signUpData.telegramUsername}
+                                        onChange={(e) => setSignUpData({
+                                            ...signUpData,
+                                            telegramUsername: e.target.value.replace(/\s/g, '')
+                                        })}
+                                        className="w-full px-4 py-3 bg-slate-800 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand transition-colors"
+                                        placeholder="@tu_usuario"
+                                    />
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        Si te suscribes al canal, te damos la bienvenida con tu @ al final del día.
                                     </p>
                                 </div>
 
