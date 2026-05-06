@@ -70,12 +70,28 @@ serve(async (req) => {
       // Build legacy-shape sections that AnalysisReportModal expects to render UI
       const df = pipelineResult.data_foundation;
       const synth = pipelineResult.synthesizer;
+      const tactical = pipelineResult.specialists.tactical;
+      const contextual = pipelineResult.specialists.contextual;
+      const market = pipelineResult.specialists.market;
       const verdict = synth.veredicto;
       const topPick = synth.picks[0];
       const decisionMap: Record<string, 'APOSTAR' | 'EVITAR' | 'OBSERVAR'> = {
         APOSTAR: 'APOSTAR', NO_BET: 'EVITAR', OBSERVAR: 'OBSERVAR',
       };
       const decision = decisionMap[verdict] || 'OBSERVAR';
+
+      // Build recent results table from raw_etl (last 5 matches each side)
+      const formatRecent = (results: typeof raw_etl.home_recent_results) =>
+        (results || []).slice(0, 5).map((r) => `${r.result} ${r.goals_for}-${r.goals_against}`);
+      const home_recent_5 = formatRecent(raw_etl.home_recent_results);
+      const away_recent_5 = formatRecent(raw_etl.away_recent_results);
+
+      // Pull rich interpretive prose from specialists (which now hold MEGA's enriched output)
+      const explicacionDetallada = pipelineResult.statistical_foundation.thesis_baseline || synth.summary || '';
+      const matchupTactico = tactical.notes || tactical.key_findings.join(' · ');
+      const contextoExterno = contextual.notes || contextual.key_findings.join(' · ');
+      const factorPsicologico = market.notes || (market.key_findings.length > 0 ? market.key_findings.join(' · ') : 'Sin observaciones psicológicas relevantes detectadas.');
+      const consejosApostador = pipelineResult.skeptic.global_observations || [];
 
       const reportPacket = {
         // V9 internal shape
@@ -90,6 +106,10 @@ serve(async (req) => {
         timings: pipelineResult.timings,
         meta: { engine: 'V9-HYBRID', verdict, modelo: 'v9-mega', version: ENGINE_VERSION },
 
+        // Recent results (for PDF + UI tables)
+        home_recent_5,
+        away_recent_5,
+
         // Legacy shape for AnalysisReportModal
         header_partido: {
           titulo: `${df.home_team} vs ${df.away_team}`,
@@ -103,15 +123,15 @@ serve(async (req) => {
             ? (topPick ? `OPORTUNIDAD: ${topPick.market} ${topPick.selection}` : 'OPORTUNIDAD CLARA')
             : decision === 'EVITAR' ? 'NO APOSTAR' : 'OBSERVAR',
           seleccion_clave: topPick ? `${topPick.market}: ${topPick.selection}` : null,
-          razon_principal: synth.summary || pipelineResult.statistical_foundation.thesis_baseline || '',
+          razon_principal: explicacionDetallada || synth.summary,
           riesgo_principal: pipelineResult.statistical_foundation.risks_flagged?.[0] || 'Volatilidad inherente al partido',
           probabilidad: topPick?.probability || synth.overall_confidence,
           nivel_confianza: topPick?.confidence || (synth.overall_confidence >= 80 ? 'ALTA' : synth.overall_confidence >= 65 ? 'MEDIA' : 'BAJA'),
-          razonamiento: synth.summary || '',
+          razonamiento: explicacionDetallada || synth.summary,
         },
         resumen_ejecutivo: {
           titular: `${df.home_team} vs ${df.away_team}`,
-          frase_principal: synth.summary || pipelineResult.statistical_foundation.thesis_baseline || `Análisis del partido entre ${df.home_team} y ${df.away_team}`,
+          frase_principal: synth.summary || explicacionDetallada.substring(0, 200) || `Análisis del partido entre ${df.home_team} y ${df.away_team}`,
           puntos_clave: pipelineResult.statistical_foundation.key_anchors || [],
           confianza: synth.overall_confidence >= 80 ? 'ALTA' : synth.overall_confidence >= 65 ? 'MEDIA' : 'BAJA',
         },
@@ -119,20 +139,22 @@ serve(async (req) => {
           titulo: 'Datos Clave',
           columnas: ['Métrica', df.home_team, df.away_team],
           filas: [
-            ['Forma reciente (5)', df.streak_home, df.streak_away],
-            ['xG por partido (10)', String(df.xg_rolling.home_for_10), String(df.xg_rolling.away_for_10)],
-            ['xGA por partido (10)', String(df.xg_rolling.home_against_10), String(df.xg_rolling.away_against_10)],
+            ['Forma reciente (5)', df.streak_home || '—', df.streak_away || '—'],
+            ['xG por partido (10)', df.xg_rolling.home_for_10.toFixed(2), df.xg_rolling.away_for_10.toFixed(2)],
+            ['xGA por partido (10)', df.xg_rolling.home_against_10.toFixed(2), df.xg_rolling.away_against_10.toFixed(2)],
+            ['Goles a favor (5)', df.goals_avg.home_at_home_last5.toFixed(2), df.goals_avg.away_away_last5.toFixed(2)],
             ['Días de descanso', String(df.days_rest_home), String(df.days_rest_away)],
             ['Lesiones clave', df.injuries_impact.home_key_missing.join(', ') || 'Ninguna', df.injuries_impact.away_key_missing.join(', ') || 'Ninguna'],
           ],
         },
         analisis_profundo: {
-          razonamiento_central: synth.summary || pipelineResult.statistical_foundation.thesis_baseline,
-          matchup_tactico: pipelineResult.specialists.tactical?.notes || (pipelineResult.specialists.tactical?.key_findings || []).join(' · '),
-          factor_psicologico: pipelineResult.specialists.contextual?.notes || (pipelineResult.specialists.contextual?.key_findings || []).join(' · '),
-          contexto_competitivo: df.competition_context.is_derby ? 'Derby — alta tensión psicológica'
+          razonamiento_central: explicacionDetallada,
+          matchup_tactico: matchupTactico,
+          factor_psicologico: factorPsicologico,
+          contexto_competitivo: contextoExterno || (df.competition_context.is_derby ? 'Derby — alta tensión psicológica'
             : df.competition_context.is_relegation_battle ? 'Pelea por permanencia'
-            : df.competition_context.is_title_race ? 'Pelea por título' : 'Partido de jornada regular',
+            : df.competition_context.is_title_race ? 'Pelea por título' : 'Partido de jornada regular'),
+          consejos_apostador: consejosApostador,
         },
         escenarios_proyectados: synth.picks.length > 0 ? {
           titulo: 'Escenarios proyectados',
@@ -143,6 +165,7 @@ serve(async (req) => {
             probabilidad: p.probability,
             cuota: p.odds,
             edge: p.edge_percent,
+            por_que: p.reasoning,
           })),
         } : null,
         predicciones_finales: {

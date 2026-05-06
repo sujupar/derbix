@@ -90,11 +90,19 @@ function buildPromoPropsFromAnalysisRun(run: AnalysisRunInput): PromoMatchPDFPro
   const rpre = run.report_pre_jsonb || {};
   const df = rp.data_foundation || {};
   const synth = rp.synthesizer || {};
+  const analisisProfundo = rp.analisis_profundo || {};
   const header = extractHeader(run);
 
-  // Try V9 first, then legacy structures
   const dataVolume = n(synth.total_data_volume, df.data_volume_score, rpre.data_volume) || 1500;
   const overallConf = n(synth.overall_confidence, rpre.confianza_global, rpre.resumen_ejecutivo?.confianza) || 70;
+
+  // Real recent results from worker (added 2026-05-06)
+  const homeForm: string[] = (rp.home_recent_5 && rp.home_recent_5.length > 0)
+    ? rp.home_recent_5
+    : (df.streak_home ? df.streak_home.split('').map((r: string, i: number) => `Partido ${i + 1}: ${r}`) : []);
+  const awayForm: string[] = (rp.away_recent_5 && rp.away_recent_5.length > 0)
+    ? rp.away_recent_5
+    : (df.streak_away ? df.streak_away.split('').map((r: string, i: number) => `Partido ${i + 1}: ${r}`) : []);
 
   return {
     homeTeam: header.homeTeam,
@@ -109,10 +117,24 @@ function buildPromoPropsFromAnalysisRun(run: AnalysisRunInput): PromoMatchPDFPro
     awayStreak: s(df.streak_away, rpre.forma_visitante) || '—',
     homeXG: n(df.xg_rolling?.home_for_10) ?? 1.5,
     awayXG: n(df.xg_rolling?.away_for_10) ?? 1.3,
-    homeForm: ['Reciente 1', 'Reciente 2', 'Reciente 3', 'Reciente 4', 'Reciente 5'],
-    awayForm: ['Reciente 1', 'Reciente 2', 'Reciente 3', 'Reciente 4', 'Reciente 5'],
+    homeXGA: n(df.xg_rolling?.home_against_10) ?? 1.2,
+    awayXGA: n(df.xg_rolling?.away_against_10) ?? 1.3,
+    daysRestHome: n(df.days_rest_home) ?? 7,
+    daysRestAway: n(df.days_rest_away) ?? 7,
+    homeForm: homeForm.length > 0 ? homeForm : ['—', '—', '—', '—', '—'],
+    awayForm: awayForm.length > 0 ? awayForm : ['—', '—', '—', '—', '—'],
     weatherDesc: s(rp.weather?.description, rpre.weather?.description) || null,
     refereeName: s(df.referee_stats?.name, rpre.referee?.name) || null,
+    homeKeyMissing: df.injuries_impact?.home_key_missing || [],
+    awayKeyMissing: df.injuries_impact?.away_key_missing || [],
+    explicacionDetallada: s(analisisProfundo.razonamiento_central, synth.summary, rp.statistical_foundation?.thesis_baseline) || '',
+    matchupTactico: s(analisisProfundo.matchup_tactico) || '',
+    contextoExterno: s(analisisProfundo.contexto_competitivo) || '',
+    factorPsicologico: s(analisisProfundo.factor_psicologico) || '',
+    consejosApostador: Array.isArray(analisisProfundo.consejos_apostador) ? analisisProfundo.consejos_apostador : [],
+    puntosClave: Array.isArray(rpre.resumen_ejecutivo?.puntos_clave) ? rpre.resumen_ejecutivo.puntos_clave
+      : Array.isArray(rp.resumen_ejecutivo?.puntos_clave) ? rp.resumen_ejecutivo.puntos_clave
+      : [],
     marketIntensities: [
       { category: 'Resultado (1X2)', intensity: 3 },
       { category: 'Goles (Over/Under)', intensity: 4 },
