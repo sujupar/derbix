@@ -6,6 +6,7 @@ import type { PublicResultsData, ParlayResultData, AdvancedAnalyticsData, Advanc
 import type { PlanTier } from '../utils/planAccessUtils';
 import { PLAN_TIERS, PLAN_DISPLAY_NAMES, PLAN_PREDICTIONS_PERCENTAGES, getAllowedPickCount } from '../utils/planAccessUtils';
 import { DEFAULT_STAKING_CONFIG, getStakeUnits, getStakeAmount, getEffectiveOdds, calculateProfitLoss, calculateUnitProfit, calculateMaxDrawdown, normalizePModel, getFilterStakingLabel } from './stakingService';
+import { OPPORTUNITIES_THRESHOLD } from '../constants/opportunities';
 
 // Fecha de inicio del sistema de verificación
 const SYSTEM_START_DATE = '2026-02-17';
@@ -529,7 +530,7 @@ export async function manualOverridePick(
     // Step 3: Update profitability_tracking (only for Oportunidades, skip VOID)
     if (newResult === 'VOID') return; // VOID = no profit/loss impact
     const prob = normalizePModel(pick.p_model);
-    const isOportunidad = prob >= 0.83;
+    const isOportunidad = prob >= OPPORTUNITIES_THRESHOLD;
     if (!isOportunidad) return;
 
     const baseBankroll = await fetchBaseBankroll();
@@ -745,7 +746,7 @@ export async function recalculateResults(startDate: string, endDate: string): Pr
         .from('value_picks_v2')
         .update({ result: 'PENDING', verified_at: null, actual_score: null })
         .in('fixture_id', fixtureIds)
-        .gte('p_model', 0.83)
+        .gte('p_model', OPPORTUNITIES_THRESHOLD)
         .or('odds.gte.1.40,odds.is.null')
         .in('result', ['WON', 'LOST', 'VOID'])
         .select('id');
@@ -812,12 +813,12 @@ export async function getAdvancedAnalytics(filters: AdvancedAnalyticsFilters): P
         return emptyAnalytics(filters.startingBankroll);
     }
 
-    // Step 2: Get verified picks (Oportunidades: p_model >= 0.83, odds >= 1.40, odds_source real/legacy)
+    // Step 2: Get verified picks (Oportunidades: p_model >= OPPORTUNITIES_THRESHOLD, odds >= 1.40, odds_source real/legacy)
     let query = supabase
         .from('value_picks_v2')
         .select('id, fixture_id, market, selection, p_model, odds, result, verified_at, actual_score, created_at')
         .in('fixture_id', fixtureIds)
-        .gte('p_model', 0.83)
+        .gte('p_model', OPPORTUNITIES_THRESHOLD)
         .or('odds.gte.1.40,odds.is.null')
         .or('odds_source.eq.real,odds_source.is.null')
         .in('result', ['WON', 'LOST', 'VOID'])
@@ -835,7 +836,7 @@ export async function getAdvancedAnalytics(filters: AdvancedAnalyticsFilters): P
         .from('value_picks_v2')
         .select('id', { count: 'exact', head: true })
         .in('fixture_id', fixtureIds)
-        .gte('p_model', 0.83)
+        .gte('p_model', OPPORTUNITIES_THRESHOLD)
         .or('odds.gte.1.40,odds.is.null')
         .or('odds_source.eq.real,odds_source.is.null')
         .eq('result', 'PENDING');

@@ -7,6 +7,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { corsHeaders } from '../_shared/cors.ts'
+import { findOddInOrganized, oddsWithinTolerance } from '../_shared/odds-selector.ts'
+import { OPPORTUNITIES_THRESHOLD, OPPORTUNITIES_THRESHOLD_PERCENT } from '../_shared/constants.ts'
 
 /** Get next day string YYYY-MM-DD */
 function getNextDay(dateStr: string): string {
@@ -174,6 +176,29 @@ serve(async (req) => {
             if (!jobsByFixture.has(j.fixture_id)) jobsByFixture.set(j.fixture_id, j);
         });
 
+        // Load etl_context (organized odds) ONLY for jobs whose reports we actually use,
+        // so cross-val can use real bookmaker catalog as second defense layer.
+        const jobIdsWithReports = Array.from(new Set((reports || []).map((r: any) => r.job_id).filter(Boolean)));
+        const etlOddsByJobId = new Map<string, any>();
+        if (jobIdsWithReports.length > 0) {
+            const { data: etlRows, error: etlErr } = await supabase
+                .from('analysis_jobs_v2')
+                .select('id, etl_context')
+                .in('id', jobIdsWithReports);
+            if (etlErr) {
+                log(`[OPP-V8.1] etl_context fetch warning: ${etlErr.message}`);
+            } else if (etlRows) {
+                for (const row of etlRows) {
+                    const ctx = row.etl_context;
+                    const organized = ctx?.odds || ctx?.payload?.odds || null;
+                    if (organized && organized._meta?.bookmaker) {
+                        etlOddsByJobId.set(row.id, organized);
+                    }
+                }
+                log(`[OPP-V8.1] Loaded etl_odds for ${etlOddsByJobId.size}/${jobIdsWithReports.length} jobs`);
+            }
+        }
+
         const doneCount = (jobs || []).filter((j: any) => j.status === 'done').length;
         // Only count jobs as "analyzing" if created within last 10 minutes (ignore stuck jobs)
         const STALE_THRESHOLD_MS = 10 * 60 * 1000;
@@ -187,7 +212,7 @@ serve(async (req) => {
         log(`[OPP-V8.1] Query results: ${reports?.length || 0} reports, ${valuePicks?.length || 0} value_picks, jobs: ${doneCount} done + ${analyzingCount} analyzing`);
 
         // ═══════════════════════════════════════════════════════════════
-        // STEP 3: Extract picks >= 83% from ALL sources (raised from 80%)
+        // STEP 3: Extract picks >= threshold% from ALL sources
         // ═══════════════════════════════════════════════════════════════
         const highProbPicks: any[] = [];
         const seenPickKeys = new Set<string>();
@@ -272,6 +297,8 @@ serve(async (req) => {
 
                 log(`[OPP-V8.1] Fixture ${resolvedFixtureId} (${dailyMatch.home_team} vs ${dailyMatch.away_team}): ${pronosticos.length} pronosticos found`);
 
+                const etlOdds = report.job_id ? etlOddsByJobId.get(report.job_id) : null;
+
                 pronosticos.forEach((p: any, idx: number) => {
                     // Extract probability from any possible field name
                     const probRaw = p.probabilidad_calculada_porcentaje
@@ -289,9 +316,27 @@ serve(async (req) => {
 
                     // Only cuota_actual is trusted — other fields were inventable slots.
                     const rawOdds = p.cuota_actual ?? null;
-                    const odds = rawOdds !== null
+                    let odds = rawOdds !== null
                         ? (typeof rawOdds === 'string' ? parseFloat(rawOdds) : rawOdds)
                         : null;
+
+                    // Cross-val secondary defense: if we have etl_context odds for this report,
+                    // verify the pick's market+selection exists and the odds match within 5%.
+                    // If etlOdds is null (older reports pre-fix), fall back to range validation only.
+                    if (etlOdds) {
+                        const xv = findOddInOrganized(etlOdds, p.mercado || '', p.seleccion || '', { homeTeam: dailyMatch.home_team, awayTeam: dailyMatch.away_team });
+                        if (!xv.match) {
+                            log(`[OPP-V8.1]   Pick[${idx}] DISCARDED (xval ${xv.reason}): ${p.mercado} | ${p.seleccion}`);
+                            return;
+                        }
+                        if (odds !== null && isFinite(odds) && !oddsWithinTolerance(odds, xv.match.val, 0.05)) {
+                            log(`[OPP-V8.1]   Pick[${idx}] DISCARDED (tolerance llm=${odds} vs real=${xv.match.val}): ${p.mercado} | ${p.seleccion}`);
+                            return;
+                        }
+                        // Authoritative: overwrite with real bookmaker odds.
+                        odds = xv.match.val;
+                    }
+
                     // Range: 1.01 (min mathematical) to 15.0 (above = inventado for common markets).
                     const MIN_ODDS = 1.01;
                     const MAX_ODDS = 15.0;
@@ -310,9 +355,8 @@ serve(async (req) => {
                         log(`[OPP-V8.1]   Pick[${idx}]: ${p.mercado} | ${p.seleccion} | prob=${prob.toFixed(1)}% | odds=${validOdds || 'null'}`);
                     }
 
-                    // FILTER >= 83% (raised from 80% based on performance data:
-                    // 80-82% band had only 55.6% WR vs 83-85% band at 91.7%)
-                    if (prob >= 83) {
+                    // FILTER >= OPPORTUNITIES_THRESHOLD_PERCENT (V9 pipeline, 2026-05-05)
+                    if (prob >= OPPORTUNITIES_THRESHOLD_PERCENT) {
                         const pickKey = `${resolvedFixtureId}_${(p.mercado || '').toLowerCase()}_${(p.seleccion || '').toLowerCase()}`;
                         if (seenPickKeys.has(pickKey)) return;
                         seenPickKeys.add(pickKey);
@@ -401,7 +445,7 @@ serve(async (req) => {
 
         // SOURCE C: Fallback - Extract from 'analisis' table (dashboardData.predicciones_finales)
         // This covers cases where reports_v2 was cleaned up but analisis still has the data
-        if (highProbPicks.length === 0 || (reports?.length || 0) < dailyMatches.length / 2) {
+        if (highProbPicks.length === 0 || (reports?.length || 0) < (dailyMatches?.length || 0) / 2) {
             const { data: analisisRows } = await supabase
                 .from('analisis')
                 .select('partido_id, resultado_analisis')
@@ -494,13 +538,13 @@ serve(async (req) => {
             if (hasOnlyInProgress) {
                 message = `Hay ${analyzingCount} análisis en progreso. Espera unos segundos y vuelve a intentar.`;
             } else if (hasAnalysis) {
-                // We found reports but no picks >= 83%
+                // We found reports but no picks >= threshold%
                 const allProbs = (valuePicks || []).map((vp: any) => {
                     const p = vp.p_model > 0 && vp.p_model < 1 ? vp.p_model * 100 : vp.p_model;
                     return p;
                 }).sort((a: number, b: number) => b - a);
                 const maxProb = allProbs.length > 0 ? allProbs[0].toFixed(1) : '?';
-                message = `Se analizaron ${reports?.length || 0} partidos. Máxima probabilidad encontrada: ${maxProb}%. No hay picks >= 83%.`;
+                message = `Se analizaron ${reports?.length || 0} partidos. Máxima probabilidad encontrada: ${maxProb}%. No hay picks >= ${OPPORTUNITIES_THRESHOLD_PERCENT}%.`;
             } else {
                 message = 'No hay análisis completados para esta fecha. Ejecuta el análisis primero.';
             }
@@ -511,7 +555,7 @@ serve(async (req) => {
                 parlays: [],
                 singles: [],
                 stats: {
-                    matches: dailyMatches.length,
+                    matches: dailyMatches?.length || 0,
                     reports: reports?.length || 0,
                     value_picks: valuePicks?.length || 0,
                     picks_found: 0,
@@ -571,7 +615,7 @@ serve(async (req) => {
                     // EXISTS — check if we have BETTER data
                     const existingProb = existing.p_model > 1 ? existing.p_model / 100 : existing.p_model;
                     const incomingProb = p.p_model > 1 ? p.p_model / 100 : p.p_model;
-                    const betterProb = incomingProb >= 0.83 && existingProb < 0.83;
+                    const betterProb = incomingProb >= OPPORTUNITIES_THRESHOLD && existingProb < OPPORTUNITIES_THRESHOLD;
                     const betterOdds = p.odds && p.odds >= 1.40 && (!existing.odds || existing.odds <= 1.0);
 
                     if (betterProb || betterOdds) {
@@ -708,7 +752,7 @@ serve(async (req) => {
             parlays: [],
             singles: highProbPicks,
             stats: {
-                matches: dailyMatches.length,
+                matches: dailyMatches?.length || 0,
                 reports: reports?.length || 0,
                 value_picks: valuePicks?.length || 0,
                 picks_found: highProbPicks.length,

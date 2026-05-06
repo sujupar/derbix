@@ -1,11 +1,12 @@
 
 // components/ai/HighProbPicks.tsx
-// Componente para mostrar Oportunidades (Picks Individuales >= 83% con cuota real)
+// Componente para mostrar Oportunidades (Picks Individuales >= OPPORTUNITIES_THRESHOLD_PERCENT con cuota real)
 // Updated: Removed Smart Parlays logic as per user request.
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../services/supabaseService';
 import { manualOverridePick } from '../../services/resultsService';
+import { OPPORTUNITIES_THRESHOLD } from '../../constants/opportunities';
 import { useAuth } from '../../hooks/useAuth';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { isHistoricalDate, getAllowedPickCount } from '../../utils/planAccessUtils';
@@ -56,6 +57,7 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
     const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
     const [verificationFilter, setVerificationFilter] = useState<'all' | 'pending' | 'verified'>('all');
     const [matchScores, setMatchScores] = useState<Record<number, string>>({});
+    const [analysisHealth, setAnalysisHealth] = useState<{ permanentFailed: number; pendingRetry: number }>({ permanentFailed: 0, pendingRetry: 0 });
 
     // Transparencia historica: fechas anteriores = todo visible
     const isHistorical = isHistoricalDate(date);
@@ -93,7 +95,7 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                                 .from('value_picks_v2')
                                 .select('id', { count: 'exact', head: true })
                                 .in('fixture_id', todayFixtureIds)
-                                .gte('p_model', 0.83);
+                                .gte('p_model', OPPORTUNITIES_THRESHOLD);
 
                             if ((eligibleCount || 0) > persisted.length) {
                                 console.log(`[HighProbPicks] Stale: ${persisted.length} persisted but ${eligibleCount} eligible → regenerating`);
@@ -208,6 +210,39 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
         loadPicks(false);
     }, [date]);
 
+    // Load analysis health stats for the date (permanent failures + pending retries)
+    useEffect(() => {
+        let cancelled = false;
+        const loadHealth = async () => {
+            try {
+                const { data: matches } = await supabase
+                    .from('daily_matches')
+                    .select('api_fixture_id')
+                    .eq('match_date', date);
+                const fixtureIds = (matches || []).map((m: any) => m.api_fixture_id);
+                if (fixtureIds.length === 0) {
+                    if (!cancelled) setAnalysisHealth({ permanentFailed: 0, pendingRetry: 0 });
+                    return;
+                }
+                const [{ count: permCount }, { count: pendingCount }] = await Promise.all([
+                    supabase.from('analysis_jobs_v2').select('id', { count: 'exact', head: true })
+                        .in('fixture_id', fixtureIds).eq('permanent_failure', true),
+                    supabase.from('analysis_jobs_v2').select('id', { count: 'exact', head: true })
+                        .in('fixture_id', fixtureIds)
+                        .in('status', ['etl', 'interpret', 'analyzing', 'retrying'])
+                        .eq('permanent_failure', false)
+                ]);
+                if (!cancelled) {
+                    setAnalysisHealth({ permanentFailed: permCount || 0, pendingRetry: pendingCount || 0 });
+                }
+            } catch (err) {
+                console.warn('[HighProbPicks] health check failed:', err);
+            }
+        };
+        loadHealth();
+        return () => { cancelled = true; };
+    }, [date]);
+
     // Filtering Logic: picks with odds >= 1.40 are "main", odds < 1.40 OR no odds are "low/complementary"
     const allMainPicks = singles.filter(p => p.odds && p.odds >= 1.40);
     const lowOddsPicks = singles.filter(p => !p.odds || p.odds < 1.40);
@@ -312,6 +347,28 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                     </button>
                 </div>
             </div>
+
+            {/* Analysis health banners (visible to all users for transparency) */}
+            {(analysisHealth.pendingRetry > 0 || analysisHealth.permanentFailed > 0) && (
+                <div className="space-y-2">
+                    {analysisHealth.pendingRetry > 0 && (
+                        <div className="flex items-center gap-3 bg-blue-900/20 border border-blue-500/30 rounded-lg px-4 py-3">
+                            <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+                            <p className="text-sm text-blue-200">
+                                <span className="font-bold">{analysisHealth.pendingRetry} partidos</span> en análisis o reintento automático. Las oportunidades aparecerán cuando terminen.
+                            </p>
+                        </div>
+                    )}
+                    {analysisHealth.permanentFailed > 0 && (
+                        <div className="flex items-center gap-3 bg-amber-900/20 border border-amber-500/30 rounded-lg px-4 py-3">
+                            <span className="text-amber-400 text-lg flex-shrink-0">⚠</span>
+                            <p className="text-sm text-amber-200">
+                                <span className="font-bold">{analysisHealth.permanentFailed} partidos</span> no pudieron analizarse tras múltiples intentos (datos incompletos o fallo técnico).
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Plan info banner for non-historical dates */}
             {!isHistorical && !isAdmin && mainPicks.length > 0 && (

@@ -5,13 +5,14 @@
 // V2: Fixed team abbreviation matching, combined market detection, Double Chance "o Empate",
 //     null→PENDING (not VOID), MAX_GEMINI_CALLS raised to 40
 // V3: Catch-up pass for ALL pending picks (any date), sync reports_v2→value_picks_v2,
-//     profitability threshold aligned to 0.83
+//     profitability threshold aligned to OPPORTUNITIES_THRESHOLD (V9 = 0.80)
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { corsHeaders } from '../_shared/cors.ts'
 import { getFixtureComplete } from '../_shared/sportmonks-client.ts'
 import { callLLM } from '../_shared/llm-client.ts'
+import { OPPORTUNITIES_THRESHOLD } from '../_shared/constants.ts'
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -990,11 +991,11 @@ serve(async (req) => {
 
                     // ───────────────────────────────────────────────────────
                     // STEP 4: Update profitability_tracking
-                    // ONLY for Oportunidades: p_model >= 0.83 AND odds >= 1.40
+                    // ONLY for Oportunidades: p_model >= OPPORTUNITIES_THRESHOLD AND odds >= 1.40
                     // ───────────────────────────────────────────────────────
                     try {
                         const pickProb = pick.p_model > 1 ? pick.p_model / 100 : pick.p_model;
-                        const isOportunidad = pickProb >= 0.83 && pick.odds && pick.odds >= 1.40;
+                        const isOportunidad = pickProb >= OPPORTUNITIES_THRESHOLD && pick.odds && pick.odds >= 1.40;
 
                         if (isOportunidad) {
                             const pickIdentifier = `${pick.job_id}_${pick.market}_${pick.selection}`;
@@ -1444,7 +1445,7 @@ serve(async (req) => {
                             // Profitability tracking (same logic as main loop)
                             try {
                                 const pickProb = pick.p_model > 1 ? pick.p_model / 100 : pick.p_model;
-                                const isOportunidad = pickProb >= 0.83 && pick.odds && pick.odds >= 1.40;
+                                const isOportunidad = pickProb >= OPPORTUNITIES_THRESHOLD && pick.odds && pick.odds >= 1.40;
 
                                 if (isOportunidad) {
                                     const pickIdentifier = `${pick.job_id}_${pick.market}_${pick.selection}`;
