@@ -35,8 +35,6 @@ const HeaderSection: React.FC<{ data: DashboardAnalysisJSON['header_partido'] }>
 
 import { PostMatchAnalysis, MatchOutcome } from '../../types';
 import { ArrowDownTrayIcon, ClipboardDocumentCheckIcon } from '../icons/Icons';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 const PostMatchSection: React.FC<{ analysis: PostMatchAnalysis | string; outcome?: MatchOutcome; headerData: any; showPdfButton?: boolean }> = ({ analysis, outcome, headerData, showPdfButton = false }) => {
     if (!analysis) return null;
@@ -77,13 +75,19 @@ const PostMatchSection: React.FC<{ analysis: PostMatchAnalysis | string; outcome
                     header_partido: headerData,
                     resumen_ejecutivo: { titular: headerData.titulo },
                     // @ts-ignore
-                    analisis_tactico: analysis, // Pasamos el objeto entero par que el generador extraiga lo que pueda
+                    analisis_tactico: analysis,
                     // @ts-ignore
                     contexto_competitivo: { situacion_local: headerData.titulo }
                 }
             }, {
                 fileName: `Derbix_PostMatch_${headerData.titulo.replace(/[^a-z0-9]/gi, '_')}.pdf`
+            }).catch((err: unknown) => {
+                console.error('[PDF] PostMatch download failed:', err);
+                alert('No se pudo generar el PDF: ' + (err instanceof Error ? err.message : String(err)));
             });
+        }).catch((err) => {
+            console.error('[PDF] Failed to load pdfGenerator module:', err);
+            alert('No se pudo cargar el módulo de PDF.');
         });
     };
 
@@ -892,7 +896,13 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
                 fileName: `Derbix_Analisis_${(data.header_partido?.titulo || 'Reporte').replace(/[^a-z0-9]/gi, '_')}.pdf`,
                 isPromo: pdfOptions?.isPromo || false,
                 onlyOpportunities: pdfOptions?.onlyOpportunities || false,
+            }).catch((err: unknown) => {
+                console.error('[PDF] Analysis download failed:', err);
+                alert('No se pudo generar el PDF: ' + (err instanceof Error ? err.message : String(err)));
             });
+        }).catch((err) => {
+            console.error('[PDF] Failed to load pdfGenerator module:', err);
+            alert('No se pudo cargar el módulo de PDF.');
         });
         setShowPdfDialog(false);
     };
@@ -1203,6 +1213,19 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
                                 {/* 4. Predicciones Finales — Gating por plan */}
                                 {data.predicciones_finales && data.predicciones_finales.detalle && (() => {
                                     const allPreds = data.predicciones_finales.detalle;
+
+                                    if (allPreds.length === 0) {
+                                        return (
+                                            <div className="bg-slate-800/40 border border-amber-500/20 rounded-xl p-6 text-center">
+                                                <TrophyIcon className="w-10 h-10 text-amber-500/60 mx-auto mb-3" />
+                                                <h3 className="text-lg font-bold text-white mb-1">Sin predicciones con edge suficiente</h3>
+                                                <p className="text-sm text-slate-400 max-w-md mx-auto">
+                                                    El análisis se completó pero no encontramos picks con probabilidad y cuota que justifiquen apostar. Esto es común en partidos muy parejos o con cuotas infladas.
+                                                </p>
+                                            </div>
+                                        );
+                                    }
+
                                     const canSeePredictions = hasFullAccess || userPlan !== 'free';
                                     const visiblePreds = hasFullAccess
                                         ? allPreds

@@ -55,7 +55,13 @@ const SmartParlaysList: React.FC<SmartParlaysListProps> = ({ date }) => {
             generateParlayPDF(parlay, {
                 fileName: `Smart_Parlay_${index + 1}_${date}.pdf`,
                 titleOverride: `Smart Parlay #${index + 1}`
+            }).catch((err: unknown) => {
+                console.error('[PDF] Parlay download failed:', err);
+                alert('No se pudo generar el PDF: ' + (err instanceof Error ? err.message : String(err)));
             });
+        }).catch((err) => {
+            console.error('[PDF] Failed to load pdfGenerator module:', err);
+            alert('No se pudo cargar el módulo de PDF.');
         });
     };
 
