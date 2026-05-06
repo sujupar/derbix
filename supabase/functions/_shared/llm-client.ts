@@ -74,6 +74,13 @@ async function callOpenAICompatible(
     body.response_format = { type: 'json_object' };
   }
 
+  // DeepSeek-V4-Flash is a reasoning model. Setting reasoning_effort='low' caps
+  // the thinking budget so the model produces output faster.  Crucial to fit the
+  // pipeline within the 145s wall clock.
+  if (provider.name.startsWith('deepseek-')) {
+    body.reasoning_effort = 'low';
+  }
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${apiKey}`,

@@ -14,38 +14,12 @@ import type {
   SynthesizerOutput,
 } from './types.ts';
 
-const SYSTEM_PROMPT = `Eres el árbitro final + abogado del diablo combinado. Realizas DOS tareas en una sola pasada:
+const SYSTEM_PROMPT = `Skeptic+Synthesizer combinado.
+A) Por cada candidate_pick: ataque + verdict (DESCARTAR/DEBILITAR_CONFIANZA/MANTENER).
+B) Picks finales: solo sobrevivientes con probability>=${OPPORTUNITIES_THRESHOLD_PERCENT}, odds [1.50-3.50], al menos 1 especialista.
 
-PASO A — SKEPTIC (atacar):
-Para cada candidate_pick de los 3 especialistas, formula un argumento de ataque y decide:
-- DESCARTAR: el pick no aguanta crítica
-- DEBILITAR_CONFIANZA: tiene mérito pero con riesgos importantes
-- MANTENER: pick robusto
-
-PASO B — SYNTHESIZER (sintetizar):
-De los picks que sobrevivieron (MANTENER + DEBILITAR_CONFIANZA), produce el veredicto final.
-
-REGLAS DURAS:
-1. Devuelve EXCLUSIVAMENTE JSON válido (sin markdown, sin explicación previa).
-2. SOLO incluyes en final picks aquellos con probability >= ${OPPORTUNITIES_THRESHOLD_PERCENT} y respaldados por al menos 1 especialista.
-3. Skeptic.attacks debe contener TODOS los picks evaluados (los 3 veredictos posibles).
-4. Final picks: confidence ALTA si MANTENER, MEDIA o BAJA si DEBILITAR_CONFIANZA.
-
-ESTRUCTURA OUTPUT:
-{
-  "skeptic": {
-    "attacks": [{"target_pick_market": "...", "target_pick_selection": "...", "attack_argument": "...", "verdict": "DESCARTAR|DEBILITAR_CONFIANZA|MANTENER"}],
-    "picks_that_survive": [{"market": "...", "selection": "...", "why_it_holds": "..."}],
-    "global_observations": ["..."]
-  },
-  "synthesizer": {
-    "veredicto": "APOSTAR" | "OBSERVAR" | "NO_BET",
-    "picks": [{"market": "...", "selection": "...", "probability": 80-99, "odds": 1.50-3.50, "edge_percent": number, "confidence": "ALTA"|"MEDIA"|"BAJA", "reasoning": "...", "survived_skeptic": true}],
-    "summary": "1-2 párrafos del veredicto",
-    "overall_confidence": 0-100,
-    "total_data_volume": number
-  }
-}`;
+JSON único sin markdown:
+{"skeptic":{"attacks":[{"target_pick_market":"","target_pick_selection":"","attack_argument":"","verdict":"DESCARTAR|DEBILITAR_CONFIANZA|MANTENER"}],"picks_that_survive":[{"market":"","selection":"","why_it_holds":""}],"global_observations":[]},"synthesizer":{"veredicto":"APOSTAR|OBSERVAR|NO_BET","picks":[{"market":"","selection":"","probability":80,"odds":1.5,"edge_percent":0,"confidence":"ALTA|MEDIA|BAJA","reasoning":"","survived_skeptic":true}],"summary":"","overall_confidence":0,"total_data_volume":0}}`;
 
 export interface CombinedSkepticSynthesizerOutput {
   skeptic: SkepticOutput;
@@ -71,19 +45,11 @@ export async function runStage3and4(
     ...s2.market.candidate_picks.map((p) => ({...p, from: 'MARKET'})),
   ];
 
-  const prompt = `DATOS BASE: ${JSON.stringify(dfCompact)}
-
-TESIS BASELINE: ${JSON.stringify(s1)}
-
-CANDIDATE PICKS DE 3 ESPECIALISTAS (${allCandidatePicks.length} totales):
-${JSON.stringify(allCandidatePicks)}
-
-DATA_VOLUME_SCORE (úsalo en synthesizer.total_data_volume): ${df.data_volume_score}
-
-TAREA:
-1. Skeptic: ataca cada candidate pick, decide veredicto, lista los que sobreviven.
-2. Synthesizer: emite picks finales (solo los sobrevivientes con prob >= ${OPPORTUNITIES_THRESHOLD_PERCENT}, en odds [1.50, 3.50]).
-3. Devuelve JSON único con la estructura del system prompt.`;
+  const prompt = `Datos: ${JSON.stringify(dfCompact)}
+Tesis: ${JSON.stringify(s1).slice(0, 800)}
+Candidates (${allCandidatePicks.length}): ${JSON.stringify(allCandidatePicks)}
+data_volume_score: ${df.data_volume_score}
+Ataca, sintetiza, JSON.`;
 
   const result = await callWithSchemaRetry<CombinedSkepticSynthesizerOutput>(
     async () => {

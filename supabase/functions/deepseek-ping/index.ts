@@ -14,17 +14,21 @@ serve(async (req) => {
     });
   }
 
+  const url = new URL(req.url);
+  const model = url.searchParams.get('model') || 'deepseek-v4-flash';
+  const max_tokens = parseInt(url.searchParams.get('max_tokens') || '500');
+
   const t0 = Date.now();
   try {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 30000);
+    const timer = setTimeout(() => ctrl.abort(), 60000);
     const res = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'deepseek-v4-flash',
-        messages: [{ role: 'user', content: 'Reply with JSON: {"ok":true}' }],
-        max_tokens: 20,
+        model,
+        messages: [{ role: 'user', content: 'Eres un analista. Da un JSON breve con un análisis simple. Formato: {"thesis": "string corta", "probabilities": {"home_win": 50, "draw": 25, "away_win": 25}}' }],
+        max_tokens,
         temperature: 0,
         response_format: { type: 'json_object' },
       }),
