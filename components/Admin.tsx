@@ -8,7 +8,7 @@ import { isAgencyRole } from '../utils/roles';
 import { SupportDashboard } from './admin/SupportDashboard';
 import { SeoDashboard } from './admin/SeoDashboard';
 import { AffiliateManager } from './admin/AffiliateManager';
-import { TelegramContentGenerator } from './admin/TelegramContentGenerator';
+import { TelegramCommandCenter } from './admin/TelegramCommandCenter';
 import { MLLearningGate } from './admin/MLLearningGate';
 
 export const AdminPage: React.FC = () => {
@@ -58,7 +58,7 @@ export const AdminPage: React.FC = () => {
 
     // Si el usuario activa generador de contenido Telegram
     if (showTelegram) {
-        return <TelegramContentGenerator onBack={() => setShowTelegram(false)} />;
+        return <TelegramCommandCenter onBack={() => setShowTelegram(false)} />;
     }
 
     // V9: ML Learning Gate (manual approval + trigger training)
