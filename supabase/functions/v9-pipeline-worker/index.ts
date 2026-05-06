@@ -8,9 +8,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { runPipeline, type ETLRawData } from "../_shared/agents/orchestrator.ts";
 import type { MatchContext } from "../_shared/agents/types.ts";
+import { OPPORTUNITIES_THRESHOLD_PERCENT } from "../_shared/constants.ts";
 
 const ENGINE_VERSION = 'V9-HYBRID-2026-05-05';
 const PIPELINE_TIMEOUT_MS = 145000; // 145s safety cap. Worker has ~150s wall clock total.
+const OPPORTUNITIES_THRESHOLD_PERCENT_PERSIST = OPPORTUNITIES_THRESHOLD_PERCENT;
 
 interface RequestBody {
   job_id: string;
@@ -65,17 +67,118 @@ serve(async (req) => {
       const elapsed = Date.now() - t0;
       console.log(`[V9-WORKER] Pipeline complete in ${elapsed}ms — ${pipelineResult.validated_picks.length} validated picks, verdict=${pipelineResult.synthesizer.veredicto}`);
 
+      // Build legacy-shape sections that AnalysisReportModal expects to render UI
+      const df = pipelineResult.data_foundation;
+      const synth = pipelineResult.synthesizer;
+      const verdict = synth.veredicto;
+      const topPick = synth.picks[0];
+      const decisionMap: Record<string, 'APOSTAR' | 'EVITAR' | 'OBSERVAR'> = {
+        APOSTAR: 'APOSTAR', NO_BET: 'EVITAR', OBSERVAR: 'OBSERVAR',
+      };
+      const decision = decisionMap[verdict] || 'OBSERVAR';
+
       const reportPacket = {
+        // V9 internal shape
         pipeline_version: pipelineResult.pipeline_version,
         engine_version: ENGINE_VERSION,
-        data_foundation: pipelineResult.data_foundation,
+        data_foundation: df,
         statistical_foundation: pipelineResult.statistical_foundation,
         specialists: pipelineResult.specialists,
         skeptic: pipelineResult.skeptic,
-        synthesizer: pipelineResult.synthesizer,
+        synthesizer: synth,
         validated_picks: pipelineResult.validated_picks,
         timings: pipelineResult.timings,
-        meta: { engine: 'V9-HYBRID', verdict: pipelineResult.synthesizer.veredicto },
+        meta: { engine: 'V9-HYBRID', verdict, modelo: 'v9-mega', version: ENGINE_VERSION },
+
+        // Legacy shape for AnalysisReportModal
+        header_partido: {
+          titulo: `${df.home_team} vs ${df.away_team}`,
+          subtitulo: `${df.league} · ${df.date}`,
+          fecha: df.date,
+          liga: df.league,
+        },
+        veredicto_analista: {
+          decision,
+          titulo_accion: decision === 'APOSTAR'
+            ? (topPick ? `OPORTUNIDAD: ${topPick.market} ${topPick.selection}` : 'OPORTUNIDAD CLARA')
+            : decision === 'EVITAR' ? 'NO APOSTAR' : 'OBSERVAR',
+          seleccion_clave: topPick ? `${topPick.market}: ${topPick.selection}` : null,
+          razon_principal: synth.summary || pipelineResult.statistical_foundation.thesis_baseline || '',
+          riesgo_principal: pipelineResult.statistical_foundation.risks_flagged?.[0] || 'Volatilidad inherente al partido',
+          probabilidad: topPick?.probability || synth.overall_confidence,
+          nivel_confianza: topPick?.confidence || (synth.overall_confidence >= 80 ? 'ALTA' : synth.overall_confidence >= 65 ? 'MEDIA' : 'BAJA'),
+          razonamiento: synth.summary || '',
+        },
+        resumen_ejecutivo: {
+          titular: `${df.home_team} vs ${df.away_team}`,
+          frase_principal: synth.summary || pipelineResult.statistical_foundation.thesis_baseline || `Análisis del partido entre ${df.home_team} y ${df.away_team}`,
+          puntos_clave: pipelineResult.statistical_foundation.key_anchors || [],
+          confianza: synth.overall_confidence >= 80 ? 'ALTA' : synth.overall_confidence >= 65 ? 'MEDIA' : 'BAJA',
+        },
+        datos_clave: {
+          titulo: 'Datos Clave',
+          columnas: ['Métrica', df.home_team, df.away_team],
+          filas: [
+            ['Forma reciente (5)', df.streak_home, df.streak_away],
+            ['xG por partido (10)', String(df.xg_rolling.home_for_10), String(df.xg_rolling.away_for_10)],
+            ['xGA por partido (10)', String(df.xg_rolling.home_against_10), String(df.xg_rolling.away_against_10)],
+            ['Días de descanso', String(df.days_rest_home), String(df.days_rest_away)],
+            ['Lesiones clave', df.injuries_impact.home_key_missing.join(', ') || 'Ninguna', df.injuries_impact.away_key_missing.join(', ') || 'Ninguna'],
+          ],
+        },
+        analisis_profundo: {
+          razonamiento_central: synth.summary || pipelineResult.statistical_foundation.thesis_baseline,
+          matchup_tactico: pipelineResult.specialists.tactical?.notes || (pipelineResult.specialists.tactical?.key_findings || []).join(' · '),
+          factor_psicologico: pipelineResult.specialists.contextual?.notes || (pipelineResult.specialists.contextual?.key_findings || []).join(' · '),
+          contexto_competitivo: df.competition_context.is_derby ? 'Derby — alta tensión psicológica'
+            : df.competition_context.is_relegation_battle ? 'Pelea por permanencia'
+            : df.competition_context.is_title_race ? 'Pelea por título' : 'Partido de jornada regular',
+        },
+        escenarios_proyectados: synth.picks.length > 0 ? {
+          titulo: 'Escenarios proyectados',
+          descripcion: `Top picks identificados con probabilidad >= ${OPPORTUNITIES_THRESHOLD_PERCENT_PERSIST}%`,
+          escenarios: synth.picks.slice(0, 4).map((p) => ({
+            mercado: p.market,
+            seleccion: p.selection,
+            probabilidad: p.probability,
+            cuota: p.odds,
+            edge: p.edge_percent,
+          })),
+        } : null,
+        predicciones_finales: {
+          detalle: synth.picks.map((p) => ({
+            mercado: p.market,
+            seleccion: p.selection,
+            probabilidad_estimado_porcentaje: p.probability,
+            cuota_actual: p.odds,
+            edge: p.edge_percent,
+            ventaja: p.edge_percent,
+            decision: 'APOSTAR',
+            nivel_confianza: p.confidence,
+            justificacion_detallada: p.reasoning,
+            justificacion: p.reasoning,
+          })),
+        },
+        pronosticos: synth.picks.map((p) => ({
+          mercado: p.market,
+          seleccion: p.selection,
+          probabilidad_calculada_porcentaje: p.probability,
+          cuota_actual: p.odds,
+          edge_porcentaje: p.edge_percent,
+          nivel_confianza: p.confidence,
+          decision: 'BET',
+          razonamiento: p.reasoning,
+        })),
+        advertencias: pipelineResult.statistical_foundation.risks_flagged?.length > 0 ? {
+          titulo: 'Riesgos identificados',
+          bullets: pipelineResult.statistical_foundation.risks_flagged,
+        } : null,
+        scores_duales: {
+          score_estadistico: Math.min(100, synth.overall_confidence + 5),
+          score_inteligencia_partido: synth.overall_confidence,
+          confianza_final_calculada: synth.overall_confidence,
+          justificacion_balance: `Modelo V9-MEGA con ${synth.picks.length} picks confirmados, confianza global ${synth.overall_confidence}%.`,
+        },
       };
 
       console.log(`[V9-WORKER] Persisting reports_v2 for fixture=${fixture_id}`);

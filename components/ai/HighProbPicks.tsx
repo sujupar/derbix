@@ -501,7 +501,7 @@ const EmptyState: React.FC<{ onRetry: () => void; message?: string | null; inPro
         <p className="text-slate-400 max-w-md mb-6 leading-relaxed">
             {message || (
                 <>
-                    No encontramos picks con <span className="text-amber-400 font-bold">Probabilidad {'\u2265'} 83%</span> y cuota real del mercado para esta fecha.
+                    No encontramos picks con <span className="text-amber-400 font-bold">Probabilidad {'\u2265'} {OPPORTUNITIES_THRESHOLD_PERCENT}%</span> y cuota real del mercado para esta fecha.
                     <span className="block mt-2 text-xs text-slate-500">
                         Las oportunidades se publican solo cuando los bookmakers han emitido cuotas — si aún no están disponibles, vuelve en unos minutos.
                     </span>

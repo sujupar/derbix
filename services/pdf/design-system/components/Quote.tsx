@@ -16,8 +16,8 @@ const styles = StyleSheet.create({
     fontSize: tokens.fontSize.body,
     color: tokens.colors.textPrimary,
     lineHeight: tokens.lineHeight.normal,
-    fontStyle: 'italic',
     flex: 1,
+    // fontStyle italic removed: Inter italic variant not registered, was causing PDF download failures
   },
 });
 

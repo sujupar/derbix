@@ -2,6 +2,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { VisualAnalysisResult, DashboardAnalysisJSON, TablaComparativaData, AnalisisSeccion, DetallePrediccion, GraficoSugerido, PredictionDB } from '../../types';
+import { OPPORTUNITIES_THRESHOLD_PERCENT } from '../../constants/opportunities';
 import { XMarkIcon, TrophyIcon, ChartBarIcon, ListBulletIcon, LightBulbIcon, ExclamationTriangleIcon, LinkIcon, EyeIcon, SparklesIcon, LockClosedIcon } from '../icons/Icons';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { supabase } from '../../services/supabaseService';
@@ -276,7 +277,7 @@ const VisualChart: React.FC<{ data: GraficoSugerido }> = ({ data }) => {
     );
 };
 
-const OPPORTUNITY_THRESHOLD = 83;
+const OPPORTUNITY_THRESHOLD = OPPORTUNITIES_THRESHOLD_PERCENT;
 
 const PredictionCard: React.FC<{ pred: DetallePrediccion }> = ({ pred }) => {
     const prob = pred.probabilidad_estimado_porcentaje;
@@ -1256,7 +1257,7 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
                                                 <TrophyIcon className="w-8 h-8 text-green-accent mr-3" />
                                                 Predicciones del Modelo
                                             </h3>
-                                            <p className="text-gray-500 text-sm mb-6">Pronósticos generados por IA. Las predicciones con {'>'}= 83% de probabilidad son oportunidades de valor confirmadas.</p>
+                                            <p className="text-gray-500 text-sm mb-6">Pronósticos generados por IA. Las predicciones con {'>'}= {OPPORTUNITIES_THRESHOLD_PERCENT}% de probabilidad son oportunidades de valor confirmadas.</p>
                                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                                 {visiblePreds.map((pred, idx) => (
                                                     <PredictionCard key={pred.id || idx} pred={pred} />
@@ -1412,7 +1413,7 @@ const PdfDownloadDialog: React.FC<{
                     />
                     <div>
                         <span className="text-white font-semibold block text-sm">Solo Oportunidades de Valor</span>
-                        <span className="text-slate-400 text-xs">Incluye únicamente predicciones con {'>'}= 83% de probabilidad.</span>
+                        <span className="text-slate-400 text-xs">Incluye únicamente predicciones con {'>'}= {OPPORTUNITIES_THRESHOLD_PERCENT}% de probabilidad.</span>
                     </div>
                 </label>
 
