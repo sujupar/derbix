@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../services/supabaseService';
 import { SparklesIcon, TrophyIcon, ExclamationTriangleIcon } from '../icons/Icons';
+import { OPPORTUNITIES_THRESHOLD_PERCENT } from '../../constants/opportunities';
 
 interface ValuePick {
     id: string;
@@ -24,7 +25,7 @@ interface MatchPredictionsTabProps {
 
 const PickCard: React.FC<{ pick: ValuePick; isLowProb?: boolean }> = ({ pick, isLowProb }) => {
     const prob = Math.round(pick.p_model * 100);
-    const isHighProb = prob >= 83;
+    const isHighProb = prob >= OPPORTUNITIES_THRESHOLD_PERCENT;
 
     return (
         <div className={`bg-slate-800/50 rounded-lg p-4 border ${
@@ -117,7 +118,7 @@ const MatchPredictionsTab: React.FC<MatchPredictionsTabProps> = ({
                             selection: p.seleccion || p.selection || '',
                             p_model: (p.probabilidad_estimado_porcentaje || p.p_model || 50) / (p.probabilidad_estimado_porcentaje ? 100 : 1),
                             odds: p.odds || null,
-                            confidence: (p.probabilidad_estimado_porcentaje || 0) >= 83 ? 'HIGH' : 'MEDIUM',
+                            confidence: (p.probabilidad_estimado_porcentaje || 0) >= OPPORTUNITIES_THRESHOLD_PERCENT ? 'HIGH' : 'MEDIUM',
                             reasoning: p.justificacion_detallada?.conclusion || p.reasoning || '',
                             result: null
                         }));
@@ -171,8 +172,8 @@ const MatchPredictionsTab: React.FC<MatchPredictionsTabProps> = ({
         );
     }
 
-    const highProbPicks = picks.filter(p => Math.round(p.p_model * 100) >= 83);
-    const lowProbPicks = picks.filter(p => Math.round(p.p_model * 100) < 83);
+    const highProbPicks = picks.filter(p => Math.round(p.p_model * 100) >= OPPORTUNITIES_THRESHOLD_PERCENT);
+    const lowProbPicks = picks.filter(p => Math.round(p.p_model * 100) < OPPORTUNITIES_THRESHOLD_PERCENT);
 
     return (
         <div className="space-y-4">

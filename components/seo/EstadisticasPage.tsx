@@ -230,7 +230,7 @@ export const EstadisticasPage: React.FC = () => {
           <ul className="space-y-3">
             {[
               'Cada pronóstico es generado por nuestro motor de IA que analiza más de 5,000 variables por partido usando datos de SportMonks API.',
-              'Solo mostramos oportunidades con probabilidad calculada >= 83% y cuotas >= 1.40.',
+              'Solo mostramos oportunidades con probabilidad calculada >= 80% y cuotas >= 1.20.',
               'Los resultados se verifican automáticamente cada hora contra los resultados reales de los partidos.',
               'Ningún resultado es editado o eliminado. El historial es 100% público y transparente.',
             ].map((text, i) => (

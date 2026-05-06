@@ -1,6 +1,7 @@
 import React from 'react';
 import { DashboardAnalysisJSON, TablaComparativaData, AnalisisSeccion, DetallePrediccion, GraficoSugerido } from '../../types';
 import { TrophyIcon, LightBulbIcon, ExclamationTriangleIcon, SparklesIcon, ChartBarIcon } from '../icons/Icons';
+import { OPPORTUNITIES_THRESHOLD_PERCENT } from '../../constants/opportunities';
 
 // --- HEADER ---
 export const InlineReportHeader: React.FC<{ data: DashboardAnalysisJSON['header_partido'] }> = ({ data }) => {
@@ -155,7 +156,7 @@ export const InlineAnalysisBlock: React.FC<{ section: AnalisisSeccion }> = ({ se
 // --- PREDICTION CARD (compact) ---
 export const InlinePredictionCard: React.FC<{ pred: DetallePrediccion }> = ({ pred }) => {
     const prob = pred.probabilidad_estimado_porcentaje;
-    const isHigh = prob >= 83;
+    const isHigh = prob >= OPPORTUNITIES_THRESHOLD_PERCENT;
     const borderColor = isHigh ? 'border-brand/30' : 'border-white/5';
     const justif = pred.justificacion_detallada;
     const edge = (pred as any).edge;

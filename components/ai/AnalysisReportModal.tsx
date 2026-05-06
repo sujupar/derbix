@@ -693,7 +693,7 @@ const SeoPageLinkModal: React.FC<{ fixtureId?: string | number }> = ({ fixtureId
         if (!fixtureId) return;
         const fid = typeof fixtureId === 'string' ? parseInt(fixtureId) : fixtureId;
         if (isNaN(fid)) return;
-        supabase.from('seo_pages').select('full_path').eq('fixture_id', fid).single()
+        supabase.from('seo_pages').select('full_path').eq('fixture_id', fid).maybeSingle()
             .then(({ data }) => { if (data?.full_path) setPath(data.full_path); });
     }, [fixtureId]);
     if (!path) return null;

@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../services/supabaseService';
 import { manualOverridePick } from '../../services/resultsService';
-import { OPPORTUNITIES_THRESHOLD } from '../../constants/opportunities';
+import { OPPORTUNITIES_THRESHOLD, OPPORTUNITIES_THRESHOLD_PERCENT } from '../../constants/opportunities';
 import { useAuth } from '../../hooks/useAuth';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { isHistoricalDate, getAllowedPickCount } from '../../utils/planAccessUtils';
@@ -307,7 +307,7 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                     </div>
                     <div>
                         <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Oportunidades de Valor</h3>
-                        <p className="text-sm text-slate-400">Picks Individuales (Prob {'\u2265'} 83%)</p>
+                        <p className="text-sm text-slate-400">Picks Individuales (Prob {'\u2265'} {OPPORTUNITIES_THRESHOLD_PERCENT}%)</p>
                     </div>
                 </div>
                 
@@ -712,7 +712,7 @@ const SinglePickCard: React.FC<{
 const SeoPageLink: React.FC<{ fixtureId: number }> = ({ fixtureId }) => {
     const [page, setPage] = useState<{ path: string; status: string | null } | null>(null);
     useEffect(() => {
-        supabase.from('seo_pages').select('full_path, article_status').eq('fixture_id', fixtureId).single()
+        supabase.from('seo_pages').select('full_path, article_status').eq('fixture_id', fixtureId).maybeSingle()
             .then(({ data }) => {
                 if (data?.full_path) setPage({ path: data.full_path, status: data.article_status ?? null });
             });
