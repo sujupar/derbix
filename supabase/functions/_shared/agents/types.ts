@@ -260,5 +260,5 @@ export interface PipelineRunResult {
   validated_picks: SynthesizerOutput['picks'];
   timings: StageTimings;
   total_tokens: number;
-  pipeline_version: 'V9-HYBRID-2026-05-05';
+  pipeline_version: 'V9-HYBRID-2026-05-05' | 'V9-MEGA-2026-05-06';
 }

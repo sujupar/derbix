@@ -99,6 +99,8 @@ serve(async (req) => {
 
       if (pipelineResult.validated_picks.length > 0) {
         const today = match_date || new Date().toISOString().slice(0, 10);
+        const confidenceToInt = (c: string): number =>
+          c === 'ALTA' ? 90 : c === 'MEDIA' ? 70 : 50;
         const valuePicksRows = pipelineResult.validated_picks.map((p, idx) => ({
           fixture_id: fixture_id,
           job_id: job_id,
@@ -108,7 +110,7 @@ serve(async (req) => {
           p_implied: 1 / Math.max(p.odds, 1.01),
           odds: p.odds,
           edge: p.edge_percent / 100,
-          confidence: p.confidence,
+          confidence: confidenceToInt(p.confidence),
           decision: 'BET',
           engine_version: ENGINE_VERSION,
           risk_notes: p.reasoning,

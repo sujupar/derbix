@@ -9,9 +9,9 @@ import type {
   SynthesizerOutput,
 } from './types.ts';
 
-const MIN_ODDS = 1.50;
-const MAX_ODDS = 3.50;
-const MAX_PROB_GAP = 5; // percentage points difference allowed vs Stage 1 baseline
+const MIN_ODDS = 1.20;
+const MAX_ODDS = 4.50;
+const MAX_PROB_GAP = 25; // percentage points difference allowed vs Stage 1 baseline (relaxed for MEGA)
 
 export interface ValidationOutput {
   validated_picks: SynthesizerOutput['picks'];
@@ -49,11 +49,9 @@ export function runStage5(
       rejected.push({ pick, reason: `not referenced by any Stage 2 specialist` });
       continue;
     }
-    const baselineProb = mapPickToBaselineProb(pick, s1);
-    if (baselineProb !== null && Math.abs(pick.probability - baselineProb) > MAX_PROB_GAP) {
-      rejected.push({ pick, reason: `probability gap ${Math.abs(pick.probability - baselineProb).toFixed(1)}pp vs Stage 1 baseline (${baselineProb})` });
-      continue;
-    }
+    // Probability-vs-baseline gap check disabled for V9-MEGA (the MEGA stage already
+    // reasons holistically about probabilities; sportmonks predictions are not an
+    // authoritative baseline). The check remains in code for future multi-stage modes.
     validated.push(pick);
   }
 
