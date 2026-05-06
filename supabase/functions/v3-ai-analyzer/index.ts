@@ -6,9 +6,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import JSON5 from "https://esm.sh/json5@2.2.3"
 import { corsHeaders } from '../_shared/cors.ts'
-import { callLLM, calcGroqDelay } from '../_shared/llm-client.ts'
+import { callLLM } from '../_shared/llm-client.ts'
 import { runMathModels } from '../_shared/math-models/index.ts'
-import { runDebate } from '../_shared/agents/orchestrator.ts'
+import { runPipeline, type ETLRawData } from '../_shared/agents/orchestrator.ts'
 import type { MatchContext } from '../_shared/agents/types.ts'
 import {
   normalizeLineups,
@@ -740,7 +740,7 @@ serve(async (req) => {
     const GEMINI_MODEL = 'gemini-3.1-pro-preview';
     const USE_V9_CHAIN = Deno.env.get('USE_V9_CHAIN') === 'true';
     const USE_V9 = Deno.env.get('USE_V9_ENGINE') === 'true' || USE_V9_CHAIN;
-    const ENGINE_VERSION = USE_V9_CHAIN ? 'V9-CHAIN' : (USE_V9 ? 'V9-HYBRID' : 'V8.2-STRATEGIC');
+    const ENGINE_VERSION = USE_V9_CHAIN ? 'V9-CHAIN' : (USE_V9 ? 'V9-HYBRID-2026-05-05' : 'V8.2-STRATEGIC');
     let _jobId: string | null = null; // For error handler access
 
     try {
@@ -1325,64 +1325,154 @@ serve(async (req) => {
                 }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
             }
 
-            // Step 4: Run debate (legacy V9-HYBRID inline)
-            const debate = await runDebate(matchContext);
-            tokensUsed = debate.total_tokens;
+            // ═══════════════════════════════════════════════════════════════
+            // V9 PIPELINE — Stage 0 deterministic → 1 → 2 (parallel) → 3 → 4 → 5
+            // Replaces the legacy multi-agent runDebate(matchContext) call.
+            // ═══════════════════════════════════════════════════════════════
 
-            console.log(`[V9-HYBRID] Debate complete: ${debate.agents.length} agents, ${debate.consensus.strong_picks.length} strong picks, ${debate.final_verdict.picks.length} final picks, verdict=${debate.final_verdict.veredicto}`);
+            // Step 4a: Build ETLRawData from the data the analyzer already has on hand.
+            // Best-effort mapping — fields we cannot derive locally are passed as null/undefined.
+            const buildRecentResults = (history: any[], teamId: number) => {
+                return (history || []).slice(0, 10).map((m: any) => {
+                    const wasHome = m.was_home === true;
+                    const teamGoals = wasHome ? m.score_home : m.score_away;
+                    const oppGoals = wasHome ? m.score_away : m.score_home;
+                    let result: 'W' | 'D' | 'L';
+                    if (typeof teamGoals === 'number' && typeof oppGoals === 'number') {
+                        if (teamGoals > oppGoals) result = 'W';
+                        else if (teamGoals < oppGoals) result = 'L';
+                        else result = 'D';
+                    } else if (m.result === 'W' || m.result === 'D' || m.result === 'L') {
+                        result = m.result;
+                    } else {
+                        result = 'D';
+                    }
+                    return {
+                        result,
+                        date: m.date || new Date().toISOString(),
+                        goals_for: typeof teamGoals === 'number' ? teamGoals : 0,
+                        goals_against: typeof oppGoals === 'number' ? oppGoals : 0,
+                    };
+                });
+            };
 
-            // Step 5: Assemble final analysisResult (compatible with existing save/normalize pipeline)
-            // @ts-expect-error _judgeOutput exposed from orchestrator
-            const judgeOutput = debate._judgeOutput;
+            const homeRecentResults = buildRecentResults(combinedHomeHistory, homeTeamId);
+            const awayRecentResults = buildRecentResults(combinedAwayHistory, awayTeamId);
+
+            // SportMonks predictions: pulled from payload.predictions if normalizer exposed it.
+            const smPred = (payload as any).predictions || null;
+            const sportmonksPredictionsForETL = smPred && (smPred.home_win != null || smPred.predictions?.home != null) ? {
+                home_win: smPred.home_win ?? smPred.predictions?.home ?? 0,
+                draw: smPred.draw ?? smPred.predictions?.draw ?? 0,
+                away_win: smPred.away_win ?? smPred.predictions?.away ?? 0,
+                over_25: smPred.over_2_5 ?? smPred.predictions?.over_2_5 ?? 0,
+                btts_yes: smPred.btts_yes ?? smPred.predictions?.btts ?? 0,
+            } : null;
+
+            // Closing/opening odds (1X2 home_win only, used for CLV signal). Best effort.
+            const homeWinOdds = oddsDict.home_win;
+            const closingOddsForETL = typeof homeWinOdds === 'number' ? { home_win: homeWinOdds } : null;
+            const openingOddsForETL = null; // TODO: ETL no expone aún opening line
+
+            // Standings: try datasets.standings (V8 normalized format)
+            const standingsRaw = (datasets as any).standings || null;
+            const homeStanding = standingsRaw?.home_context || null;
+            const awayStanding = standingsRaw?.away_context || null;
+            const standingsForETL = (homeStanding && awayStanding) ? {
+                home_rank: homeStanding.position ?? 0,
+                away_rank: awayStanding.position ?? 0,
+                home_points_gap_safety: 0, // TODO: ETL no expone aún gap-to-safety calculado
+                away_points_gap_safety: 0, // TODO: ETL no expone aún gap-to-safety calculado
+                total_teams: standingsRaw?.table?.length ?? 0,
+            } : null;
+
+            const refereeName = match.referee || null;
+            // referee_aggregated_stats: TODO ETL no expone aún stats agregadas del árbitro
+            const refereeStatsForETL = null;
+
+            const perplexityLineupForETL = typeof payload.external_context === 'string'
+                ? payload.external_context
+                : (payload.external_context?.raw_text || null);
+
+            const rawETL: ETLRawData = {
+                fixture_id: fixture_id,
+                kickoff_at: matchDateIso,
+                home_recent_results: homeRecentResults,
+                away_recent_results: awayRecentResults,
+                referee_name: refereeName,
+                referee_aggregated_stats: refereeStatsForETL,
+                sportmonks_predictions: sportmonksPredictionsForETL,
+                closing_odds: closingOddsForETL,
+                opening_odds: openingOddsForETL,
+                standings: standingsForETL,
+                perplexity_lineup_text: perplexityLineupForETL,
+            };
+
+            // Step 4b: Run V9 pipeline
+            const pipelineResult = await runPipeline(matchContext, rawETL);
+            tokensUsed = pipelineResult.total_tokens;
+
+            console.log(`[V9-PIPELINE] Complete: ${pipelineResult.validated_picks.length} validated picks, verdict=${pipelineResult.synthesizer.veredicto}, total_ms=${pipelineResult.timings.total_ms}`);
+
+            // Step 5: Assemble final analysisResult — adapt V9 pipeline shape into the legacy
+            // shape consumed by the persistence layer below.
+            const validatedPicks = pipelineResult.validated_picks;
+            const synth = pipelineResult.synthesizer;
+            const dataFoundation = pipelineResult.data_foundation;
+            const stats = pipelineResult.statistical_foundation;
+
+            // Map V9 picks → legacy "pronosticos" shape (mercado/seleccion/cuota_actual + probability)
+            const legacyPronosticos = validatedPicks.map((p) => ({
+                mercado: p.market,
+                seleccion: p.selection,
+                cuota_actual: p.odds,
+                probabilidad_calculada_porcentaje: p.probability,
+                edge_porcentaje: p.edge_percent,
+                nivel_confianza: p.confidence,
+                decision: 'BET',
+                razonamiento: p.reasoning,
+                survived_skeptic: p.survived_skeptic,
+            }));
 
             analysisResult = {
-                meta: { modelo: 'v9-multi-provider', version: ENGINE_VERSION, engine: 'V9-HYBRID' },
-                resumen_ejecutivo: judgeOutput?.resumen_ejecutivo || {
-                    titular: debate.final_verdict.summary,
-                    veredicto: debate.final_verdict.veredicto,
-                    confianza_global: debate.final_verdict.overall_confidence >= 82 ? 'ALTA' :
-                                      debate.final_verdict.overall_confidence >= 70 ? 'MEDIA' : 'BAJA',
-                    picks_principales: debate.final_verdict.picks.slice(0, 2).map((p: any) => `${p.mercado}: ${p.seleccion}`),
+                meta: { modelo: 'v9-pipeline', version: ENGINE_VERSION, engine: 'V9-HYBRID', pipeline_version: pipelineResult.pipeline_version },
+                resumen_ejecutivo: {
+                    titular: synth.summary,
+                    veredicto: synth.veredicto,
+                    confianza_global: synth.overall_confidence >= 82 ? 'ALTA' :
+                                      synth.overall_confidence >= 70 ? 'MEDIA' : 'BAJA',
+                    picks_principales: legacyPronosticos.slice(0, 2).map((p) => `${p.mercado}: ${p.seleccion}`),
                 },
                 scores_duales: (() => {
-                    // Always compute REAL dual scores so the UI never shows empty boxes.
+                    // Compute dual scores from math models + pipeline confidence
                     const modelConsistency = mathResult?.diagnostics?.model_consistency ?? 0.5;
                     const topProb = Math.max(
                         mathResult?.ensemble_probabilities?.home_win ?? 0,
                         mathResult?.ensemble_probabilities?.draw ?? 0,
                         mathResult?.ensemble_probabilities?.away_win ?? 0,
                     );
-                    const computedEstadistico = Math.round(((modelConsistency * 0.6) + (topProb * 0.4)) * 100);
-
-                    const ctxAgents = debate.agents.filter((a) =>
-                        !a.error && (a.agent_role === 'tactical_analyst' || a.agent_role === 'contextual_analyst' || a.agent_role === 'skeptic')
-                    );
-                    const computedContexto = ctxAgents.length
-                        ? Math.round(ctxAgents.reduce((s, a) => s + (a.confidence_overall || 0), 0) / ctxAgents.length)
-                        : 50;
-
-                    // If the judge gave us scores, prefer them but back-fill any missing with computed values.
-                    const j = judgeOutput?.scores_duales || {};
-                    const finalEstadistico = (typeof j.score_estadistico === 'number' && j.score_estadistico > 0) ? j.score_estadistico : computedEstadistico;
-                    const finalContexto = (typeof j.score_inteligencia_partido === 'number' && j.score_inteligencia_partido > 0) ? j.score_inteligencia_partido : computedContexto;
-                    const finalConfianza = (typeof j.confianza_final_calculada === 'number' && j.confianza_final_calculada > 0)
-                        ? Math.min(95, j.confianza_final_calculada)
-                        : Math.round((finalEstadistico + finalContexto) / 2);
+                    const finalEstadistico = Math.round(((modelConsistency * 0.6) + (topProb * 0.4)) * 100);
+                    const finalContexto = synth.overall_confidence;
+                    const finalConfianza = Math.min(95, Math.round((finalEstadistico + finalContexto) / 2));
 
                     return {
                         score_estadistico: finalEstadistico,
                         score_inteligencia_partido: finalContexto,
                         confianza_final_calculada: finalConfianza,
-                        justificacion_balance: j.justificacion_balance || `Estadístico: consistencia modelos ${(modelConsistency*100).toFixed(0)}% + prob. dominante ${(topProb*100).toFixed(0)}%. Contexto: ${ctxAgents.length} agentes (${computedContexto}% promedio).`,
+                        justificacion_balance: `Estadístico: consistencia modelos ${(modelConsistency*100).toFixed(0)}% + prob. dominante ${(topProb*100).toFixed(0)}%. Contexto: V9 synthesizer ${finalContexto}% (${validatedPicks.length} picks validados).`,
                     };
                 })(),
-                analisis_profundo: judgeOutput?.analisis_profundo || {
-                    razonamiento_central: debate.final_verdict.summary,
-                    matchup_tactico: 'Ver análisis de agente táctico',
-                    factor_psicologico: 'Ver análisis de agente contextual',
-                    contexto_competitivo: 'Ver análisis de agente contextual',
+                analisis_profundo: {
+                    razonamiento_central: synth.summary || stats.thesis_baseline || 'Análisis V9 completado',
+                    matchup_tactico: pipelineResult.specialists.tactical.notes || (pipelineResult.specialists.tactical.key_findings || []).join(' | '),
+                    factor_psicologico: pipelineResult.specialists.contextual.notes || (pipelineResult.specialists.contextual.key_findings || []).join(' | '),
+                    contexto_competitivo: dataFoundation.competition_context.is_derby ? 'Derby — alta tensión psicológica' :
+                                          dataFoundation.competition_context.is_relegation_battle ? 'Lucha por la permanencia' :
+                                          dataFoundation.competition_context.is_title_race ? 'Disputa por el título' :
+                                          'Partido de jornada regular',
+                    clave_del_partido: stats.key_anchors?.[0] || 'Ver análisis de especialistas',
                 },
-                pronosticos: debate.final_verdict.picks,
+                pronosticos: legacyPronosticos,
                 patrones_detectados: (() => {
                     // Compute REAL patterns from history (no LLM hallucination).
                     // We need to filter goals scored BY teamId, not by the opponent. Strategy:
@@ -1478,10 +1568,12 @@ serve(async (req) => {
                         } : null,
                     };
                 })(),
-                factores_riesgo: judgeOutput?.factores_riesgo || {
-                    riesgo_principal: 'Evaluado por Abogado del Diablo',
-                    nivel_incertidumbre: debate.final_verdict.overall_confidence >= 80 ? 'BAJO' :
-                                          debate.final_verdict.overall_confidence >= 65 ? 'MEDIO' : 'ALTO',
+                factores_riesgo: {
+                    riesgo_principal: pipelineResult.skeptic.global_observations?.[0] || stats.risks_flagged?.[0] || 'Evaluado por Stage 3 (skeptic)',
+                    nivel_incertidumbre: synth.overall_confidence >= 80 ? 'BAJO' :
+                                          synth.overall_confidence >= 65 ? 'MEDIO' : 'ALTO',
+                    skeptic_observations: pipelineResult.skeptic.global_observations || [],
+                    skeptic_attacks_count: pipelineResult.skeptic.attacks?.length ?? 0,
                 },
                 datos_modelo: {
                     goles_esperados_partido: mathResult.dixon_coles.expected_total_goals,
@@ -1492,32 +1584,38 @@ serve(async (req) => {
                     elo_home: mathResult.elo.homeElo,
                     elo_away: mathResult.elo.awayElo,
                     model_consistency: mathResult.diagnostics.model_consistency,
+                    data_volume_score: dataFoundation.data_volume_score,
                 },
-                mercados_evaluados: judgeOutput?.mercados_evaluados || {
-                    con_valor_detectado: mathResult.value_opportunities.filter((v) => v.recommendation !== 'AVOID' && v.recommendation !== 'NEUTRAL').length,
-                    total_analizados: mathResult.value_opportunities.length,
+                mercados_evaluados: {
+                    con_valor_detectado: validatedPicks.length,
+                    total_analizados: synth.picks.length,
                 },
                 escenarios_proyectados: {
                     escenario_base: `Resultado más probable: ${mathResult.monte_carlo.stats.median_scoreline}`,
-                    escenario_optimista: 'Ver agentes',
-                    escenario_alternativo: 'Ver agentes',
+                    escenario_optimista: 'Ver análisis táctico (Stage 2)',
+                    escenario_alternativo: 'Ver análisis contextual (Stage 2)',
                 },
-                v9_debate: {
-                    agents_used: debate.agents.map((a) => ({
-                        name: a.agent_name,
-                        confidence: a.confidence_overall,
-                        provider: a.provider_used,
-                        failed: !!a.error,
-                    })),
-                    consensus: debate.consensus,
-                    total_time_ms: debate.total_time_ms,
+                v9_pipeline: {
+                    pipeline_version: pipelineResult.pipeline_version,
+                    timings: pipelineResult.timings,
+                    specialists_summary: {
+                        tactical: { stance: pipelineResult.specialists.tactical.thesis_supports_or_opposes, picks: pipelineResult.specialists.tactical.candidate_picks.length },
+                        contextual: { stance: pipelineResult.specialists.contextual.thesis_supports_or_opposes, picks: pipelineResult.specialists.contextual.candidate_picks.length },
+                        market: { stance: pipelineResult.specialists.market.thesis_supports_or_opposes, picks: pipelineResult.specialists.market.candidate_picks.length },
+                    },
+                    statistical_thesis: stats.thesis_baseline,
+                    skeptic_attacks: pipelineResult.skeptic.attacks?.length ?? 0,
+                    validated_count: validatedPicks.length,
+                    rejected_count: synth.picks.length - validatedPicks.length,
                 },
             };
 
-            const v9AgentsFailed = debate.agents.filter((a: any) => !!a.error).length;
-            analysisResult.meta = { ...(analysisResult.meta || {}), layers_failed: v9AgentsFailed, total_layers: debate.agents.length, engine_mode: 'V9-HYBRID' };
+            // V9 pipeline does not have layered LLM failures the same way V8 had agents.
+            // Quality gate downstream looks at meta.layers_failed; we report 0 because
+            // runPipeline throws if any stage breaks (caught by outer try/catch).
+            analysisResult.meta = { ...(analysisResult.meta || {}), layers_failed: 0, total_layers: 5, engine_mode: 'V9-PIPELINE' };
 
-            console.log(`[V9-HYBRID] Analysis assembled. Picks: ${analysisResult.pronosticos?.length || 0}, verdict: ${analysisResult.resumen_ejecutivo.veredicto}, agents_failed: ${v9AgentsFailed}/${debate.agents.length}`);
+            console.log(`[V9-PIPELINE] Analysis assembled. Picks: ${analysisResult.pronosticos?.length || 0}, verdict: ${analysisResult.resumen_ejecutivo.veredicto}, validated/synth: ${validatedPicks.length}/${synth.picks.length}`);
         } else if (USE_STAGED) {
         // ═══ CAPA 1 + 2 EN PARALELO ═══
         console.log(`[V3-AI-ANALYZER] Starting staged analysis (4 layers)...`);
@@ -1626,18 +1724,16 @@ Responde en JSON:
 }
 `;
 
-        // Helper: wait for Groq rate limit + minimum safety delay between layers
-        // Groq gpt-oss-120b: 8000 TPM, rolling window. Each layer consumes ~3-5K tokens.
-        // We always wait at least MIN_DELAY between layers to let the rolling window restore.
+        // Helper: minimum safety delay between staged layers.
+        // V9 cleanup: legacy Groq TPM throttling removed (DeepSeek-only client now).
+        // We keep a small inter-layer delay to avoid bursting the upstream provider.
         const MIN_LAYER_DELAY_SEC = 20;
         let lastLayerCall = 0;
-        const waitForGroq = async (estimatedTokens: number, layerName: string) => {
+        const waitForGroq = async (_estimatedTokens: number, layerName: string) => {
             const sinceLast = Date.now() - lastLayerCall;
-            const minDelay = lastLayerCall > 0 ? Math.max(0, MIN_LAYER_DELAY_SEC * 1000 - sinceLast) : 0;
-            const apiDelay = calcGroqDelay(estimatedTokens) * 1000;
-            const delayMs = Math.max(minDelay, apiDelay);
+            const delayMs = lastLayerCall > 0 ? Math.max(0, MIN_LAYER_DELAY_SEC * 1000 - sinceLast) : 0;
             if (delayMs > 0) {
-                console.log(`[V3-AI-ANALYZER] ${layerName}: Waiting ${Math.round(delayMs/1000)}s (min=${Math.round(minDelay/1000)}s, api=${Math.round(apiDelay/1000)}s) for Groq TPM reset...`);
+                console.log(`[V3-AI-ANALYZER] ${layerName}: Waiting ${Math.round(delayMs/1000)}s between layers...`);
                 await new Promise(r => setTimeout(r, delayMs));
             }
             lastLayerCall = Date.now();
