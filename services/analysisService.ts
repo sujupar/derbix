@@ -308,9 +308,9 @@ export const createAnalysisJob = async (apiFixtureId: number, timezone: string =
                 } catch (_e) { /* ignore body read errors */ }
             } else {
                 console.log(`[V3] ✅ Analyzer completó exitosamente para job ${responseData.job_id}`);
-                // Launch parlay analysis with delay (individual analysis, not batch)
-                // In batch mode, LiveFeed.tsx handles this via polling to avoid duplicates
-                launchParlayForFixture(apiFixtureId, 8000);
+                // Parlay auto-launch DISABLED (2026-05-06): the parlay flow was generating
+                // confusing "No etl_context found" errors after the main analysis. Parlays
+                // can still be generated explicitly from the Smart Parlays panel.
             }
         }).catch(err => {
             console.error(`[V3] Analyzer call failed:`, err.message);
