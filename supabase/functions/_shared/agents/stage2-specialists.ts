@@ -22,12 +22,24 @@ const SHARED_SCHEMA = `Devuelve EXCLUSIVAMENTE JSON válido con esta estructura:
 }
 NO uses markdown. NO escribas explicación previa.`;
 
-function buildBaseContext(df: DataFoundationOutput, s1: StatisticalFoundationOutput): string {
-  return `DATOS BASE (Stage 0):
-${JSON.stringify(df, null, 2)}
-
-TESIS BASELINE (Stage 1):
-${JSON.stringify(s1, null, 2)}`;
+function buildBaseContext(df: DataFoundationOutput, s1: StatisticalFoundationOutput | null): string {
+  // Compact data foundation: only the most discriminative fields
+  const compact = {
+    home: df.home_team, away: df.away_team, league: df.league, date: df.date,
+    streak: { home: df.streak_home, away: df.streak_away },
+    days_rest: { home: df.days_rest_home, away: df.days_rest_away },
+    xg: df.xg_rolling,
+    goals_avg: df.goals_avg,
+    referee: df.referee_stats?.name ? { name: df.referee_stats.name, yellows: df.referee_stats.yellows_per_match, home_bias: df.referee_stats.home_bias } : null,
+    sportmonks_pred: df.sportmonks_predictions,
+    injuries: df.injuries_impact,
+    competition: df.competition_context,
+    lineups_confidence: df.lineups_probable.confidence,
+    clv: df.clv_signal,
+  };
+  let out = `DATOS BASE: ${JSON.stringify(compact)}`;
+  if (s1) out += `\n\nTESIS BASELINE: ${JSON.stringify(s1)}`;
+  return out;
 }
 
 // ─────────────────────────── TACTICAL ───────────────────────────
@@ -64,14 +76,14 @@ Output: JSON único con agent_name="TACTICAL".`;
         systemPrompt: TACTICAL_SYSTEM,
         jsonMode: true,
         temperature: 0,
-        maxTokens: 4000,
-        timeoutMs: 60000,
+        maxTokens: 5000,
+        timeoutMs: 45000,
       });
       return r.text;
     },
     ['agent_name', 'thesis_supports_or_opposes', 'key_findings', 'candidate_picks'],
     'STAGE2_TACTICAL',
-    2,
+    0,
   );
 }
 
@@ -106,14 +118,14 @@ Output: JSON único con agent_name="CONTEXTUAL".`;
         systemPrompt: CONTEXTUAL_SYSTEM,
         jsonMode: true,
         temperature: 0,
-        maxTokens: 4000,
-        timeoutMs: 60000,
+        maxTokens: 5000,
+        timeoutMs: 45000,
       });
       return r.text;
     },
     ['agent_name', 'thesis_supports_or_opposes', 'key_findings', 'candidate_picks'],
     'STAGE2_CONTEXTUAL',
-    2,
+    0,
   );
 }
 
@@ -153,27 +165,57 @@ Output: JSON único con agent_name="MARKET".`;
         systemPrompt: MARKET_SYSTEM,
         jsonMode: true,
         temperature: 0,
-        maxTokens: 4000,
-        timeoutMs: 60000,
+        maxTokens: 5000,
+        timeoutMs: 45000,
       });
       return r.text;
     },
     ['agent_name', 'thesis_supports_or_opposes', 'key_findings', 'candidate_picks'],
     'STAGE2_MARKET',
-    2,
+    0,
   );
 }
 
 // ─────────────────────────── PARALLEL ENTRY POINT ───────────────────────────
+function emptySpecialist(name: 'TACTICAL' | 'CONTEXTUAL' | 'MARKET', errMsg: string): SpecialistOutput {
+  return {
+    agent_name: name,
+    thesis_supports_or_opposes: 'MIXED',
+    key_findings: [`${name} fallback (specialist failed): ${errMsg.slice(0, 120)}`],
+    modifies_probabilities: {},
+    candidate_picks: [],
+    notes: `${name} produced no analysis (LLM call failed)`,
+  };
+}
+
 export async function runStage2(
   df: DataFoundationOutput,
   s1: StatisticalFoundationOutput,
   context: MatchContext,
 ): Promise<{ tactical: SpecialistOutput; contextual: SpecialistOutput; market: SpecialistOutput }> {
-  const [tactical, contextual, market] = await Promise.all([
+  const results = await Promise.allSettled([
     runTactical(df, s1, context),
     runContextual(df, s1, context),
     runMarket(df, s1, context),
   ]);
+
+  const tactical = results[0].status === 'fulfilled'
+    ? results[0].value
+    : emptySpecialist('TACTICAL', (results[0] as any).reason?.message || 'unknown');
+  const contextual = results[1].status === 'fulfilled'
+    ? results[1].value
+    : emptySpecialist('CONTEXTUAL', (results[1] as any).reason?.message || 'unknown');
+  const market = results[2].status === 'fulfilled'
+    ? results[2].value
+    : emptySpecialist('MARKET', (results[2] as any).reason?.message || 'unknown');
+
+  const failed = [tactical, contextual, market].filter((s) => s.candidate_picks.length === 0 && s.key_findings[0]?.includes('fallback'));
+  if (failed.length > 0) {
+    console.warn(`[STAGE2] ${failed.length}/3 specialists failed: ${failed.map(s => s.agent_name).join(', ')}`);
+  }
+  if (failed.length === 3) {
+    throw new Error('[STAGE2] All 3 specialists failed — cannot proceed');
+  }
+
   return { tactical, contextual, market };
 }

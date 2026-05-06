@@ -102,6 +102,20 @@ async function callOpenAICompatible(
       text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
     }
 
+    // DeepSeek-V4-Flash is a reasoning model: when finish_reason='length' the actual JSON
+    // may be split between content (empty) and reasoning_content (full thinking). Extract
+    // the first JSON object from reasoning_content as best-effort recovery.
+    if (!text || text.trim().length === 0) {
+      const reasoning = choice?.message?.reasoning_content || '';
+      if (reasoning) {
+        // Look for the first complete JSON object inside the reasoning trace
+        const jsonMatch = reasoning.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          text = jsonMatch[0];
+        }
+      }
+    }
+
     return {
       text,
       provider: provider.name,

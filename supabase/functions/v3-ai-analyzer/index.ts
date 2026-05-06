@@ -1408,8 +1408,71 @@ serve(async (req) => {
                 perplexity_lineup_text: perplexityLineupForETL,
             };
 
-            // Step 4b: Run V9 pipeline
-            const pipelineResult = await runPipeline(matchContext, rawETL);
+            // Step 4b: Mark job analyzing then dispatch to v9-pipeline-worker (fire-and-forget).
+            // The worker runs in its own edge function with full 150s wall clock for the pipeline.
+            // The frontend polls analysis_jobs_v2 for completion, so this dispatcher returns 200 immediately.
+            await supabase
+                .from('analysis_jobs_v2')
+                .update({ status: 'analyzing', current_motor: ENGINE_VERSION })
+                .eq('id', job_id);
+
+            const sbUrlV9 = Deno.env.get('SUPABASE_URL')!;
+            const sbKeyV9 = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+            const workerPayload = {
+                job_id,
+                fixture_id,
+                match_context: matchContext,
+                raw_etl: rawETL,
+                match_date: matchContext.date,
+            };
+
+            // 5s ack-timeout dispatch — same pattern as V9-CHAIN
+            {
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => ctrl.abort(), 5000);
+                try {
+                    const r = await fetch(`${sbUrlV9}/functions/v1/v9-pipeline-worker`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${sbKeyV9}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(workerPayload),
+                        signal: ctrl.signal,
+                    });
+                    console.log(`[V9-DISPATCH] worker dispatched (HTTP ${r.status}) for job ${job_id}`);
+                } catch (e: any) {
+                    if (e?.name === 'AbortError') {
+                        console.log(`[V9-DISPATCH] worker dispatch sent (ack-timeout, fire-forward) for job ${job_id}`);
+                    } else {
+                        console.error(`[V9-DISPATCH] worker dispatch failed: ${e.message}`);
+                        // Mark job failed if we couldn't even dispatch
+                        await supabase
+                            .from('analysis_jobs_v2')
+                            .update({ status: 'failed', error_message: `V9 dispatch failed: ${e.message?.slice(0, 200)}` })
+                            .eq('id', job_id);
+                    }
+                } finally {
+                    clearTimeout(timer);
+                }
+            }
+
+            return new Response(JSON.stringify({
+                success: true,
+                mode: 'v9-pipeline-dispatched',
+                job_id: job_id,
+                fixture_id: fixture_id,
+                engine_version: ENGINE_VERSION,
+                summary: {
+                    veredicto: 'PENDING',
+                    picks: 0,
+                    titular: 'Análisis V9 en progreso (worker)',
+                },
+                meta: { pipeline: 'V9-HYBRID', dispatched_at: new Date().toISOString() },
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+            // ═══════════════════════════════════════════════════════════════
+            // The code below is UNREACHABLE in V9 mode (we returned above).
+            // Kept for type consistency with V8 / staged paths.
+            // ═══════════════════════════════════════════════════════════════
+            const pipelineResult = await runPipeline(matchContext, rawETL); // unreachable, kept to satisfy types below
             tokensUsed = pipelineResult.total_tokens;
 
             console.log(`[V9-PIPELINE] Complete: ${pipelineResult.validated_picks.length} validated picks, verdict=${pipelineResult.synthesizer.veredicto}, total_ms=${pipelineResult.timings.total_ms}`);

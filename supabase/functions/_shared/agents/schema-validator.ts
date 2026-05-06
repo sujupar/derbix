@@ -10,12 +10,33 @@ export interface ValidationResult<T> {
 }
 
 export function parseJSONStrict(raw: string): unknown {
+  if (!raw || typeof raw !== 'string' || raw.trim().length === 0) {
+    throw new Error('LLM returned empty response (truncation or rate limit)');
+  }
   // Strip code fences if present
   const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+  if (cleaned.length === 0) {
+    throw new Error('LLM response was empty after stripping code fences');
+  }
   try {
     return JSON.parse(cleaned);
   } catch {
-    return JSON5.parse(cleaned);
+    try {
+      return JSON5.parse(cleaned);
+    } catch (err) {
+      // If JSON5 also fails, try to recover truncated JSON by closing braces
+      // (common with max_tokens cutoff). Best effort.
+      let attempt = cleaned;
+      const openBraces = (attempt.match(/{/g) || []).length;
+      const closeBraces = (attempt.match(/}/g) || []).length;
+      const openBrackets = (attempt.match(/\[/g) || []).length;
+      const closeBrackets = (attempt.match(/]/g) || []).length;
+      if (openBraces > closeBraces || openBrackets > closeBrackets) {
+        attempt = attempt + ']'.repeat(openBrackets - closeBrackets) + '}'.repeat(openBraces - closeBraces);
+        try { return JSON5.parse(attempt); } catch { /* fall through */ }
+      }
+      throw err;
+    }
   }
 }
 
@@ -43,7 +64,7 @@ export async function callWithSchemaRetry<T>(
   llmFn: () => Promise<string>,
   required: Array<keyof T>,
   stageName: string,
-  maxRetries = 2,
+  maxRetries = 1,
 ): Promise<T> {
   let lastError = '';
   for (let attempt = 0; attempt <= maxRetries; attempt++) {

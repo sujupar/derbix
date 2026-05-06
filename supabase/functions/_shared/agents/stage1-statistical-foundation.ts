@@ -78,14 +78,14 @@ export async function runStage1(
         systemPrompt: SYSTEM_PROMPT,
         jsonMode: true,
         temperature: 0,
-        maxTokens: 4000,
-        timeoutMs: 60000,
+        maxTokens: 2000,
+        timeoutMs: 35000,
       });
       return response.text;
     },
     ['thesis_baseline', 'probabilities_initial', 'key_anchors', 'risks_flagged'],
     'STAGE1',
-    2,
+    1,
   );
 
   return result;

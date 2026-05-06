@@ -36,12 +36,28 @@ export async function runStage4(
   s2: { tactical: SpecialistOutput; contextual: SpecialistOutput; market: SpecialistOutput },
   s3: SkepticOutput,
 ): Promise<SynthesizerOutput> {
-  const prompt = `DATOS BASE: ${JSON.stringify(df, null, 2)}
-TESIS: ${JSON.stringify(s1, null, 2)}
-TÁCTICO: ${JSON.stringify(s2.tactical, null, 2)}
-CONTEXTUAL: ${JSON.stringify(s2.contextual, null, 2)}
-MERCADO: ${JSON.stringify(s2.market, null, 2)}
-SKEPTIC: ${JSON.stringify(s3, null, 2)}
+  // Compact representation: only fields needed for final synthesis
+  const dfCompact = {
+    home: df.home_team, away: df.away_team, league: df.league, date: df.date,
+    streak: { home: df.streak_home, away: df.streak_away },
+    xg: df.xg_rolling, injuries: df.injuries_impact,
+    sportmonks_pred: df.sportmonks_predictions,
+    data_volume_score: df.data_volume_score,
+  };
+  const allCandidatePicks = [
+    ...s2.tactical.candidate_picks.map((p) => ({...p, from: 'TACTICAL'})),
+    ...s2.contextual.candidate_picks.map((p) => ({...p, from: 'CONTEXTUAL'})),
+    ...s2.market.candidate_picks.map((p) => ({...p, from: 'MARKET'})),
+  ];
+
+  const prompt = `DATOS BASE: ${JSON.stringify(dfCompact)}
+
+TESIS BASELINE: ${JSON.stringify(s1)}
+
+CANDIDATE PICKS DE ESPECIALISTAS: ${JSON.stringify(allCandidatePicks)}
+
+SKEPTIC ATTACKS: ${JSON.stringify(s3.attacks)}
+SKEPTIC SOBREVIVIENTES: ${JSON.stringify(s3.picks_that_survive)}
 
 DATA_VOLUME_SCORE (úsalo en total_data_volume): ${df.data_volume_score}
 
@@ -62,8 +78,8 @@ Output: JSON único con la estructura del system prompt.`;
         systemPrompt: SYSTEM_PROMPT,
         jsonMode: true,
         temperature: 0,
-        maxTokens: 6000,
-        timeoutMs: 75000,
+        maxTokens: 3000,
+        timeoutMs: 40000,
       });
       return r.text;
     },

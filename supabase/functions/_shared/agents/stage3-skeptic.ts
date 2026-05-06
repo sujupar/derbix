@@ -1,71 +1,118 @@
 // _shared/agents/stage3-skeptic.ts
+// COMBINED Stage 3+4: Skeptic + Synthesizer in a SINGLE LLM call.
+// Done together because 4 sequential DeepSeek calls don't fit in the 130s pipeline budget.
+// The combined prompt asks the LLM to (a) attack candidate picks, then (b) emit final picks.
 
 import { callLLM } from '../llm-client.ts';
 import { callWithSchemaRetry } from './schema-validator.ts';
+import { OPPORTUNITIES_THRESHOLD_PERCENT } from '../constants.ts';
 import type {
   DataFoundationOutput,
   StatisticalFoundationOutput,
   SpecialistOutput,
   SkepticOutput,
+  SynthesizerOutput,
 } from './types.ts';
 
-const SYSTEM_PROMPT = `Eres el abogado del diablo. Tu única función: ATACAR cada candidate_pick propuesto por los especialistas. Buscas:
-- Picks que solo se sostienen en una dimensión (ej: solo mercado, sin respaldo táctico)
-- Contradicciones entre especialistas
-- Sobreajuste a recencia (3 partidos no son tendencia)
-- Riesgos no atendidos (lesiones, cambios tácticos, motivación)
-- Sesgo de favoritismo (favorito no siempre = valor)
+const SYSTEM_PROMPT = `Eres el árbitro final + abogado del diablo combinado. Realizas DOS tareas en una sola pasada:
+
+PASO A — SKEPTIC (atacar):
+Para cada candidate_pick de los 3 especialistas, formula un argumento de ataque y decide:
+- DESCARTAR: el pick no aguanta crítica
+- DEBILITAR_CONFIANZA: tiene mérito pero con riesgos importantes
+- MANTENER: pick robusto
+
+PASO B — SYNTHESIZER (sintetizar):
+De los picks que sobrevivieron (MANTENER + DEBILITAR_CONFIANZA), produce el veredicto final.
 
 REGLAS DURAS:
-1. Devuelve EXCLUSIVAMENTE JSON.
-2. Por cada pick atacado: target_pick_market, target_pick_selection, attack_argument (texto con datos), verdict en {DESCARTAR, DEBILITAR_CONFIANZA, MANTENER}.
-3. picks_that_survive solo incluye los que aguantaron el ataque (verdict=MANTENER) o sobrevivieron debilitados.
-4. global_observations: lista patrones que detectaste cruzando los 3 especialistas.
+1. Devuelve EXCLUSIVAMENTE JSON válido (sin markdown, sin explicación previa).
+2. SOLO incluyes en final picks aquellos con probability >= ${OPPORTUNITIES_THRESHOLD_PERCENT} y respaldados por al menos 1 especialista.
+3. Skeptic.attacks debe contener TODOS los picks evaluados (los 3 veredictos posibles).
+4. Final picks: confidence ALTA si MANTENER, MEDIA o BAJA si DEBILITAR_CONFIANZA.
 
 ESTRUCTURA OUTPUT:
 {
-  "attacks": [{"target_pick_market": "...", "target_pick_selection": "...", "attack_argument": "...", "verdict": "..."}],
-  "picks_that_survive": [{"market": "...", "selection": "...", "why_it_holds": "..."}],
-  "global_observations": ["..."]
+  "skeptic": {
+    "attacks": [{"target_pick_market": "...", "target_pick_selection": "...", "attack_argument": "...", "verdict": "DESCARTAR|DEBILITAR_CONFIANZA|MANTENER"}],
+    "picks_that_survive": [{"market": "...", "selection": "...", "why_it_holds": "..."}],
+    "global_observations": ["..."]
+  },
+  "synthesizer": {
+    "veredicto": "APOSTAR" | "OBSERVAR" | "NO_BET",
+    "picks": [{"market": "...", "selection": "...", "probability": 80-99, "odds": 1.50-3.50, "edge_percent": number, "confidence": "ALTA"|"MEDIA"|"BAJA", "reasoning": "...", "survived_skeptic": true}],
+    "summary": "1-2 párrafos del veredicto",
+    "overall_confidence": 0-100,
+    "total_data_volume": number
+  }
 }`;
 
-export async function runStage3(
+export interface CombinedSkepticSynthesizerOutput {
+  skeptic: SkepticOutput;
+  synthesizer: SynthesizerOutput;
+}
+
+export async function runStage3and4(
   df: DataFoundationOutput,
   s1: StatisticalFoundationOutput,
   s2: { tactical: SpecialistOutput; contextual: SpecialistOutput; market: SpecialistOutput },
-): Promise<SkepticOutput> {
-  const prompt = `DATOS BASE (Stage 0): ${JSON.stringify(df, null, 2)}
+): Promise<CombinedSkepticSynthesizerOutput> {
+  const dfCompact = {
+    home: df.home_team, away: df.away_team, league: df.league, date: df.date,
+    streak: { home: df.streak_home, away: df.streak_away },
+    xg: df.xg_rolling, injuries: df.injuries_impact,
+    referee: df.referee_stats?.name, clv: df.clv_signal,
+    sportmonks_pred: df.sportmonks_predictions,
+    data_volume_score: df.data_volume_score,
+  };
+  const allCandidatePicks = [
+    ...s2.tactical.candidate_picks.map((p) => ({...p, from: 'TACTICAL'})),
+    ...s2.contextual.candidate_picks.map((p) => ({...p, from: 'CONTEXTUAL'})),
+    ...s2.market.candidate_picks.map((p) => ({...p, from: 'MARKET'})),
+  ];
 
-TESIS BASELINE (Stage 1): ${JSON.stringify(s1, null, 2)}
+  const prompt = `DATOS BASE: ${JSON.stringify(dfCompact)}
 
-ANÁLISIS TÁCTICO (Stage 2a): ${JSON.stringify(s2.tactical, null, 2)}
+TESIS BASELINE: ${JSON.stringify(s1)}
 
-ANÁLISIS CONTEXTUAL (Stage 2b): ${JSON.stringify(s2.contextual, null, 2)}
+CANDIDATE PICKS DE 3 ESPECIALISTAS (${allCandidatePicks.length} totales):
+${JSON.stringify(allCandidatePicks)}
 
-ANÁLISIS MERCADO (Stage 2c): ${JSON.stringify(s2.market, null, 2)}
+DATA_VOLUME_SCORE (úsalo en synthesizer.total_data_volume): ${df.data_volume_score}
 
 TAREA:
-1. Recopila TODOS los candidate_picks de los 3 especialistas.
-2. Para cada uno, formula un argumento de ataque con datos del Stage 0/1.
-3. Decide veredicto: DESCARTAR / DEBILITAR_CONFIANZA / MANTENER.
-4. Lista en picks_that_survive solo los que pasan tu filtro.
-5. En global_observations: ¿hay contradicciones entre tactical y market? ¿Sobreajuste a recencia?
+1. Skeptic: ataca cada candidate pick, decide veredicto, lista los que sobreviven.
+2. Synthesizer: emite picks finales (solo los sobrevivientes con prob >= ${OPPORTUNITIES_THRESHOLD_PERCENT}, en odds [1.50, 3.50]).
+3. Devuelve JSON único con la estructura del system prompt.`;
 
-Output: JSON único con la estructura del system prompt.`;
-
-  return await callWithSchemaRetry<SkepticOutput>(
+  const result = await callWithSchemaRetry<CombinedSkepticSynthesizerOutput>(
     async () => {
       const r = await callLLM(prompt, {
         systemPrompt: SYSTEM_PROMPT,
         jsonMode: true,
         temperature: 0,
-        maxTokens: 4000,
-        timeoutMs: 75000,
+        maxTokens: 6500,
+        timeoutMs: 70000,
       });
       return r.text;
     },
-    ['attacks', 'picks_that_survive', 'global_observations'],
-    'STAGE3_SKEPTIC',
-    2,
+    ['skeptic', 'synthesizer'],
+    'STAGE3_COMBINED',
+    0,
   );
+
+  return result;
+}
+
+// Backwards compat: keep runStage3 as a thin wrapper that returns just the skeptic part.
+// Used by orchestrator until orchestrator is migrated to runStage3and4.
+export async function runStage3(
+  df: DataFoundationOutput,
+  s1: StatisticalFoundationOutput,
+  s2: { tactical: SpecialistOutput; contextual: SpecialistOutput; market: SpecialistOutput },
+): Promise<SkepticOutput> {
+  const combined = await runStage3and4(df, s1, s2);
+  // Stash the synthesizer output on the skeptic object for orchestrator to pick up
+  (combined.skeptic as any).__synthesizer = combined.synthesizer;
+  return combined.skeptic;
 }
