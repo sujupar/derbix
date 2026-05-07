@@ -1424,6 +1424,9 @@ serve(async (req) => {
                 match_context: matchContext,
                 raw_etl: rawETL,
                 match_date: matchContext.date,
+                // Organized odds catalog (real bookmaker prices) for the worker to
+                // cross-validate MEGA-emitted odds against the actual market.
+                organized_odds: payload.odds || null,
             };
 
             // 5s ack-timeout dispatch — same pattern as V9-CHAIN

@@ -128,9 +128,26 @@ function buildPromoPropsFromAnalysisRun(run: AnalysisRunInput): PromoMatchPDFPro
     homeKeyMissing: df.injuries_impact?.home_key_missing || [],
     awayKeyMissing: df.injuries_impact?.away_key_missing || [],
     explicacionDetallada: s(analisisProfundo.razonamiento_central, synth.summary, rp.statistical_foundation?.thesis_baseline) || '',
-    matchupTactico: s(analisisProfundo.matchup_tactico) || '',
-    contextoExterno: s(analisisProfundo.contexto_competitivo) || '',
-    factorPsicologico: s(analisisProfundo.factor_psicologico) || '',
+    // Worker now persists nested-object versions (for legacy adaptV3) AND string '_text' versions (for PDF/UI).
+    // Read string versions first; fall back to .detalle/.implicaciones_partido/.temperatura_mental nested fields if string ver is missing.
+    matchupTactico: s(
+      analisisProfundo.matchup_tactico_text,
+      typeof analisisProfundo.matchup_tactico === 'string' ? analisisProfundo.matchup_tactico : undefined,
+      analisisProfundo.matchup_tactico?.detalle,
+      analisisProfundo.matchup_tactico?.clave_del_partido,
+    ) || '',
+    contextoExterno: s(
+      analisisProfundo.contexto_competitivo_text,
+      typeof analisisProfundo.contexto_competitivo === 'string' ? analisisProfundo.contexto_competitivo : undefined,
+      analisisProfundo.contexto_competitivo?.implicaciones_partido,
+      analisisProfundo.contexto_competitivo?.situacion_local,
+    ) || '',
+    factorPsicologico: s(
+      analisisProfundo.factor_psicologico_text,
+      typeof analisisProfundo.factor_psicologico === 'string' ? analisisProfundo.factor_psicologico : undefined,
+      analisisProfundo.factor_psicologico?.temperatura_mental,
+      analisisProfundo.factor_psicologico?.presion_local,
+    ) || '',
     consejosApostador: Array.isArray(analisisProfundo.consejos_apostador) ? analisisProfundo.consejos_apostador : [],
     puntosClave: Array.isArray(rpre.resumen_ejecutivo?.puntos_clave) ? rpre.resumen_ejecutivo.puntos_clave
       : Array.isArray(rp.resumen_ejecutivo?.puntos_clave) ? rp.resumen_ejecutivo.puntos_clave

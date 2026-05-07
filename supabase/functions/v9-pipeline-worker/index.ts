@@ -9,6 +9,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { runPipeline, type ETLRawData } from "../_shared/agents/orchestrator.ts";
 import type { MatchContext } from "../_shared/agents/types.ts";
 import { OPPORTUNITIES_THRESHOLD_PERCENT } from "../_shared/constants.ts";
+import { findOddInOrganized } from "../_shared/odds-selector.ts";
 
 const ENGINE_VERSION = 'V9-HYBRID-2026-05-05';
 const PIPELINE_TIMEOUT_MS = 145000; // 145s safety cap. Worker has ~150s wall clock total.
@@ -20,6 +21,7 @@ interface RequestBody {
   match_context: MatchContext;
   raw_etl: ETLRawData;
   match_date: string;
+  organized_odds?: any; // Catalog from organizeOddsForAI() — used to verify MEGA-emitted odds
 }
 
 async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
@@ -41,7 +43,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: 'invalid json' }), { status: 400, headers: corsHeaders });
   }
 
-  const { job_id, fixture_id, match_context, raw_etl, match_date } = body;
+  const { job_id, fixture_id, match_context, raw_etl, match_date, organized_odds } = body;
   if (!job_id || !fixture_id || !match_context || !raw_etl) {
     return new Response(JSON.stringify({ error: 'missing fields' }), { status: 400, headers: corsHeaders });
   }
@@ -66,6 +68,43 @@ serve(async (req) => {
 
       const elapsed = Date.now() - t0;
       console.log(`[V9-WORKER] Pipeline complete in ${elapsed}ms — ${pipelineResult.validated_picks.length} validated picks, verdict=${pipelineResult.synthesizer.veredicto}`);
+
+      // ═════════════════════════════════════════════════════════════════════
+      // ODDS VERIFICATION: replace MEGA-invented odds with REAL bookmaker prices
+      // The MEGA stage estimates an odds value that may not match the actual market.
+      // findOddInOrganized() looks up the real value from the SportMonks catalog.
+      // We override the pick's odds + recompute edge_percent so the user sees the
+      // true bookmaker price and the true value vs the model probability.
+      // ═════════════════════════════════════════════════════════════════════
+      if (organized_odds && pipelineResult.validated_picks.length > 0) {
+        const xvalCtx = {
+          homeTeam: pipelineResult.data_foundation.home_team,
+          awayTeam: pipelineResult.data_foundation.away_team,
+        };
+        const verifiedPicks = pipelineResult.validated_picks.map((p) => {
+          const xval = findOddInOrganized(organized_odds, p.market, p.selection, xvalCtx);
+          if (xval.match && xval.match.val > 1.01) {
+            const realOdds = Number(xval.match.val.toFixed(2));
+            const probDecimal = p.probability / 100;
+            const impliedProb = 1 / realOdds;
+            const realEdge = Number(((probDecimal - impliedProb) / impliedProb * 100).toFixed(2));
+            console.log(`[V9-WORKER] ODDS-VERIFY ${p.market}/${p.selection}: model=${p.odds} → real=${realOdds} (${xval.reason}, ${xval.category}); edge ${p.edge_percent}% → ${realEdge}%`);
+            return { ...p, odds: realOdds, edge_percent: realEdge };
+          } else {
+            console.warn(`[V9-WORKER] ODDS-VERIFY no match for ${p.market}/${p.selection} (${xval.reason}); keeping MEGA estimate ${p.odds}`);
+            return p;
+          }
+        });
+        // Filter out picks whose REAL odds fell out of acceptable range after verification
+        const finalPicks = verifiedPicks.filter((p) => p.odds >= 1.20 && p.odds <= 4.50);
+        const droppedCount = verifiedPicks.length - finalPicks.length;
+        if (droppedCount > 0) console.log(`[V9-WORKER] Dropped ${droppedCount} picks after odds verification (out of [1.20, 4.50] range)`);
+        pipelineResult.validated_picks = finalPicks;
+        pipelineResult.synthesizer.picks = pipelineResult.synthesizer.picks.map((sp) => {
+          const replacement = finalPicks.find((vp) => vp.market === sp.market && vp.selection === sp.selection);
+          return replacement || sp;
+        }).filter((sp) => finalPicks.some((vp) => vp.market === sp.market && vp.selection === sp.selection) || pipelineResult.validated_picks.length === 0);
+      }
 
       // Build legacy-shape sections that AnalysisReportModal expects to render UI
       const df = pipelineResult.data_foundation;
