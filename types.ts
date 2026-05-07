@@ -334,6 +334,7 @@ export interface VisualAnalysisResult {
     analysisRun?: AnalysisRun; // Nuevo campo: Data cruda de DB
     visualData?: any; // Legacy support
     payload?: any; // New field: Raw API Payload (Input)
+    reportPacket?: any; // V9 raw report_packet from reports_v2 (used by PDF adapter)
 }
 
 export interface BettingRecommendationVisual {

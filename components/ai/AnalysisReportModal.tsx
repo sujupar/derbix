@@ -886,7 +886,11 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
     const handleDownloadReport = (pdfOptions?: { isPromo: boolean; onlyOpportunities: boolean }) => {
         trackPDFDownload(data?.header_partido?.titulo || 'Reporte');
         import('../../services/pdf/pdfGenerator').then(({ generateMatchAnalysisPDF }) => {
+            // Pass BOTH the V9 report_packet (rich xG/recent_5/prosa) and the legacy
+            // report_pre_jsonb (header/picks). The adapter prefers report_packet but falls
+            // back to report_pre_jsonb so legacy modal data still renders.
             const pdfData = {
+                report_packet: analysis?.reportPacket || null,
                 report_pre_jsonb: {
                     ...data,
                     header_partido: data.header_partido || { titulo: "Informe de Análisis", subtitulo: new Date().toLocaleDateString() }

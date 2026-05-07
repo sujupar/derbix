@@ -154,7 +154,11 @@ export const PromoMatchPDF: React.FC<PromoMatchPDFProps> = (p) => {
       <CoverPage
         preTitle="ANÁLISIS TÉCNICO"
         title={`${p.homeTeam} vs ${p.awayTeam}`}
-        subline={`${p.league}${p.matchDate ? ' · ' + p.matchDate : ''}${p.matchTime && p.matchTime !== '—' ? ' · ' + p.matchTime : ''}`}
+        subline={[
+          p.league && p.league !== 'Liga' && !p.league.includes(' vs ') ? p.league : null,
+          p.matchDate || null,
+          p.matchTime && p.matchTime !== '—' ? p.matchTime : null,
+        ].filter(Boolean).join(' · ') || `${p.homeTeam} vs ${p.awayTeam}`}
         seal={`${p.dataVolume.toLocaleString('es-CO')} datos analizados · 6 modelos especializados · Consenso alcanzado`}
         generatedAt={p.generatedAt}
       />

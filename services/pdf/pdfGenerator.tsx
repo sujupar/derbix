@@ -61,9 +61,10 @@ interface ExtractedHeader {
 }
 
 function extractHeader(run: AnalysisRunInput): ExtractedHeader {
+  // V9 report_packet has the most authoritative data; legacy report_pre_jsonb falls through.
   const rp = run.report_packet || {};
   const rpre = run.report_pre_jsonb || {};
-  const hp = rpre.header_partido || {};
+  const hp = rpre.header_partido || rp.header_partido || {};
   const df = rp.data_foundation || {};
 
   // Header titulo can be like "Real Madrid vs Barcelona"
@@ -75,11 +76,15 @@ function extractHeader(run: AnalysisRunInput): ExtractedHeader {
     titleAway = parts[1].trim();
   }
 
+  // For league: prefer authoritative data_foundation.league. NEVER fall back to
+  // hp.subtitulo because subtitulo can be a long executive sentence (V9 worker
+  // sets hp.subtitulo = `${league} · ${date}` but legacy modal sets it to the
+  // executive summary phrase).
   return {
     homeTeam: s(run.home_team, run.homeTeam, df.home_team, run.partido?.local, hp.local, titleHome) || 'Local',
     awayTeam: s(run.away_team, run.awayTeam, df.away_team, run.partido?.visitante, hp.visitante, titleAway) || 'Visitante',
-    league: s(run.league, df.league, run.partido?.liga, hp.liga, hp.subtitulo) || 'Liga',
-    matchDate: s(run.match_date, run.matchDate, df.date, run.partido?.fecha, hp.fecha),
+    league: s(run.league, df.league, rp.header_partido?.liga, run.partido?.liga, hp.liga) || 'Liga',
+    matchDate: s(run.match_date, run.matchDate, df.date, run.partido?.fecha, hp.fecha, rp.header_partido?.fecha),
     matchTime: s(run.match_time, run.matchTime, df.kickoff_at, run.partido?.hora, hp.hora) || '—',
     fixtureId: n(run.fixture_id, rp.fixture_id, df.fixture_id, hp.fixture_id) || 0,
   };

@@ -565,7 +565,8 @@ export const getAnalysisResult = async (jobId: string): Promise<VisualAnalysisRe
                         analysisText: adaptedData.resumen_ejecutivo?.frase_principal || "Análisis V3 completado.",
                         dashboardData: adaptedData,
                         analysisRun: undefined,
-                        payload: v2Report.input_payload // Map payload explicitly from reports_v2
+                        payload: v2Report.input_payload, // Map payload explicitly from reports_v2
+                        reportPacket: report // Raw V9 report_packet for PDF adapter (xG, recent_5, prosa enriquecida)
                     };
                 }
             }
@@ -776,7 +777,8 @@ export const getAnalysisResult = async (jobId: string): Promise<VisualAnalysisRe
                     tablas_comparativas: null,
                     graficos_sugeridos: null
                 } as unknown as DashboardAnalysisJSON,
-                analysisRun: undefined
+                analysisRun: undefined,
+                reportPacket: report // Raw V9 report_packet for PDF adapter (xG, recent_5, prosa enriquecida)
             };
         }
 
