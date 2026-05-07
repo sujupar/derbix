@@ -26,6 +26,20 @@ REGLAS DURAS:
 - "consejos_apostador" 3-4 bullets educativos sobre cómo pensar este tipo de partidos.
 - Picks: probability >= ${OPPORTUNITIES_THRESHOLD_PERCENT}, odds [1.50-3.50], 0-5 picks máx.
 
+DIVERSIDAD DE MERCADOS — CRÍTICO:
+- DEBES considerar EXPLÍCITAMENTE estas 7 categorías de mercado y emitir picks de las que tengan valor:
+  1. RESULTADO (1X2): Local / Empate / Visitante
+  2. DOBLE OPORTUNIDAD: Local o Empate / Empate o Visitante / Local o Visitante
+  3. GOLES (Over/Under): Más / Menos de X.5 goles
+  4. AMBOS ANOTAN (BTTS): Sí / No
+  5. CÓRNERS: Más / Menos de X.5 córneres
+  6. TARJETAS: Más / Menos de X.5 tarjetas
+  7. HÁNDICAP: Asian -1.5 / +0.5 / etc.
+- En la sección "ODDS" del input verás el catálogo real con las cuotas de bookmakers para CADA categoría.
+- Si una categoría tiene cuotas listadas en el catálogo y tu modelo le da prob >= ${OPPORTUNITIES_THRESHOLD_PERCENT}%, EMITE el pick. NO te limites a Over/Under.
+- Idealmente tu output tiene picks de 2-3 categorías DIFERENTES (no todos goles).
+- Si solo encuentras valor en una sola categoría, está bien — pero verifica que evaluaste las 7.
+
 ESTRUCTURA OUTPUT JSON:
 {
   "thesis": "una oración sintética del partido (50-80 chars)",
@@ -38,7 +52,8 @@ ESTRUCTURA OUTPUT JSON:
   "datos_destacados": ["dato concreto 1", "dato concreto 2", "dato concreto 3"],
   "riesgos_identificados": ["riesgo 1", "riesgo 2"],
   "consejos_apostador": ["consejo educativo 1", "consejo 2", "consejo 3"],
-  "picks": [{"market":"BTTS|Over/Under|1X2|Tarjetas|Corners|Doble Oportunidad","selection":"","probability":${OPPORTUNITIES_THRESHOLD_PERCENT}-99,"odds":1.5-3.5,"edge_percent":0-30,"confidence":"ALTA|MEDIA|BAJA","reasoning":"2-3 oraciones citando datos específicos","por_que_este_pick":"párrafo explicativo de por qué este pick específicamente, en lenguaje de principiante"}],
+  "evaluacion_mercados": ["1X2: razón breve por la que descarté/incluí", "Doble Op: ...", "Goles: ...", "BTTS: ...", "Córners: ...", "Tarjetas: ...", "Hándicap: ..."],
+  "picks": [{"market":"Resultado 1X2|Doble Oportunidad|Más/Menos Goles|BTTS|Córners|Tarjetas|Hándicap","selection":"texto en español","probability":${OPPORTUNITIES_THRESHOLD_PERCENT}-99,"odds":1.5-3.5,"edge_percent":0-30,"confidence":"ALTA|MEDIA|BAJA","reasoning":"2-3 oraciones citando datos específicos","por_que_este_pick":"párrafo explicativo de por qué este pick específicamente, en lenguaje de principiante"}],
   "summary": "párrafo de cierre que sintetiza todo",
   "overall_confidence": 0-100
 }`;
@@ -54,6 +69,7 @@ export interface MegaOutput {
   datos_destacados: string[];
   riesgos_identificados: string[];
   consejos_apostador: string[];
+  evaluacion_mercados?: string[];
   picks: Array<{
     market: string;
     selection: string;
@@ -71,6 +87,7 @@ export interface MegaOutput {
 export async function runMegaStage(
   df: DataFoundationOutput,
   context: MatchContext,
+  organizedOdds?: any, // Optional: full bookmaker catalog from organizeOddsForAI()
 ): Promise<MegaOutput> {
   const dfCompact = {
     home: df.home_team, away: df.away_team, league: df.league, date: df.date,
@@ -85,15 +102,49 @@ export async function runMegaStage(
     clv: df.clv_signal,
   };
 
-  const prompt = `Datos: ${JSON.stringify(dfCompact)}
-Odds: ${(context.odds || '').substring(0, 1500)}
+  // Build a STRUCTURED catalog of available markets from the organized odds.
+  // This is the most important input for diversity: the model needs to SEE that
+  // there are corners, cards, handicaps, halves available with real bookmaker odds,
+  // not just goals.
+  let oddsCatalog = '';
+  if (organizedOdds && typeof organizedOdds === 'object') {
+    const formatCat = (cat: string, items: any[]): string => {
+      if (!items || items.length === 0) return '';
+      const sample = items.slice(0, 12).map((it) => `${it.lbl} @ ${it.val}`).join(' | ');
+      const more = items.length > 12 ? ` (+${items.length - 12} más)` : '';
+      return `  ${cat}: ${sample}${more}`;
+    };
+    const catalogLines = [
+      formatCat('RESULTADO 1X2 + DOBLE OPORTUNIDAD', organizedOdds.MAIN || []),
+      formatCat('GOLES (Over/Under, BTTS)', organizedOdds.GOALS || []),
+      formatCat('GOLES POR EQUIPO + HANDICAPS', organizedOdds.TEAMS || []),
+      formatCat('CÓRNERS', organizedOdds.CORNERS || []),
+      formatCat('MITADES (1er/2do tiempo)', organizedOdds.HALVES || []),
+      formatCat('COMBINADOS', organizedOdds.COMBOS || []),
+      formatCat('OTROS (incluye tarjetas)', (organizedOdds.OTHERS || []).slice(0, 30)),
+    ].filter(Boolean).join('\n');
+    oddsCatalog = catalogLines || (context.odds || '').substring(0, 2500);
+  } else {
+    oddsCatalog = (context.odds || '').substring(0, 2500);
+  }
+
+  const prompt = `Datos del partido: ${JSON.stringify(dfCompact)}
+
+CATÁLOGO DE CUOTAS REALES (Bet365/Pinnacle):
+${oddsCatalog}
+
 H2H: ${(context.h2h || '').substring(0, 800)}
 Hist L: ${(context.homeHistory || '').substring(0, 900)}
 Hist V: ${(context.awayHistory || '').substring(0, 900)}
 Externo (lesiones/contexto): ${(context.external_context || '').substring(0, 1200)}
 Lineups: ${context.lineups?.home.formation || '?'} vs ${context.lineups?.away.formation || '?'}, lesiones=${df.injuries_impact.home_key_missing.join('/') || '-'} | ${df.injuries_impact.away_key_missing.join('/') || '-'}
 
-ANÁLISIS COMPLETO requerido. Escribe prosa interpretativa LARGA en explicacion_detallada (mínimo 800 caracteres). Cita los datos. Explica como si el lector estuviera aprendiendo.
+INSTRUCCIONES:
+1. Considera CADA categoría del catálogo arriba (Resultado, Doble Op, Goles, BTTS, Córners, Tarjetas/Otros, Combinados).
+2. Para cada categoría, evalúa si tu modelo identifica probabilidad >= ${OPPORTUNITIES_THRESHOLD_PERCENT}% en alguna selección. Si la cuota real está en el catálogo, calcula el edge.
+3. En "evaluacion_mercados" reporta brevemente por qué descartaste o incluiste cada una de las 7 categorías.
+4. NO te limites a Over/Under de goles. Si encuentras valor en córners, tarjetas, doble oportunidad o handicaps, EMÍTELO.
+5. Escribe explicacion_detallada con prosa interpretativa larga (mínimo 800 caracteres) en español, didáctica.
 
 Devuelve JSON único.`;
 

@@ -7,6 +7,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../services/supabaseService';
 import { manualOverridePick } from '../../services/resultsService';
 import { OPPORTUNITIES_THRESHOLD, OPPORTUNITIES_THRESHOLD_PERCENT } from '../../constants/opportunities';
+import { translatePick } from '../../services/marketTranslator';
 import { useAuth } from '../../hooks/useAuth';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { isHistoricalDate, getAllowedPickCount } from '../../utils/planAccessUtils';
@@ -275,24 +276,20 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
         onAccessibleFixturesChange(ids);
     }, [visiblePicks.length, allowedCount, onAccessibleFixturesChange]);
 
-    // Helpers UI
-    const translateMarket = (market: string): string => {
-        const translations: Record<string, string> = {
-            'over_0.5_goals': 'Más de 0.5 Goles',
-            'over_1.5_goals': 'Más de 1.5 Goles',
-            'over_2.5_goals': 'Más de 2.5 Goles',
-            'over_3.5_goals': 'Más de 3.5 Goles',
-            'btts_yes': 'Ambos Anotan: Sí',
-            'btts_no': 'Ambos Anotan: No',
-            'home_win': 'Gana Local',
-            'away_win': 'Gana Visitante',
-            'draw': 'Empate',
-            'double_chance_1x': 'Local o Empate',
-            'double_chance_x2': 'Empate o Visitante',
-            'home_over_0.5': 'Local Anota',
-            'away_over_0.5': 'Visita Anota',
+    // Helpers UI — uses centralized marketTranslator (services/marketTranslator.ts).
+    // Falls back to legacy snake_case keys for old picks; for V9 picks the translator
+    // handles "Over/Under" + "Under 2.5" → "Más / Menos Goles" + "Menos de 2.5 goles".
+    const translateMarket = (market: string, selection: string = ''): string => {
+        const legacy: Record<string, string> = {
+            'over_0.5_goals': 'Más de 0.5 Goles', 'over_1.5_goals': 'Más de 1.5 Goles',
+            'over_2.5_goals': 'Más de 2.5 Goles', 'over_3.5_goals': 'Más de 3.5 Goles',
+            'btts_yes': 'Ambos Anotan: Sí', 'btts_no': 'Ambos Anotan: No',
+            'home_win': 'Gana Local', 'away_win': 'Gana Visitante', 'draw': 'Empate',
+            'double_chance_1x': 'Local o Empate', 'double_chance_x2': 'Empate o Visitante',
+            'home_over_0.5': 'Local Anota', 'away_over_0.5': 'Visita Anota',
         };
-        return translations[market] || market.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        if (legacy[market]) return legacy[market];
+        return translatePick(market, selection).marketEs;
     };
 
     if (isLoading) return <LoadingState />;
@@ -638,8 +635,15 @@ const SinglePickCard: React.FC<{
 
             <div className="bg-black/40 rounded-lg p-3 border border-white/5 flex justify-between items-center mb-3">
                 <div>
-                    <p className="text-[11px] sm:text-[10px] uppercase text-slate-500">{translateMarket(pick.market)}</p>
-                    <p className="text-white font-bold text-sm">{pick.selection}</p>
+                    {(() => {
+                        const tr = translatePick(pick.market || '', pick.selection || '');
+                        return (
+                            <>
+                                <p className="text-[11px] sm:text-[10px] uppercase text-slate-500">{tr.marketEs}</p>
+                                <p className="text-white font-bold text-sm">{tr.selectionEs}</p>
+                            </>
+                        );
+                    })()}
                 </div>
                 <div className="text-right">
                     {(() => {

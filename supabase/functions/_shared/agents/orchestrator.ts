@@ -14,6 +14,7 @@ export type { ETLRawData } from './stage0-data-foundation.ts';
 export async function runPipeline(
   context: MatchContext,
   rawETL: ETLRawData,
+  organizedOdds?: any, // Optional: full bookmaker catalog passed to MEGA for market diversity
 ): Promise<PipelineRunResult> {
   const t0 = Date.now();
 
@@ -25,7 +26,7 @@ export async function runPipeline(
 
   // Stage MEGA — single LLM call for analysis + picks + verdict
   const megaStart = Date.now();
-  const mega = await runMegaStage(data_foundation, context);
+  const mega = await runMegaStage(data_foundation, context, organizedOdds);
   const mega_ms = Date.now() - megaStart;
   console.log(`[orchestrator] Stage MEGA done in ${mega_ms}ms — verdict=${mega.veredicto}, ${mega.picks.length} picks`);
 

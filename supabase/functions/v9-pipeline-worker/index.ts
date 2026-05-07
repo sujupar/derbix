@@ -61,7 +61,7 @@ serve(async (req) => {
       console.log(`[V9-WORKER] Job ${job_id} fixture ${fixture_id} starting`);
 
       const pipelineResult = await withTimeout(
-        runPipeline(match_context, raw_etl),
+        runPipeline(match_context, raw_etl, organized_odds),
         PIPELINE_TIMEOUT_MS,
         'PIPELINE',
       );
