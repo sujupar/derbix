@@ -912,12 +912,86 @@ export function normalizeLegacyStandings(standings: any[]): any[][] | null {
     return [normalized];
 }
 
+// SportMonks market_id → { name (human), category }. Verified against bet365 catalog.
+// Items not in this dict fall through to OTHERS with a generic label.
+// 2026-05-08 FIX: m_id=80 (Goals Over/Under, the Bet365 standard) was missing — it
+// fell into OTHERS with English label and the resolver picked m_id=37/105/107
+// (combo / Asian split / variant) returning wrong odds (e.g. 4.50 for Under 2.5
+// when the real Bet365 price was 1.85). m_ids 105/107/69 produce odds with
+// composite thresholds ("Under 2.5, 3.0") and Asian goal lines that look identical
+// to "Under 2.5" but are different markets — moved to OTHERS so they don't
+// pollute GOALS matching.
+const MARKET_DICT: Record<number, { name: string; cat: 'MAIN' | 'GOALS' | 'TEAMS' | 'HALVES' | 'CORNERS' | 'COMBOS' | 'OTHERS' }> = {
+    1:   { name: 'Resultado 1X2',                cat: 'MAIN' },
+    2:   { name: 'Asian Handicap',               cat: 'TEAMS' },
+    5:   { name: 'Half Time / Full Time',        cat: 'COMBOS' },
+    6:   { name: 'Match Winner (no draw)',       cat: 'MAIN' },
+    7:   { name: 'Más/Menos Goles',              cat: 'GOALS' },  // Goal Line (alternativa estándar)
+    10:  { name: 'Doble Oportunidad',            cat: 'MAIN' },
+    12:  { name: 'Más/Menos Goles',              cat: 'GOALS' },
+    13:  { name: 'Resultado y Ambos Anotan',     cat: 'COMBOS' },
+    14:  { name: 'Resultado al Descanso',        cat: 'HALVES' },
+    16:  { name: 'Ambos Anotan',                 cat: 'GOALS' },
+    18:  { name: 'Asian Handicap',               cat: 'TEAMS' },
+    19:  { name: 'Asian Handicap',               cat: 'TEAMS' },
+    27:  { name: 'Marcador Exacto',              cat: 'OTHERS' },
+    28:  { name: 'Más/Menos Goles',              cat: 'GOALS' },
+    37:  { name: 'Resultado y Total Goles',      cat: 'COMBOS' },  // combo 1X2+goals — NOT goals only
+    38:  { name: 'Total Goles Local',            cat: 'TEAMS' },
+    47:  { name: 'Doble Oportunidad y Goles',    cat: 'COMBOS' },
+    53:  { name: 'Más/Menos Goles',              cat: 'GOALS' },
+    63:  { name: 'Más/Menos Goles',              cat: 'GOALS' },
+    67:  { name: 'Asian Handicap Esquinas',      cat: 'CORNERS' },
+    69:  { name: 'Asian Goal Lines',             cat: 'OTHERS' },  // moved out of GOALS — has integer thresholds (Under 5/6/7) that look like normal Under but are different market
+    70:  { name: 'Más/Menos Goles',              cat: 'GOALS' },
+    79:  { name: 'Half Time / Full Time',        cat: 'COMBOS' },
+    80:  { name: 'Más/Menos Goles',              cat: 'GOALS' },  // ← THE bookmaker-standard Over/Under Total Goals (the one Stake/Bet365 show as "Más/Menos 2.5")
+    81:  { name: 'Total Goles Local',            cat: 'TEAMS' },
+    82:  { name: 'Total Goles + BTTS',           cat: 'COMBOS' },
+    86:  { name: 'Resultado 1er Tiempo',         cat: 'HALVES' },
+    87:  { name: 'Resultado 2do Tiempo',         cat: 'HALVES' },
+    92:  { name: 'Último Goleador',              cat: 'OTHERS' },
+    94:  { name: 'Total Tarjetas',               cat: 'OTHERS' },
+    97:  { name: 'Resultado y Total Goles',      cat: 'COMBOS' },
+    98:  { name: 'Ambos Anotan',                 cat: 'GOALS' },
+    100: { name: 'Total Goles Equipo',           cat: 'TEAMS' },
+    101: { name: 'Más/Menos Goles 1T',           cat: 'HALVES' },
+    105: { name: 'Goles Asian Split',            cat: 'OTHERS' },  // composite thresholds ("Under 2.5, 3.0") — NOT same as Under 2.5
+    107: { name: 'Total Goles Match',            cat: 'OTHERS' },  // variant with different threshold semantics
+    120: { name: 'Estadísticas 1er Tiempo',      cat: 'HALVES' },
+    121: { name: 'Estadísticas 2do Tiempo',      cat: 'HALVES' },
+    334: { name: 'Más/Menos Esquinas',           cat: 'CORNERS' },
+    336: { name: 'Más/Menos Esquinas',           cat: 'CORNERS' },
+};
+
+function buildEnrichedLabel(o: SelectedOdd, marketName: string, homeTeam?: string, awayTeam?: string): string {
+    const baseLabel = (o.label || '').trim();
+    const total = o.total ? ` ${o.total}` : '';
+    const handicap = o.handicap ? ` ${o.handicap}` : '';
+
+    // For 1X2 / Match Winner where label is "1"/"2"/"X", expand to team name
+    let lbl = baseLabel;
+    if (lbl === '1' && homeTeam) lbl = `${homeTeam} (Local)`;
+    else if (lbl === '2' && awayTeam) lbl = `${awayTeam} (Visitante)`;
+    else if (lbl === 'X' || lbl.toLowerCase() === 'draw') lbl = 'Empate';
+    else if (lbl.toLowerCase() === 'home' && homeTeam) lbl = `${homeTeam} (Local)`;
+    else if (lbl.toLowerCase() === 'away' && awayTeam) lbl = `${awayTeam} (Visitante)`;
+
+    // For over/under: append the threshold (Over → Over 2.5)
+    if ((lbl.toLowerCase() === 'over' || lbl.toLowerCase() === 'under') && (total || handicap)) {
+        lbl = `${lbl}${total || handicap}`;
+    }
+
+    return `${marketName}: ${lbl}`;
+}
+
 /**
  * Organize Odds for AI Processing
- * Groups markets into categories AND selects a preferred bookmaker per market.
- * Returns { info: "No odds available" } if input is empty.
+ * Groups markets into categories using a market_id dictionary AND enriches
+ * labels with thresholds + team names so the LLM and cross-validation can
+ * unambiguously identify each pick.
  */
-export function organizeOddsForAI(odds: any[]): any {
+export function organizeOddsForAI(odds: any[], homeTeam?: string, awayTeam?: string): any {
     if (!odds || odds.length === 0) return { info: "No odds available" };
 
     const selection: OddsSelection = selectOdds(odds);
@@ -937,51 +1011,41 @@ export function organizeOddsForAI(odds: any[]): any {
         },
     };
 
-    const fmt = (o: SelectedOdd) => ({
-        m_id: o.market_id,
-        b_id: o.bookmaker_id,
-        lbl: o.label,
-        val: o.value,
-    });
-
-    const COMBO_MARKET_IDS = new Set([37, 47, 97]);
+    // Group by (cat, enriched_lbl). When SportMonks returns multiple rows for the same logical
+    // outcome across sub-markets (different m_ids), they may include outliers (e.g. Over 2.5
+    // showing 7.0 because m_id=105 maps to a different threshold despite "2.5" in the total).
+    // We pick the MEDIAN value per group and discard items that deviate >40% from the median —
+    // safer than max (favored bettor but inflated) or min (too conservative).
+    const groups = new Map<string, { mid_first: number; b_id: number; lbl: string; cat: string; values: number[] }>();
 
     for (const o of selection.picks) {
         const mid = o.market_id;
-        const label = (o.label || '').toLowerCase();
+        const dictEntry = MARKET_DICT[mid];
+        const marketName = dictEntry?.name || (o.market_description ? o.market_description : `Mercado ${mid}`);
+        const cat = dictEntry?.cat || 'OTHERS';
+        const enrichedLbl = buildEnrichedLabel(o, marketName, homeTeam, awayTeam);
+        const key = `${cat}::${enrichedLbl}`;
 
-        if (COMBO_MARKET_IDS.has(mid)) { structured.COMBOS.push(fmt(o)); continue; }
-        if (
-            (label.includes('&') && (label.includes('over') || label.includes('under') || label.includes('btts') || label.includes('both teams'))) ||
-            label.includes('halftime/fulltime') ||
-            label.includes('ht/ft') ||
-            label.includes('result & ') ||
-            label.includes('result/') ||
-            (label.includes('win') && label.includes('over')) ||
-            (label.includes('win') && label.includes('under')) ||
-            (label.includes('draw') && label.includes('over')) ||
-            (label.includes('draw') && label.includes('under'))
-        ) { structured.COMBOS.push(fmt(o)); continue; }
-
-        if (mid === 1 || mid === 2 || mid === 10) {
-            structured.MAIN.push(fmt(o));
-        } else if (label.includes('double chance') || label.includes('draw no bet') || label.includes(' or ')) {
-            structured.MAIN.push(fmt(o));
-        } else if (mid === 12 || label.includes('over') || label.includes('under')) {
-            if (label.includes('team') || label.includes('home') || label.includes('away')) {
-                structured.TEAMS.push(fmt(o));
-            } else {
-                structured.GOALS.push(fmt(o));
-            }
-        } else if (mid === 6 || mid === 13 || label.includes('both teams') || label.includes('btts')) {
-            structured.TEAMS.push(fmt(o));
-        } else if (label.includes('corner')) {
-            structured.CORNERS.push(fmt(o));
-        } else if (label.includes('1st half') || label.includes('2nd half') || label.includes('half time')) {
-            structured.HALVES.push(fmt(o));
+        const g = groups.get(key);
+        if (g) {
+            g.values.push(o.value);
         } else {
-            structured.OTHERS.push(fmt(o));
+            groups.set(key, { mid_first: mid, b_id: o.bookmaker_id, lbl: enrichedLbl, cat, values: [o.value] });
         }
+    }
+
+    const median = (arr: number[]): number => {
+        const sorted = [...arr].sort((a, b) => a - b);
+        const n = sorted.length;
+        return n % 2 === 0 ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2 : sorted[Math.floor(n / 2)];
+    };
+
+    for (const g of groups.values()) {
+        // If only 1 value, keep it. If multiple, take the median (drops outliers naturally).
+        const med = median(g.values);
+        // Sanity: discard if median is below 1.01 or absurdly high (>50) — likely categorization error.
+        if (med < 1.01 || med > 50) continue;
+        structured[g.cat].push({ m_id: g.mid_first, b_id: g.b_id, lbl: g.lbl, val: Math.round(med * 100) / 100 });
     }
 
     return structured;
