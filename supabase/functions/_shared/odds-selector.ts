@@ -364,3 +364,56 @@ export function oddsWithinTolerance(llmOdds: number | null, realOdds: number, to
     if (!isFinite(realOdds) || realOdds <= 1.0) return false;
     return Math.abs(llmOdds - realOdds) / realOdds <= tolerance;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// PROBABILITY ↔ ODDS COHERENCE SANITY CHECK
+// A 90% probability claim with a 1.77 odds is mathematically incoherent:
+// fair odds at 90% is 1.111, and bookmaker margin tops it at ~1.15. A 1.77
+// odds implies an actual market probability of ~56%, so EITHER the LLM
+// inflated the probability OR the odds belongs to a different market line.
+// In both cases the pick is unreliable and must be rejected before display.
+// ═══════════════════════════════════════════════════════════════
+
+// Conservative ceiling on odds for a given probability band, allowing for
+// bookmaker margin (~5-8%) plus modest value-bet allowance.
+// Format: [min_probability_inclusive, max_allowed_odds]
+const PROB_ODDS_SANITY_TABLE: Array<[number, number]> = [
+    [0.95, 1.20],
+    [0.90, 1.40],
+    [0.85, 1.70],
+    [0.83, 2.20],
+];
+
+export interface ProbOddsCoherenceResult {
+    coherent: boolean;
+    reason: string | null;
+    probBand: number | null;
+    maxAllowedOdds: number | null;
+}
+
+/**
+ * Returns whether a (probability, odds) pair is mathematically coherent.
+ * `prob` MUST be in [0, 1] (decimal). `odds` is the decimal bookmaker odds.
+ * Returns coherent=true for picks below the lowest band (no constraint applied).
+ */
+export function checkProbOddsCoherence(prob: number, odds: number | null): ProbOddsCoherenceResult {
+    if (odds === null || !isFinite(odds) || odds <= 1.0) {
+        return { coherent: false, reason: 'invalid_odds', probBand: null, maxAllowedOdds: null };
+    }
+    if (!isFinite(prob) || prob <= 0 || prob > 1) {
+        return { coherent: false, reason: 'invalid_prob', probBand: null, maxAllowedOdds: null };
+    }
+    for (const [minProb, maxOdds] of PROB_ODDS_SANITY_TABLE) {
+        if (prob >= minProb) {
+            const coherent = odds <= maxOdds;
+            return {
+                coherent,
+                reason: coherent ? null : `prob_${Math.round(prob * 100)}%_vs_odds_${odds}_exceeds_max_${maxOdds}`,
+                probBand: minProb,
+                maxAllowedOdds: maxOdds,
+            };
+        }
+    }
+    // Below 83%: no upper bound enforced (Oportunidades threshold is 80-83%).
+    return { coherent: true, reason: null, probBand: null, maxAllowedOdds: null };
+}

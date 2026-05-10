@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../services/supabaseService';
 import { manualOverridePick } from '../../services/resultsService';
-import { OPPORTUNITIES_THRESHOLD, OPPORTUNITIES_THRESHOLD_PERCENT } from '../../constants/opportunities';
+import { OPPORTUNITIES_THRESHOLD, OPPORTUNITIES_THRESHOLD_PERCENT, MAX_OPPORTUNITIES_PER_DAY } from '../../constants/opportunities';
 import { translatePick } from '../../services/marketTranslator';
 import { useAuth } from '../../hooks/useAuth';
 import { useSubscription } from '../../contexts/SubscriptionContext';
@@ -70,7 +70,7 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
 
         try {
             // FAST PATH: Read persisted opportunities directly from DB (stable on every refresh)
-            // With STALENESS CHECK: if persisted < 20 and more eligible picks exist, regenerate
+            // With STALENESS CHECK: if persisted < cap and more eligible picks exist, regenerate
             if (!forceRegenerate) {
                 console.log(`[HighProbPicks] Trying persisted opportunities for ${date}...`);
                 const { data: persisted } = await supabase
@@ -83,8 +83,8 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                 if (persisted && persisted.length > 0) {
                     let usePersistedData = true;
 
-                    // STALENESS CHECK: If we have fewer than 20, check if more picks are available
-                    if (persisted.length < 20) {
+                    // STALENESS CHECK: If we have fewer than the cap, check if more picks are available
+                    if (persisted.length < MAX_OPPORTUNITIES_PER_DAY) {
                         const { data: todayMatches } = await supabase
                             .from('daily_matches')
                             .select('api_fixture_id')

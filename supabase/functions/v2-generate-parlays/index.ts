@@ -7,8 +7,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { corsHeaders } from '../_shared/cors.ts'
-import { findOddInOrganized, oddsWithinTolerance } from '../_shared/odds-selector.ts'
-import { OPPORTUNITIES_THRESHOLD, OPPORTUNITIES_THRESHOLD_PERCENT } from '../_shared/constants.ts'
+import { findOddInOrganized, oddsWithinTolerance, checkProbOddsCoherence } from '../_shared/odds-selector.ts'
+import { OPPORTUNITIES_THRESHOLD, OPPORTUNITIES_THRESHOLD_PERCENT, MAX_OPPORTUNITIES_PER_DAY } from '../_shared/constants.ts'
 
 /** Get next day string YYYY-MM-DD */
 function getNextDay(dateStr: string): string {
@@ -350,6 +350,13 @@ serve(async (req) => {
                         return; // exits the current forEach callback
                     }
 
+                    // SANITY: probability ↔ odds coherence (catches inflated probs vs absurd odds).
+                    const sanityA = checkProbOddsCoherence(prob / 100, validOdds);
+                    if (!sanityA.coherent) {
+                        log(`[OPP-V8.1]   Pick[${idx}] DISCARDED (sanity ${sanityA.reason}): ${p.mercado} | ${p.seleccion} prob=${prob.toFixed(1)}% odds=${validOdds}`);
+                        return;
+                    }
+
                     // Log every pick for debugging
                     if (idx < 5) {
                         log(`[OPP-V8.1]   Pick[${idx}]: ${p.mercado} | ${p.seleccion} | prob=${prob.toFixed(1)}% | odds=${validOdds || 'null'}`);
@@ -414,9 +421,34 @@ serve(async (req) => {
                 // If odds_source is null (pre-migration pick), accept by range (safety net).
                 const inRange = vp.odds && vp.odds >= MIN_ODDS && vp.odds <= MAX_ODDS;
                 const isRealOrLegacy = vp.odds_source === 'real' || vp.odds_source == null;
-                const validOdds = inRange && isRealOrLegacy ? vp.odds : null;
+                let validOdds: number | null = inRange && isRealOrLegacy ? vp.odds : null;
                 if (validOdds === null) {
                     log(`[OPP-V8.1] ValuePick DISCARDED (odds=${vp.odds}, source=${vp.odds_source}): ${vp.market} | ${vp.selection}`);
+                    continue;
+                }
+
+                // CROSS-VAL: re-validate against the bookmaker catalog when we have it for this job.
+                // This closes the historical gap where pre-fix picks (composite/asian thresholds,
+                // wrong-market odds) survived in value_picks_v2 and showed up here unchecked.
+                const vpEtlOdds = vp.job_id ? etlOddsByJobId.get(vp.job_id) : null;
+                if (vpEtlOdds) {
+                    const xv = findOddInOrganized(vpEtlOdds, vp.market || '', vp.selection || '', { homeTeam: dailyMatch.home_team, awayTeam: dailyMatch.away_team });
+                    if (!xv.match) {
+                        log(`[OPP-V8.1] ValuePick DISCARDED (xval ${xv.reason}): ${vp.market} | ${vp.selection}`);
+                        continue;
+                    }
+                    if (!oddsWithinTolerance(validOdds, xv.match.val, 0.05)) {
+                        log(`[OPP-V8.1] ValuePick DISCARDED (tolerance stored=${validOdds} vs real=${xv.match.val}): ${vp.market} | ${vp.selection}`);
+                        continue;
+                    }
+                    // Authoritative: align with bookmaker truth.
+                    validOdds = xv.match.val;
+                }
+
+                // SANITY: probability ↔ odds coherence.
+                const sanityB = checkProbOddsCoherence(prob / 100, validOdds);
+                if (!sanityB.coherent) {
+                    log(`[OPP-V8.1] ValuePick DISCARDED (sanity ${sanityB.reason}): ${vp.market} | ${vp.selection} prob=${prob.toFixed(1)}% odds=${validOdds}`);
                     continue;
                 }
 
@@ -501,6 +533,14 @@ serve(async (req) => {
                             continue;
                         }
 
+                        // SANITY: probability ↔ odds coherence. Source C lacks per-job etl_context
+                        // for cross-val, so this is the last line of defense for analisis-cached picks.
+                        const sanityC = checkProbOddsCoherence(prob / 100, cValidOdds);
+                        if (!sanityC.coherent) {
+                            log(`[OPP-V8.1]   Source C pick DISCARDED (sanity ${sanityC.reason}): ${p.mercado} | ${p.seleccion} prob=${prob.toFixed(1)}% odds=${cValidOdds}`);
+                            continue;
+                        }
+
                         highProbPicks.push({
                             id: `analisis_${row.partido_id}_${p.mercado}_${p.seleccion}`,
                             job_id: null,
@@ -570,11 +610,10 @@ serve(async (req) => {
         // Sort by Probability Descending, then by fixture_id for deterministic tiebreaking
         highProbPicks.sort((a, b) => b.p_model - a.p_model || a.fixture_id - b.fixture_id);
 
-        // CAP: Maximum 20 opportunities (top probability)
-        const MAX_OPPORTUNITIES = 20;
-        if (highProbPicks.length > MAX_OPPORTUNITIES) {
-            log(`[OPP-V8.1] CAP: Trimming ${highProbPicks.length} → ${MAX_OPPORTUNITIES} picks (keeping top probability)`);
-            highProbPicks.length = MAX_OPPORTUNITIES;
+        // CAP: Top-N opportunities by probability (single source of truth: shared constants)
+        if (highProbPicks.length > MAX_OPPORTUNITIES_PER_DAY) {
+            log(`[OPP-V8.1] CAP: Trimming ${highProbPicks.length} → ${MAX_OPPORTUNITIES_PER_DAY} picks (keeping top probability)`);
+            highProbPicks.length = MAX_OPPORTUNITIES_PER_DAY;
         }
 
         log(`[OPP-V8.1] SUCCESS: ${highProbPicks.length} picks found (${highProbPicks.filter((p: any) => p.odds).length} with odds)`);

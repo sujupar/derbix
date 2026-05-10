@@ -18,7 +18,7 @@ import {
   computeKeyPlayerImpact,
   computeFatigueIndex,
 } from '../_shared/sportmonks-enrichers.ts'
-import { findOddInOrganized, oddsWithinTolerance } from '../_shared/odds-selector.ts'
+import { findOddInOrganized, oddsWithinTolerance, checkProbOddsCoherence } from '../_shared/odds-selector.ts'
 
 // ENGINE_VERSION is declared inside serve() handler (line ~425) — single source of truth
 
@@ -2750,6 +2750,23 @@ ${strategicInsightsBlock}
                     p.cuota_actual = xv.match.val;
                     p._xval_category = xv.category;
                     p._xval_reason = xv.reason;
+
+                    // SANITY: probability ↔ odds coherence. Catches markets that pass token
+                    // matching but are mathematically inconsistent (e.g. claimed 90% prob with
+                    // bookmaker price 1.77, which implies the real market sees ~56% prob).
+                    const probRaw = p.probabilidad_calculada_porcentaje
+                        ?? p.probabilidad_estimado_porcentaje
+                        ?? p.probabilidad_derbix
+                        ?? p.probabilidad
+                        ?? 0;
+                    const probPct = typeof probRaw === 'string' ? parseFloat(probRaw) : probRaw;
+                    const probDec = probPct > 1 ? probPct / 100 : probPct;
+                    const sanity = checkProbOddsCoherence(probDec, xv.match.val);
+                    if (!sanity.coherent) {
+                        xvalRejects.push({ m: p.mercado, s: p.seleccion, reason: `sanity_${sanity.reason}`, llm_odds: xv.match.val });
+                        continue;
+                    }
+
                     kept.push(p);
                 }
                 analysisResult.pronosticos = kept;
