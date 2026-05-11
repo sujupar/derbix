@@ -18,7 +18,6 @@ DO $$ BEGIN PERFORM cron.unschedule('daily-results-verifier-schedule'); EXCEPTIO
 DO $$ BEGIN PERFORM cron.unschedule('hourly-results-verifier'); EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN PERFORM cron.unschedule('seo-retry-pending-articles'); EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN PERFORM cron.unschedule('analysis-retry-pending'); EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN PERFORM cron.unschedule('sync-trm-daily'); EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 -- =====================================================
 -- PASO 1.5: Asegurar que auto_analysis_state existe
@@ -106,23 +105,6 @@ SELECT cron.schedule(
     SELECT
       net.http_post(
           url:='https://nokejmhlpsaoerhddcyc.supabase.co/functions/v1/analysis-retry-pending',
-          headers:='{"Content-Type": "application/json", "Authorization": "Bearer __ROTATED_KEY_LOAD_FROM_ENV__"}'::jsonb,
-          body:='{}'::jsonb
-      ) as request_id;
-    $$
-);
-
--- 7. SYNC TRM (Tasa Representativa del Mercado USD→COP) - 12:15 AM Colombia
--- Sincroniza la TRM oficial colombiana una vez al día desde Datos Abiertos
--- (fallback: open.er-api.com). Se usa para mostrar el equivalente en COP
--- debajo del precio en USD en landing y página de planes.
-SELECT cron.schedule(
-    'sync-trm-daily',
-    '15 5 * * *',  -- 5:15 AM UTC = 12:15 AM Colombia
-    $$
-    SELECT
-      net.http_post(
-          url:='https://nokejmhlpsaoerhddcyc.supabase.co/functions/v1/sync-trm',
           headers:='{"Content-Type": "application/json", "Authorization": "Bearer __ROTATED_KEY_LOAD_FROM_ENV__"}'::jsonb,
           body:='{}'::jsonb
       ) as request_id;
