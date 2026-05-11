@@ -30,7 +30,7 @@ v2-create-job-sportmonks (ETL) → v3-ai-analyzer (Gemini) → v2-generate-parla
 4. Frontend hace polling cada 2-5s via `getAnalysisJob()`
 5. `v3-ai-analyzer` procesa con Gemini, guarda en `reports_v2`, `value_picks_v2`, `analisis`
 6. Status cambia a 'done', frontend muestra `AnalysisReportModal`
-7. `v2-generate-parlays` combina picks del día en parlays por nivel de riesgo
+7. `v2-generate-parlays` (nombre legacy) marca las top 20 picks del día como `is_opportunity=true` en `value_picks_v2`. Los parleys fueron eliminados de la plataforma (mayo 2026); esta función SE MANTIENE como motor de Oportunidades visibles.
 
 ---
 
@@ -65,7 +65,6 @@ v2-create-job-sportmonks (ETL) → v3-ai-analyzer (Gemini) → v2-generate-parla
 | `reports_v2` | Reportes completos de análisis (report_packet JSONB) |
 | `value_picks_v2` | Predicciones individuales (mercado, selección, probabilidad, odds) |
 | `analisis` | Caché de análisis para frontend (resumen ejecutivo, detalles) |
-| `parlays` / `parlay_combos_v2` | Combinaciones de apuestas generadas |
 | `profiles` | Perfiles de usuario |
 | `organizations` | Multi-tenancy (organizaciones/equipos) |
 | `organization_members` | Relación usuario-organización con roles |
@@ -81,10 +80,9 @@ v2-create-job-sportmonks (ETL) → v3-ai-analyzer (Gemini) → v2-generate-parla
 ├── components/
 │   ├── Layout.tsx             # Sidebar simplificado: Jornadas, Planes, Admin
 │   ├── LiveFeed.tsx           # Jornadas (página principal y landing por defecto)
-│   │                          #   Tabs: Oportunidades → Smart Parlays → Partidos → ROI
+│   │                          #   Tabs: Oportunidades → Partidos
 │   ├── ai/
 │   │   ├── AnalysisReportModal.tsx  # Modal de reporte de análisis
-│   │   ├── SmartParlays.tsx   # Parlays automáticos
 │   │   └── HighProbPicks.tsx  # Picks de alta probabilidad (tab Oportunidades)
 │   ├── auth/                  # Flujo de autenticación
 │   ├── admin/                 # Panel de administración
@@ -97,7 +95,7 @@ v2-create-job-sportmonks (ETL) → v3-ai-analyzer (Gemini) → v2-generate-parla
 │   ├── live/                  # Componentes de datos en vivo
 │   ├── pricing/               # Planes y suscripciones
 │   └── superadmin/
-│       └── OperationsCenter.tsx  # 2 toggles: Análisis Diario + Generador Parlays
+│       └── OperationsCenter.tsx  # Toggle: Análisis Diario (parleys eliminados may 2026)
 ├── contexts/                  # Estado global (React Context API)
 │   ├── OrganizationContext    # Multi-tenancy
 │   ├── SubscriptionContext    # Planes y límites
@@ -110,18 +108,15 @@ v2-create-job-sportmonks (ETL) → v3-ai-analyzer (Gemini) → v2-generate-parla
 │   ├── supabaseService.ts     # Cliente Supabase
 │   ├── analysisService.ts     # Gestión del pipeline de análisis
 │   ├── liveDataService.ts     # Datos deportivos en vivo
-│   ├── parlayService.ts       # CRUD de parlays + verificación con Gemini
-│   ├── smartParlayService.ts  # Generación inteligente de combos
 │   ├── subscriptionService.ts # Lógica de suscripciones
 │   └── organizationService.ts # Multi-tenancy
 ├── supabase/functions/        # Edge Functions (Deno)
 │   ├── v2-create-job-sportmonks/  # ETL (datos SportMonks)
 │   ├── v3-ai-analyzer/            # Análisis IA (Gemini)
-│   ├── v2-generate-parlays/       # Generación de oportunidades
+│   ├── v2-generate-parlays/       # Generación de oportunidades (nombre legacy)
 │   ├── v2-list-fixtures-sportmonks/ # Listado de partidos
 │   ├── daily-analysis-generator/  # Cron: análisis automático
-│   ├── daily-parlay-generator/    # Cron: parlays automáticos
-│   ├── daily-results-verifier/    # Cron: verificación de resultados
+│   ├── hourly-results-verifier/   # Cron: verificación horaria de resultados
 │   ├── _shared/                   # Utilidades compartidas
 │   └── [otras funciones]
 ├── utils/
@@ -178,7 +173,7 @@ serve(async (req) => {
 ### Suscripciones
 - Planes: `free`, `basic`, `pro`, `enterprise`
 - `SubscriptionContext` provee `checkLimit()` y `trackUsage()` para controlar el acceso
-- Features controladas: predicciones, parlays, análisis
+- Features controladas: predicciones, análisis
 
 ### Roles de Usuario
 ```
@@ -238,10 +233,11 @@ user/usuario    → Usuario individual con acceso básico
 ### Navegación
 - **Sidebar**: 3 items — Jornadas, Planes, Admin
 - **Página por defecto**: Jornadas (LiveFeed) — NO hay dashboard separado
-- **Jornadas tabs** (en orden): Oportunidades → Smart Parlays → Partidos → ROI
+- **Jornadas tabs** (en orden): Oportunidades → Partidos
 - **Tab por defecto**: Oportunidades (top-picks)
+- **ROI/Resultados**: sección standalone (sidebar). Admin tiene selector con 5 opciones (Global/Free/Starter/Pro/Premium); usuario no-premium tiene toggle "Mi Plan / Plan Máquina"; premium ve sólo su plan.
 - **Partidos**: Todas las secciones de países/ligas expandidas por defecto
-- **Agency Suite**: Dashboard (2 toggles), Cartera de Clientes, Analítica Global
+- **Agency Suite**: Dashboard (1 toggle), Cartera de Clientes, Analítica Global
 
 ### Layout
 - Desktop: Sidebar fija izquierda (264px) + área de contenido principal

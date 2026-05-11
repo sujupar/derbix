@@ -7,10 +7,6 @@ export interface StakingConfig {
     singles_83_87: number;
     singles_87_90: number;
     singles_90_plus: number;
-    // Parlays by leg count (units)
-    parlay_2_legs: number;
-    parlay_3_legs: number;
-    parlay_4_plus_legs: number;
     // Limits (units)
     max_single_bet: number;
     max_total_exposure: number;
@@ -22,34 +18,19 @@ export const DEFAULT_STAKING_CONFIG: StakingConfig = {
     singles_83_87: 2,       // 2 units (2%) — base confidence
     singles_87_90: 3,       // 3 units (3%) — high confidence
     singles_90_plus: 4,     // 4 units (4%) — max confidence (rare)
-    parlay_2_legs: 1,       // 1 unit  (1%) — conservative parlay
-    parlay_3_legs: 0.5,     // 0.5 units (0.5%) — moderate parlay
-    parlay_4_plus_legs: 0.25, // 0.25 units (0.25%) — aggressive parlay
     max_single_bet: 5,      // 5 units (5%) max per single bet
     max_total_exposure: 15, // 15 units (15%) max simultaneous
     unit_value_percent: 1,  // 1 unit = 1% of bankroll
 };
 
 /**
- * Get stake in units for a given pick type and confidence.
- * @param config Staking configuration
- * @param type 'single' for individual picks, 'parlay' for combinations
- * @param pModel Probability (0-1 scale) — used for singles confidence bands
- * @param legCount Number of legs — used for parlay sizing
+ * Get stake in units for a single pick by confidence band.
  */
 export function getStakeUnits(
     config: StakingConfig,
-    type: 'single' | 'parlay',
-    pModel?: number,
-    legCount?: number
+    _type: 'single',
+    pModel?: number
 ): number {
-    if (type === 'parlay') {
-        if (!legCount || legCount <= 2) return config.parlay_2_legs;
-        if (legCount === 3) return config.parlay_3_legs;
-        return config.parlay_4_plus_legs;
-    }
-
-    // Singles by confidence band
     const prob = normalizePModel(pModel || 0.83);
     if (prob >= 0.90) return Math.min(config.singles_90_plus, config.max_single_bet);
     if (prob >= 0.87) return Math.min(config.singles_87_90, config.max_single_bet);
@@ -105,15 +86,6 @@ export function calculateUnitProfit(
 export function getStakingLabel(units: number, odds?: number | null): string {
     const oddsStr = odds ? ` @${odds.toFixed(2)}` : '';
     return `${units}u${oddsStr}`;
-}
-
-/**
- * Get the staking label for the filter display.
- */
-export function getFilterStakingLabel(filter: 'all' | 'picks' | 'parlays'): string {
-    if (filter === 'parlays') return '0.25-1u por parlay';
-    if (filter === 'picks') return '2-4u por pronóstico';
-    return '2-4u picks + 0.25-1u parlays';
 }
 
 /**

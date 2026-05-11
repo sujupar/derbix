@@ -17,7 +17,6 @@ interface PlanState {
     plan_name: string;
     display_name: string;
     predictions_percentage: number;
-    monthly_parlay_limit: number;
     monthly_analysis_limit: number | null;
     analysis_percentage: number;
     can_analyze_own_tickets: boolean;
@@ -35,11 +34,9 @@ interface SubscriptionState {
     plan: PlanState;
     usage: {
         predictions_used: number;
-        parlays_used: number;
         analyses_used: number;
     };
     limits: {
-        parlays: { used: number; limit: number; percentage: number };
         analyses: { used: number; limit: number | null; percentage: number };
     };
     isLoading: boolean;
@@ -51,10 +48,9 @@ interface SubscriptionState {
 }
 
 interface SubscriptionContextType extends SubscriptionState {
-    checkLimit: (feature: 'predictions' | 'parlays' | 'analyses') => Promise<FeatureLimitResult>;
-    trackUsage: (feature: 'predictions' | 'parlays' | 'analyses') => Promise<boolean>;
+    checkLimit: (feature: 'predictions' | 'analyses') => Promise<FeatureLimitResult>;
+    trackUsage: (feature: 'predictions' | 'analyses') => Promise<boolean>;
     refreshSubscription: () => Promise<void>;
-    canUseParlays: () => Promise<FeatureLimitResult>;
     canUseAnalysis: () => Promise<FeatureLimitResult>;
 }
 
@@ -62,7 +58,6 @@ const defaultPlan: PlanState = {
     plan_name: 'free',
     display_name: 'Gratis',
     predictions_percentage: 1,
-    monthly_parlay_limit: 0,
     monthly_analysis_limit: 0,
     analysis_percentage: 0,
     can_analyze_own_tickets: false,
@@ -80,11 +75,9 @@ const defaultState: SubscriptionState = {
     plan: defaultPlan,
     usage: {
         predictions_used: 0,
-        parlays_used: 0,
         analyses_used: 0,
     },
     limits: {
-        parlays: { used: 0, limit: 0, percentage: 0 },
         analyses: { used: 0, limit: 0, percentage: 0 },
     },
     isLoading: true,
@@ -123,7 +116,6 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
                     plan_name: planName,
                     display_name: summary.plan.display_name,
                     predictions_percentage: summary.plan.predictions_percentage,
-                    monthly_parlay_limit: summary.plan.monthly_parlay_limit,
                     monthly_analysis_limit: summary.plan.monthly_analysis_limit,
                     analysis_percentage: summary.plan.analysis_percentage ?? 0,
                     can_analyze_own_tickets: summary.plan.can_analyze_own_tickets,
@@ -155,14 +147,14 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         refreshSubscription();
     }, [refreshSubscription]);
 
-    const checkLimit = useCallback(async (feature: 'predictions' | 'parlays' | 'analyses') => {
+    const checkLimit = useCallback(async (feature: 'predictions' | 'analyses') => {
         if (!effectiveUserId || !currentOrg?.id) {
             return { allowed: false, current: 0, limit: 0, message: 'Usuario no autenticado' };
         }
         return checkFeatureLimit(effectiveUserId, currentOrg.id, feature);
     }, [effectiveUserId, currentOrg?.id]);
 
-    const trackUsage = useCallback(async (feature: 'predictions' | 'parlays' | 'analyses') => {
+    const trackUsage = useCallback(async (feature: 'predictions' | 'analyses') => {
         if (!effectiveUserId || !currentOrg?.id) return false;
         const result = await incrementUsage(effectiveUserId, currentOrg.id, feature);
         if (result) {
@@ -171,7 +163,6 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return result;
     }, [effectiveUserId, currentOrg?.id, refreshSubscription]);
 
-    const canUseParlays = useCallback(() => checkLimit('parlays'), [checkLimit]);
     const canUseAnalysis = useCallback(() => checkLimit('analyses'), [checkLimit]);
 
     const value: SubscriptionContextType = {
@@ -179,7 +170,6 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         checkLimit,
         trackUsage,
         refreshSubscription,
-        canUseParlays,
         canUseAnalysis,
     };
 

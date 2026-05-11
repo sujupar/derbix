@@ -16,7 +16,6 @@ export interface SubscriptionPlan {
     currency: string;
     billing_period: string;
     predictions_percentage: number;
-    monthly_parlay_limit: number;
     monthly_analysis_limit: number | null;
     analysis_percentage: number;
     can_analyze_own_tickets: boolean;
@@ -61,7 +60,6 @@ export interface UserPlan {
     plan_name: string;
     display_name: string;
     predictions_percentage: number;
-    monthly_parlay_limit: number;
     monthly_analysis_limit: number | null;
     analysis_percentage: number;
     can_analyze_own_tickets: boolean;
@@ -78,7 +76,6 @@ export interface UserPlan {
 
 export interface UsageStats {
     predictions_used: number;
-    parlays_used: number;
     analyses_used: number;
     period_start: string;
     period_end: string;
@@ -270,7 +267,6 @@ export const getCurrentUsage = async (userId: string, orgId?: string): Promise<U
 
         return {
             predictions_used: 0,
-            parlays_used: 0,
             analyses_used: 0,
             period_start: periodStart.toISOString().split('T')[0],
             period_end: periodEnd.toISOString().split('T')[0]
@@ -286,7 +282,7 @@ export const getCurrentUsage = async (userId: string, orgId?: string): Promise<U
 export const incrementUsage = async (
     userId: string,
     orgId: string,
-    feature: 'predictions' | 'parlays' | 'analyses'
+    feature: 'predictions' | 'analyses'
 ): Promise<boolean> => {
     const { data, error } = await supabase
         .rpc('increment_usage', {
@@ -313,7 +309,7 @@ export const incrementUsage = async (
 export const checkFeatureLimit = async (
     userId: string,
     orgId: string,
-    feature: 'predictions' | 'parlays' | 'analyses'
+    feature: 'predictions' | 'analyses'
 ): Promise<FeatureLimitResult> => {
     // 1. Obtener plan del usuario
     const plan = await getCurrentUserPlan(userId, orgId);
@@ -345,15 +341,6 @@ export const checkFeatureLimit = async (
                 message: hasAccess ? undefined : 'Tu plan no incluye pronosticos premium.'
             };
 
-        case 'parlays':
-            limit = plan.monthly_parlay_limit;
-            // -1 = ilimitado (Premium)
-            if (limit === -1 || limit >= 999999) {
-                return { allowed: true, current: usage.parlays_used, limit: null };
-            }
-            current = usage.parlays_used;
-            break;
-
         case 'analyses':
             limit = plan.monthly_analysis_limit;
             current = usage.analyses_used;
@@ -373,7 +360,7 @@ export const checkFeatureLimit = async (
         limit,
         message: allowed
             ? undefined
-            : `Has alcanzado el limite de ${limit} ${feature === 'parlays' ? 'parlays' : 'analisis'} este mes. Actualiza tu plan para continuar.`
+            : `Has alcanzado el limite de ${limit} analisis este mes. Actualiza tu plan para continuar.`
     };
 };
 
@@ -442,7 +429,6 @@ export const getSubscriptionSummary = async (userId: string, orgId: string) => {
             plan_name: 'free',
             display_name: 'Gratis',
             predictions_percentage: 1, // Free: 1 diaria
-            monthly_parlay_limit: 0,
             monthly_analysis_limit: 0,
             analysis_percentage: 0,
             can_analyze_own_tickets: false,
@@ -459,11 +445,6 @@ export const getSubscriptionSummary = async (userId: string, orgId: string) => {
         usage,
         subscription,
         limits: {
-            parlays: {
-                used: usage.parlays_used,
-                limit: plan?.monthly_parlay_limit || 0,
-                percentage: calculateUsagePercentage(usage.parlays_used, plan?.monthly_parlay_limit || 0)
-            },
             analyses: {
                 used: usage.analyses_used,
                 limit: plan?.monthly_analysis_limit,
@@ -499,7 +480,6 @@ export function getRecommendedUpgrade(currentPlanName: string): {
             displayName: 'Elite',
             benefits: [
                 '70% de oportunidades diarias',
-                '30% de parlays inteligentes',
                 'Análisis ilimitado de partidos',
                 'Dashboard de ROI personal',
                 'BONUS: Guía "Los 7 Errores Fatales del Apostador"'
@@ -510,7 +490,6 @@ export function getRecommendedUpgrade(currentPlanName: string): {
             displayName: 'Máquina',
             benefits: [
                 '100% de oportunidades diarias',
-                '80% de parlays inteligentes',
                 'Estadísticas avanzadas completas',
                 'Soporte prioritario',
                 'BONUS: Guía + Checklist + Acceso anticipado'

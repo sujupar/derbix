@@ -6,8 +6,6 @@ import {
     getCurrentUsage,
     checkFeatureLimit,
     getRecommendedUpgrade,
-    UserPlan,
-    UsageStats,
     FeatureLimitResult
 } from '../services/subscriptionService';
 
@@ -15,7 +13,6 @@ interface Subscription {
     planName: string;
     displayName: string;
     predictionsPercentage: number;
-    monthlyParlayLimit: number;
     monthlyAnalysisLimit: number | null;
     analysisPercentage: number;
     canAccessMLDashboard: boolean;
@@ -26,7 +23,6 @@ interface Subscription {
 
 interface Usage {
     predictionsViewed: number;
-    parlaysCreated: number;
     analysesRan: number;
 }
 
@@ -53,7 +49,6 @@ export function useSubscriptionLimits() {
                     planName: plan.plan_name,
                     displayName: plan.display_name,
                     predictionsPercentage: plan.predictions_percentage,
-                    monthlyParlayLimit: plan.monthly_parlay_limit,
                     monthlyAnalysisLimit: plan.monthly_analysis_limit,
                     analysisPercentage: plan.analysis_percentage ?? 0,
                     canAccessMLDashboard: plan.can_access_ml_dashboard,
@@ -66,7 +61,6 @@ export function useSubscriptionLimits() {
             if (stats) {
                 setUsage({
                     predictionsViewed: stats.predictions_used,
-                    parlaysCreated: stats.parlays_used,
                     analysesRan: stats.analyses_used,
                 });
             }
@@ -77,11 +71,6 @@ export function useSubscriptionLimits() {
         loadData();
     }, [user, currentOrg]);
 
-    const checkParlayAccess = async (): Promise<FeatureLimitResult> => {
-        if (!user || !currentOrg?.id) return { allowed: false, current: 0, limit: 0, message: 'No autenticado' };
-        return await checkFeatureLimit(user.id, currentOrg.id, 'parlays');
-    };
-
     const checkAnalysisAccess = async (): Promise<FeatureLimitResult> => {
         if (!user || !currentOrg?.id) return { allowed: false, current: 0, limit: 0, message: 'No autenticado' };
         return await checkFeatureLimit(user.id, currentOrg.id, 'analyses');
@@ -90,12 +79,6 @@ export function useSubscriptionLimits() {
     const recommendedUpgrade = subscription
         ? getRecommendedUpgrade(subscription.planName)
         : null;
-
-    const parlaysRemaining = subscription && usage
-        ? subscription.monthlyParlayLimit === -1 || subscription.monthlyParlayLimit >= 999999
-            ? null // Ilimitado
-            : Math.max(0, subscription.monthlyParlayLimit - usage.parlaysCreated)
-        : 0;
 
     const analysesRemaining = subscription && usage
         ? subscription.monthlyAnalysisLimit === null
@@ -108,10 +91,8 @@ export function useSubscriptionLimits() {
         usage,
         loading,
 
-        checkParlayAccess,
         checkAnalysisAccess,
 
-        parlaysRemaining,
         analysesRemaining,
         recommendedUpgrade,
 

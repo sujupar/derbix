@@ -112,20 +112,6 @@ export interface LearnedPattern {
     training_run_id: string | null;
 }
 
-export interface ParlayCalibration {
-    id: string;
-    legs_count: number;
-    risk_level: string;
-    sample_size: number;
-    wins: number;
-    actual_wr: number;
-    avg_odds: number | null;
-    roi: number | null;
-    recommended_max_legs: number | null;
-    recommended_min_leg_prob: number | null;
-    status: string;
-    last_updated: string;
-}
 
 export interface DayAuditStatus {
     date: string;
@@ -511,12 +497,6 @@ export async function rollbackTraining(trainingRunId: string): Promise<{ success
     } catch (err: any) {
         return { success: false, error: err.message || 'Error al revertir' };
     }
-}
-
-export async function getParlayCalibration(): Promise<ParlayCalibration[]> {
-    const { data, error } = await supabase.from('ml_parlay_calibration').select('*').eq('status', 'active').order('legs_count', { ascending: true });
-    if (error) return [];
-    return data || [];
 }
 
 export async function getPlattParameters(): Promise<{ hasPlatt: boolean; A: number; B: number; sampleSize: number } | null> {
