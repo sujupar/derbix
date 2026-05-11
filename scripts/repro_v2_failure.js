@@ -10,7 +10,7 @@ const SUPABASE_URL = 'https://nokejmhlpsaoerhddcyc.supabase.co';
 // Para aislar si es un problema de permisos de usuario vs error de código, probaré primero con SERVICE KEY (Super admin).
 // Si esto falla, es error de código 100%.
 
-const SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5va2VqbWhscHNhb2VyaGRkY3ljIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTgxNjAwNywiZXhwIjoyMDgxMzkyMDA3fQ.x1icf0Wbkp1xb6h1500HeTvyNykBAAnlqz1udv2AaX4';
+const SERVICE_KEY = '__ROTATED_KEY_LOAD_FROM_ENV__';
 
 async function reproduce() {
     console.log(`Reproducing V2 failure on ${SUPABASE_URL}...`);

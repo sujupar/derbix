@@ -30,3 +30,52 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# ─── Security headers (apply to every response) ───
+# Tuned for: Supabase Auth, Whop checkout (redirect target), GTM, AdSense,
+# Google Fonts, ePayco/Wompi (legacy still in code paths). Adjust connect-src
+# if you add new third-party APIs.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # HTTPS-only — 6 months. Add `; preload` once you're ready to be on the HSTS preload list.
+    Strict-Transport-Security = "max-age=15552000; includeSubDomains"
+
+    # Clickjacking
+    X-Frame-Options = "DENY"
+    Content-Security-Policy-Report-Only = "frame-ancestors 'none'"
+
+    # MIME sniffing
+    X-Content-Type-Options = "nosniff"
+
+    # Referrer
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+    # Powerful features (lock down anything you don't actively use)
+    Permissions-Policy = "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+
+    # Cross-origin isolation defaults
+    Cross-Origin-Opener-Policy = "same-origin-allow-popups"
+    Cross-Origin-Resource-Policy = "same-site"
+
+    # Content Security Policy. Start in REPORT-ONLY so we catch breakages
+    # before enforcing. Once you've confirmed nothing is reported in
+    # production for ~48h, change the header name to `Content-Security-Policy`.
+    Content-Security-Policy-Report-Only = """default-src 'self'; \
+script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://pagead2.googlesyndication.com https://www.google-analytics.com https://*.googlesyndication.com https://*.adtrafficquality.google https://googleads.g.doubleclick.net; \
+style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
+font-src 'self' https://fonts.gstatic.com data:; \
+img-src 'self' data: blob: https:; \
+connect-src 'self' https://nokejmhlpsaoerhddcyc.supabase.co https://*.supabase.co wss://*.supabase.co https://www.google-analytics.com https://*.googletagmanager.com https://pagead2.googlesyndication.com https://*.adtrafficquality.google; \
+frame-src 'self' https://www.googletagmanager.com https://td.doubleclick.net https://*.googlesyndication.com https://whop.com https://app.lemonsqueezy.com https://checkout.wompi.co; \
+form-action 'self' https://whop.com https://app.lemonsqueezy.com https://checkout.wompi.co; \
+frame-ancestors 'none'; \
+base-uri 'self'; \
+object-src 'none'; \
+upgrade-insecure-requests"""
+
+# Cache static assets aggressively
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

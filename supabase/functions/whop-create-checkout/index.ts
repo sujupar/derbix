@@ -8,6 +8,7 @@
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { requireAuthenticatedUser, authErrorResponse } from "../_shared/auth-guard.ts"
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -20,6 +21,12 @@ serve(async (req) => {
         return new Response('ok', { headers: corsHeaders });
     }
 
+    // SECURITY: Resolve userId from the verified JWT, NOT from the request body.
+    // Otherwise an attacker could create a checkout that activates a subscription
+    // for a different user.
+    const auth = await requireAuthenticatedUser(req);
+    if (!auth.ok) return authErrorResponse(auth, corsHeaders);
+
     const whopApiKey = Deno.env.get('WHOP_API_KEY');
     if (!whopApiKey) {
         console.error('[whop-create-checkout] Missing WHOP_API_KEY');
@@ -30,19 +37,24 @@ serve(async (req) => {
     }
 
     try {
-        const { whopPlanId, planId, userId, orgId, billingPeriod, email } = await req.json();
+        const { whopPlanId, planId, orgId, billingPeriod } = await req.json();
+        const userId = auth.userId;
+        const email = auth.email || '';
 
-        if (!whopPlanId || !userId) {
+        if (!whopPlanId) {
             return new Response(JSON.stringify({ error: 'Faltan parámetros requeridos' }), {
                 status: 400,
                 headers: corsHeaders
             });
         }
 
-        console.log(`[whop-create-checkout] Creating checkout: plan=${whopPlanId}, user=${userId}, org=${orgId}, period=${billingPeriod}, email=${email}`);
+        console.log(`[whop-create-checkout] Creating checkout: plan=${whopPlanId}, user=${userId}, org=${orgId}, period=${billingPeriod}`);
 
         const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://derbix.co';
 
+        // SECURITY: do NOT include orgId from client metadata. The webhook will
+        // resolve orgId from organization_members for the verified userId,
+        // preventing cross-tenant subscription activation.
         const requestBody = {
             plan_id: whopPlanId,
             mode: "payment" as const,
@@ -50,10 +62,9 @@ serve(async (req) => {
             source_url: `${frontendUrl}/pricing`,
             metadata: {
                 userId,
-                orgId: orgId || '',
                 planId: planId || '',
                 billingPeriod: billingPeriod || 'monthly',
-                email: email || '',
+                email,
             },
         };
 

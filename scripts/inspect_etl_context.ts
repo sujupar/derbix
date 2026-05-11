@@ -5,7 +5,7 @@ dotenv.config();
 
 const supabase = createClient(
     'https://nokejmhlpsaoerhddcyc.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5va2VqbWhscHNhb2VyaGRkY3ljIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTgxNjAwNywiZXhwIjoyMDgxMzkyMDA3fQ.x1icf0Wbkp1xb6h1500HeTvyNykBAAnlqz1udv2AaX4'
+    '__ROTATED_KEY_LOAD_FROM_ENV__'
 );
 
 async function inspectEtlContext() {

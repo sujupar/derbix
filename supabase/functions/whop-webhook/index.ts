@@ -25,6 +25,16 @@ const corsHeaders = {
 // Standard Webhooks HMAC Verification
 // ==========================================
 
+// Constant-time string comparison to prevent timing attacks
+function safeEqual(a: string, b: string): boolean {
+    if (a.length !== b.length) return false;
+    let result = 0;
+    for (let i = 0; i < a.length; i++) {
+        result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    }
+    return result === 0;
+}
+
 async function verifyWebhookSignature(
     rawBody: string,
     webhookId: string,
@@ -57,7 +67,7 @@ async function verifyWebhookSignature(
         const signatures = webhookSignature.split(' ');
         for (const sigEntry of signatures) {
             const parts = sigEntry.split(',');
-            if (parts.length >= 2 && parts[1] === computedSig) {
+            if (parts.length >= 2 && safeEqual(parts[1], computedSig)) {
                 return true;
             }
         }
@@ -66,6 +76,16 @@ async function verifyWebhookSignature(
         console.error('[whop-webhook] Signature verification error:', e);
         return false;
     }
+}
+
+// Standard Webhooks: reject events with timestamps outside ±5min to prevent replay
+const WEBHOOK_TIMESTAMP_TOLERANCE_SEC = 300;
+
+function isTimestampFresh(webhookTimestamp: string): boolean {
+    const ts = parseInt(webhookTimestamp, 10);
+    if (!Number.isFinite(ts)) return false;
+    const nowSec = Math.floor(Date.now() / 1000);
+    return Math.abs(nowSec - ts) <= WEBHOOK_TIMESTAMP_TOLERANCE_SEC;
 }
 
 // ==========================================
@@ -137,11 +157,13 @@ function sendMetaConversion(sbUrl: string, sbKey: string, eventData: {
     event_id?: string;
 }) {
     const url = `${sbUrl}/functions/v1/meta-conversions-api`;
+    const internalSecret = Deno.env.get('INTERNAL_FUNCTION_SECRET') || '';
     fetch(url, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sbKey}`
+            'Authorization': `Bearer ${sbKey}`,
+            'X-Internal-Secret': internalSecret
         },
         body: JSON.stringify(eventData)
     }).catch(err => {
@@ -155,11 +177,13 @@ function sendMetaConversion(sbUrl: string, sbKey: string, eventData: {
 
 function notifyAdmin(sbUrl: string, sbKey: string, type: string, notifData: any) {
     const url = `${sbUrl}/functions/v1/send-admin-notification`;
+    const internalSecret = Deno.env.get('INTERNAL_FUNCTION_SECRET') || '';
     fetch(url, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sbKey}`
+            'Authorization': `Bearer ${sbKey}`,
+            'X-Internal-Secret': internalSecret
         },
         body: JSON.stringify({ type, data: notifData })
     }).catch(err => {
@@ -440,24 +464,45 @@ serve(async (req) => {
         // 1. Leer body crudo para verificación
         const rawBody = await req.text();
 
-        // 2. Verificar firma (Standard Webhooks)
+        // 2. Verificar firma (Standard Webhooks) — fail-closed
         const webhookId = req.headers.get('webhook-id');
         const webhookTimestamp = req.headers.get('webhook-timestamp');
         const webhookSignature = req.headers.get('webhook-signature');
 
-        if (webhookSecret && webhookId && webhookTimestamp && webhookSignature) {
-            const isValid = await verifyWebhookSignature(
-                rawBody, webhookId, webhookTimestamp, webhookSignature, webhookSecret
-            );
-            if (!isValid) {
-                console.error('[whop-webhook] Invalid webhook signature');
-                return new Response(JSON.stringify({ error: 'Invalid signature' }), {
-                    status: 401,
-                    headers: corsHeaders
-                });
-            }
-        } else if (webhookSecret) {
-            console.warn('[whop-webhook] Missing signature headers, skipping verification');
+        if (!webhookSecret) {
+            console.error('[whop-webhook] WHOP_WEBHOOK_SECRET not configured');
+            return new Response(JSON.stringify({ error: 'Server misconfiguration' }), {
+                status: 500,
+                headers: corsHeaders
+            });
+        }
+
+        if (!webhookId || !webhookTimestamp || !webhookSignature) {
+            console.error('[whop-webhook] Missing required signature headers');
+            return new Response(JSON.stringify({ error: 'Missing signature headers' }), {
+                status: 401,
+                headers: corsHeaders
+            });
+        }
+
+        // Replay protection: reject stale webhooks (>5 min)
+        if (!isTimestampFresh(webhookTimestamp)) {
+            console.error(`[whop-webhook] Stale webhook timestamp: ${webhookTimestamp}`);
+            return new Response(JSON.stringify({ error: 'Webhook timestamp out of tolerance' }), {
+                status: 401,
+                headers: corsHeaders
+            });
+        }
+
+        const isValid = await verifyWebhookSignature(
+            rawBody, webhookId, webhookTimestamp, webhookSignature, webhookSecret
+        );
+        if (!isValid) {
+            console.error('[whop-webhook] Invalid webhook signature');
+            return new Response(JSON.stringify({ error: 'Invalid signature' }), {
+                status: 401,
+                headers: corsHeaders
+            });
         }
 
         // 3. Parse payload

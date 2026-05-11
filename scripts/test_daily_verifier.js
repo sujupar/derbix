@@ -2,7 +2,7 @@
 // Verifica que la función está funcional antes de proceder a limpieza
 
 const SUPABASE_URL = 'https://nokejmhlpsaoerhddcyc.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5va2VqbWhscHNhb2VyaGRkY3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MTYwMDcsImV4cCI6MjA4MTM5MjAwN30.EorEQF3lnm5NbQtwTnipy95gNkbEhR8Xz7ecMlt-0Ac';
+const SUPABASE_ANON_KEY = '__ROTATED_KEY_LOAD_FROM_ENV__';
 
 async function testDailyResultsVerifier() {
     console.log('🧪 Probando daily-results-verifier...\n');

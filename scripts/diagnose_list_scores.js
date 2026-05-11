@@ -9,7 +9,7 @@ const SUPABASE_URL = 'https://nokejmhlpsaoerhddcyc.supabase.co';
 // Or better, I will assume the function is callable with the ANON KEY which I saw in .env earlier.
 // Wait, I saw ANON KEY in .env in a previous turn?
 // Ah, step 2233 showed .env. Let's use that key.
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5va2VqbWhscHNhb2VyaGRkY3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MTYwMDcsImV4cCI6MjA4MTM5MjAwN30.x1icf0Wbkp1xb6h1500HeTvyNykBAAnlqz1udv2AaX4'; // This looks like service role key from step 2233 line 3 says SERVICE_ROLE_KEY.
+const ANON_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '__ROTATED_KEY_LOAD_FROM_ENV__'; // Was a hardcoded service-role JWT — removed during security audit.
 // Wait, line 3 says SERVICE_ROLE_KEY. Usually I should use ANON key for client simulation.
 // But SERVICE_ROLE_KEY will definitely work.
 

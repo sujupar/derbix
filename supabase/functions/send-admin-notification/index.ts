@@ -13,12 +13,23 @@
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { requireServiceCaller, requireAuthenticatedUser, authErrorResponse } from "../_shared/auth-guard.ts"
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-internal-secret',
     'Content-Type': 'application/json'
 };
+
+// HTML-escape user-provided values before interpolating into email templates.
+function escapeHtml(s: unknown): string {
+    return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 
 // ==========================================
 // Timezone helper: UTC → Bogotá (UTC-5)
@@ -123,9 +134,9 @@ function buildEmailHtml(title: string, subtitle: string, rows: Array<{ label: st
 }
 
 function buildRegistrationEmail(data: any): { subject: string; html: string } {
-    const name = data.name || data.full_name || 'Sin nombre';
-    const email = data.email || 'Sin email';
-    const date = toBogotaTime(new Date(data.created_at || Date.now()));
+    const name = escapeHtml(data.name || data.full_name || 'Sin nombre');
+    const email = escapeHtml(data.email || 'Sin email');
+    const date = escapeHtml(toBogotaTime(new Date(data.created_at || Date.now())));
 
     return {
         subject: `Nuevo registro: ${name}`,
@@ -143,13 +154,13 @@ function buildRegistrationEmail(data: any): { subject: string; html: string } {
 }
 
 function buildSubscriptionEmail(data: any): { subject: string; html: string } {
-    const name = data.name || 'Sin nombre';
-    const email = data.email || 'Sin email';
-    const plan = data.plan || 'Desconocido';
-    const amount = data.amount ? `$${(data.amount / 100).toFixed(2)} USD` : 'N/A';
-    const period = data.billingPeriod === 'annual' ? 'Anual' : 'Mensual';
-    const processor = data.processor || 'Desconocido';
-    const date = toBogotaTime(new Date());
+    const name = escapeHtml(data.name || 'Sin nombre');
+    const email = escapeHtml(data.email || 'Sin email');
+    const plan = escapeHtml(data.plan || 'Desconocido');
+    const amount = escapeHtml(data.amount ? `$${(data.amount / 100).toFixed(2)} USD` : 'N/A');
+    const period = escapeHtml(data.billingPeriod === 'annual' ? 'Anual' : 'Mensual');
+    const processor = escapeHtml(data.processor || 'Desconocido');
+    const date = escapeHtml(toBogotaTime(new Date()));
 
     return {
         subject: `Nueva suscripci\u00f3n: ${name} \u2192 ${plan}`,
@@ -207,6 +218,16 @@ async function sendViaResend(apiKey: string, from: string, to: string[], subject
 serve(async (req) => {
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders });
+    }
+
+    // SECURITY: callable by (a) other edge functions / cron via the shared
+    // INTERNAL_FUNCTION_SECRET (webhook → admin email), or (b) any
+    // authenticated user — the frontend signup flow uses this path. We
+    // reject anonymous callers to prevent unauthenticated email spam.
+    const internalAuth = requireServiceCaller(req);
+    if (!internalAuth.ok) {
+        const userAuth = await requireAuthenticatedUser(req);
+        if (!userAuth.ok) return authErrorResponse(userAuth, corsHeaders);
     }
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY');

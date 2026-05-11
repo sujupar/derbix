@@ -7,7 +7,7 @@ const API_KEY = 'RhgNCasAS67wuJtawFoMrkokCP51r89L7dMKQIpXoGVv67BKfnWOcKHcjEG5';
 const FIXTURE_ID = 19427701; // Leeds vs Nottingham Forest
 
 const SUPABASE_URL = 'https://nokejmhlpsaoerhddcyc.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5va2VqbWhscHNhb2VyaGRkY3ljIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTgxNjAwNywiZXhwIjoyMDgxMzkyMDA3fQ.x1icf0Wbkp1xb6h1500HeTvyNykBAAnlqz1udv2AaX4';
+const SUPABASE_KEY = '__ROTATED_KEY_LOAD_FROM_ENV__';
 
 async function fetchSM(endpoint, includes = []) {
     const url = new URL(`https://api.sportmonks.com/v3/football${endpoint}`);

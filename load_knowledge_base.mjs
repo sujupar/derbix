@@ -8,7 +8,7 @@ import { execSync } from 'child_process';
 const SUPABASE_URL = 'https://nokejmhlpsaoerhddcyc.supabase.co';
 // Para cargar conocimiento necesitamos service_role key
 // La key está hardcodeada temporalmente - en producción usar env vars
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5va2VqbWhscHNhb2VyaGRkY3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MTYwMDcsImV4cCI6MjA4MTM5MjAwN30.EorEQF3lnm5NbQtwTnipy95gNkbEhR8Xz7ecMlt-0Ac';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '__ROTATED_KEY_LOAD_FROM_ENV__';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 

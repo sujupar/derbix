@@ -4,8 +4,8 @@
 # This avoids the fire-and-forget issue where the analyzer never receives the payload
 
 SB_URL="https://nokejmhlpsaoerhddcyc.supabase.co"
-ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5va2VqbWhscHNhb2VyaGRkY3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MTYwMDcsImV4cCI6MjA4MTM5MjAwN30.EorEQF3lnm5NbQtwTnipy95gNkbEhR8Xz7ecMlt-0Ac"
-SERVICE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5va2VqbWhscHNhb2VyaGRkY3ljIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTgxNjAwNywiZXhwIjoyMDgxMzkyMDA3fQ.x1icf0Wbkp1xb6h1500HeTvyNykBAAnlqz1udv2AaX4"
+ANON_KEY="__ROTATED_KEY_LOAD_FROM_ENV__"
+SERVICE_KEY="__ROTATED_KEY_LOAD_FROM_ENV__"
 TARGET_DATE="2026-02-24"
 LOG_FILE="/Users/apple/Documents/Centro-de-Mando---Pron-sticos-1/scripts/batch-analyze.log"
 MAX_WAIT=300  # 5 minutes max wait per analysis

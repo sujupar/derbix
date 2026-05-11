@@ -1,23 +1,28 @@
 import path from 'path';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, '.', '');
-  return {
+// SECURITY: We deliberately do NOT inject any LLM API key into the client
+// bundle. Vite `define` inlines values as string literals, which means anyone
+// can read them from the production JS in DevTools.
+//
+// All LLM calls (Gemini, Groq, etc.) MUST go through Supabase Edge Functions
+// where the secret lives as a Deno env variable.
+
+export default defineConfig({
     server: {
-      port: 3000,
-      host: '0.0.0.0',
+        port: 3000,
+        host: '0.0.0.0',
     },
     plugins: [react()],
-    define: {
-      'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY)
+    build: {
+        // Explicitly disable source maps in production: shipping `.map` files
+        // exposes the full TS source (variable names, internal API paths).
+        sourcemap: false,
     },
     resolve: {
-      alias: {
-        '@': path.resolve(__dirname, '.'),
-      }
+        alias: {
+            '@': path.resolve(__dirname, '.'),
+        }
     }
-  };
 });

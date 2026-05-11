@@ -26,3 +26,18 @@ dist-ssr
 
 # Local Netlify folder
 .netlify
+
+# Environment / secrets — never commit these
+.env
+.env.local
+.env.*.local
+.env.production
+*.pem
+*.key
+secrets/
+
+# Supabase local linked project (contains project ref / tokens)
+supabase/.temp/
+
+# Local-only Claude settings (may contain dev secrets in permission rules)
+.claude/settings.local.json

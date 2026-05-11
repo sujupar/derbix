@@ -1,7 +1,7 @@
 
 // Script de reparación final 29 de Dic
 const URL = "https://nokejmhlpsaoerhddcyc.supabase.co/rest/v1";
-const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5va2VqbWhscHNhb2VyaGRkY3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MTYwMDcsImV4cCI6MjA4MTM5MjAwN30.EorEQF3lnm5NbQtwTnipy95gNkbEhR8Xz7ecMlt-0Ac";
+const KEY = "__ROTATED_KEY_LOAD_FROM_ENV__";
 
 function evaluatePrediction(market, selection, homeScore, awayScore) {
     const cleanOutcome = selection.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();

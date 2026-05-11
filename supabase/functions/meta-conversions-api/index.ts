@@ -10,6 +10,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from '../_shared/cors.ts'
+import { requireServiceCaller, authErrorResponse } from '../_shared/auth-guard.ts'
 
 const META_API_VERSION = 'v19.0';
 
@@ -24,6 +25,11 @@ serve(async (req) => {
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders });
     }
+
+    // SECURITY: Only callable by other edge functions / cron via INTERNAL_FUNCTION_SECRET.
+    // Without this anyone could pollute the Meta Pixel with forged conversions.
+    const internalAuth = requireServiceCaller(req);
+    if (!internalAuth.ok) return authErrorResponse(internalAuth, corsHeaders);
 
     const pixelId = Deno.env.get('META_PIXEL_ID');
     const accessToken = Deno.env.get('META_CONVERSIONS_TOKEN');

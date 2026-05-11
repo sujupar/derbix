@@ -39,16 +39,24 @@ serve(async (req) => {
             })
         }
 
-        // Build checksum string from signature properties
-        const properties = body.signature?.properties || []
+        // Build checksum string from FIXED server-side property list per Wompi spec.
+        // SECURITY: Never trust body.signature.properties — an attacker could omit
+        // properties to make the checksum trivially forgeable.
+        const EXPECTED_PROPERTIES = ['transaction.id', 'transaction.status', 'transaction.amount_in_cents']
         let checksumString = ''
 
-        for (const prop of properties) {
-            // Navigate to the property value (e.g., "transaction.id" -> body.data.transaction.id)
+        for (const prop of EXPECTED_PROPERTIES) {
             const parts = prop.split('.')
-            let value = body.data
+            let value: any = body.data
             for (const part of parts) {
                 value = value?.[part]
+            }
+            if (value === undefined || value === null) {
+                console.error('[WOMPI-WEBHOOK] Missing required property for checksum:', prop)
+                return new Response(JSON.stringify({ error: 'Invalid payload structure' }), {
+                    status: 400,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
             }
             checksumString += String(value)
         }
@@ -63,8 +71,14 @@ serve(async (req) => {
         const hashArray = Array.from(new Uint8Array(hashBuffer))
         const calculatedChecksum = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase()
 
-        if (calculatedChecksum !== checksumHeader.toUpperCase()) {
-            console.error('[WOMPI-WEBHOOK] Invalid checksum. Expected:', calculatedChecksum, 'Got:', checksumHeader)
+        // Constant-time comparison
+        const headerUpper = checksumHeader.toUpperCase()
+        let mismatch = calculatedChecksum.length !== headerUpper.length ? 1 : 0
+        for (let i = 0; i < calculatedChecksum.length && i < headerUpper.length; i++) {
+            mismatch |= calculatedChecksum.charCodeAt(i) ^ headerUpper.charCodeAt(i)
+        }
+        if (mismatch !== 0) {
+            console.error('[WOMPI-WEBHOOK] Invalid checksum')
             return new Response(JSON.stringify({ error: 'Invalid checksum' }), {
                 status: 401,
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -181,8 +195,10 @@ serve(async (req) => {
 
     } catch (error) {
         console.error('[WOMPI-WEBHOOK] Error:', error)
-        return new Response(JSON.stringify({ error: error.message }), {
-            status: 500,
+        // Return 200 to prevent Wompi from retrying & creating duplicate writes.
+        // The error is logged server-side; expose nothing to caller.
+        return new Response(JSON.stringify({ success: true, error: 'Internal error logged' }), {
+            status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
     }

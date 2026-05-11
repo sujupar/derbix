@@ -1,24 +1,28 @@
 import { createClient } from '@supabase/supabase-js';
 
-// --- ¡ACCIÓN REQUERIDA! ---
-// Para un desarrollo y despliegue profesional, las credenciales de Supabase
-// deben ser gestionadas como variables de entorno.
+// SECURITY:
+// - The anon key is designed to be public, but we still read it from
+//   environment variables so the project ref isn't pinned in source and so
+//   you can swap projects without touching code.
+// - The SERVICE_ROLE key MUST NEVER appear here. Service-role only belongs in
+//   Supabase Edge Functions (Deno env vars). If you ever see eyJ...service_role
+//   in client code, treat it as a P0 incident.
+//
+// Netlify env vars expected:
+//   VITE_SUPABASE_URL=https://<project>.supabase.co
+//   VITE_SUPABASE_ANON_KEY=eyJ...anon...
+// (Vite requires the `VITE_` prefix to expose vars to the browser.)
 
-// 1. En tu entorno de desarrollo local, puedes crear un archivo `.env` en la raíz del proyecto.
-// 2. Añade las siguientes líneas a tu archivo `.env`:
-//    SUPABASE_URL=https://tu-url-de-proyecto.supabase.co
-//    SUPABASE_ANON_KEY=tu-clave-anon-publica
-// 3. Asegúrate de que tu sistema de compilación (como Vite, Next.js, etc.) esté configurado para leer estas variables.
-//    (Normalmente con un prefijo como VITE_ o NEXT_PUBLIC_)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// En tu plataforma de despliegue (Vercel, Netlify, etc.), añade estas mismas
-// variables en la configuración del sitio.
-
-// FIX: Forzamos el uso de las credenciales "quemadas" que sabemos que funcionan, ignorando las variables de entorno de Netlify
-// ya que el usuario reporta que en local (con estas credenciales) funciona bien, pero en Netlify (con variables posiblemente erróneas) falla.
-const supabaseUrl = 'https://nokejmhlpsaoerhddcyc.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5va2VqbWhscHNhb2VyaGRkY3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MTYwMDcsImV4cCI6MjA4MTM5MjAwN30.EorEQF3lnm5NbQtwTnipy95gNkbEhR8Xz7ecMlt-0Ac';
-
-// (Bloque de advertencia eliminado ya que las credenciales son válidas y forzadas)
+if (!supabaseUrl || !supabaseAnonKey) {
+    // Fail loud — surface the misconfiguration immediately rather than
+    // silently fall back to a hard-coded value.
+    throw new Error(
+        'Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. ' +
+        'Set them in Netlify → Site settings → Environment variables.'
+    );
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

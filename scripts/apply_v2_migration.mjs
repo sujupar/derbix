@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 
 const supabase = createClient(
     'https://nokejmhlpsaoerhddcyc.supabase.co',
-    process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5va2VqbWhscHNhb2VyaGRkY3ljIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTgxNjAwNywiZXhwIjoyMDgxMzkyMDA3fQ.QxIvR1KJThkZZMVG87m2fHWPPzXGBt3x1IbhJQh2lp8'
+    process.env.SUPABASE_SERVICE_KEY || '__ROTATED_KEY_LOAD_FROM_ENV__'
 );
 
 const sql = readFileSync('./supabase/migrations/20260112_engine_v2_schema.sql', 'utf-8');

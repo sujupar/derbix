@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { requireAdminOrService, authErrorResponse } from "../_shared/auth-guard.ts";
 
 const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY')!;
 const DEEPSEEK_MODEL = 'deepseek-v4-pro';
@@ -39,6 +40,10 @@ async function callDeepSeek(systemPrompt: string, userPrompt: string): Promise<s
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  // SECURITY: gates the LLM (cost) + the prompt-injection sink (context_data).
+  const auth = await requireAdminOrService(req);
+  if (!auth.ok) return authErrorResponse(auth as any, corsHeaders);
 
   try {
     const body: RequestBody = await req.json();

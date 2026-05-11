@@ -5,10 +5,11 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { requireAdminOrService, authErrorResponse } from '../_shared/auth-guard.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-internal-secret',
 }
 
 const STATE_KEY = 'auto_analysis_state'
@@ -49,11 +50,16 @@ async function selfInvoke(supabaseUrl: string, serviceKey: string, body: any) {
     // Delay para dar respiro a Gemini rate limits
     await new Promise(r => setTimeout(r, SELF_INVOKE_DELAY_MS))
 
-    // Fire-and-forget: enviar request, no esperar respuesta
+    const internalSecret = Deno.env.get('INTERNAL_FUNCTION_SECRET') || ''
+
+    // Fire-and-forget: enviar request, no esperar respuesta.
+    // Authorization Bearer is required by Supabase gateway when --no-verify-jwt
+    // is NOT set; X-Internal-Secret is what auth-guard.requireAdminOrService checks.
     fetch(`${supabaseUrl}/functions/v1/daily-analysis-generator`, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${serviceKey}`,
+            'X-Internal-Secret': internalSecret,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(body)
@@ -71,6 +77,11 @@ serve(async (req) => {
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
     }
+
+    // SECURITY: Trigger-able by either a platform admin (UI) or an internal
+    // service caller (cron job, self-invoke chain). Reject everyone else.
+    const auth = await requireAdminOrService(req)
+    if (!auth.ok) return authErrorResponse(auth as any, corsHeaders)
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -207,6 +218,7 @@ serve(async (req) => {
                     standard_error: null as string | null,
                     parlay_error: null as string | null,
                     job_id: null as string | null,
+                    standard_attempts: 0,
                 })),
                 started_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
@@ -272,41 +284,17 @@ serve(async (req) => {
                 return jsonResponse({ success: true, message: 'No active batch' })
             }
 
-            // Buscar siguiente partido pendiente
-            const nextMatchNeedingStandard = state.matches.find((m: any) => !m.standard_done)
-            const nextMatchNeedingParlay = state.matches.find((m: any) => m.standard_done && !m.parlay_done)
-
-            // Prioridad: completar parlay del partido actual antes de pasar al siguiente
-            const nextMatch = nextMatchNeedingParlay || nextMatchNeedingStandard
+            // Parlay system disabled — only iterate standard analysis per match.
+            // Original logic also processed parlay-analyzer per match and a final combos pass;
+            // both removed to save budget and avoid errors.
+            const nextMatch = state.matches.find((m: any) => !m.standard_done)
 
             if (!nextMatch) {
                 // ═══ TODOS LOS PARTIDOS PROCESADOS ═══
-                console.log('[AutoAnalyzer] Todos los partidos procesados. Generando combos de parlays...')
-                state.current_phase = 'generating_combos'
-                state.current_match_name = 'Generando Smart Parlays...'
-                await updateState(supabase, state)
-
-                try {
-                    const parlayResp = await fetch(
-                        `${supabaseUrl}/functions/v1/daily-parlay-generator`,
-                        {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': `Bearer ${supabaseServiceKey}`,
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({ date: state.target_date })
-                        }
-                    )
-                    console.log(`[AutoAnalyzer] Parlay combos response: ${parlayResp.status}`)
-                } catch (e: any) {
-                    console.error('[AutoAnalyzer] Error generando combos:', e.message)
-                    state.errors.push(`[COMBOS] ${e.message}`)
-                }
-
-                state.active = false
+                console.log('[AutoAnalyzer] Todos los partidos procesados. Parlay generator skipped (disabled).')
                 state.current_phase = 'completed'
                 state.current_match_name = ''
+                state.active = false
                 await updateState(supabase, state)
 
                 console.log(`[AutoAnalyzer] Batch completado: ${state.processed_count}/${state.total_matches} partidos, ${state.errors.length} errores`)
@@ -391,122 +379,26 @@ serve(async (req) => {
 
                 } catch (err: any) {
                     console.error(`[AutoAnalyzer] Error en standard analysis:`, err.message)
-                    nextMatch.standard_done = true // No reintentar
                     nextMatch.standard_error = err.message
-                    state.errors.push(`[STD] ${nextMatch.home} vs ${nextMatch.away}: ${err.message}`)
-                }
+                    nextMatch.standard_attempts = (nextMatch.standard_attempts ?? 0) + 1
 
-                await updateState(supabase, state)
+                    const isQualityGate = /validation_gate/i.test(err.message || '')
+                    const attempts = nextMatch.standard_attempts
 
-                // Self-invoke para procesar parlay (o siguiente partido si falló)
-                await selfInvoke(supabaseUrl, supabaseServiceKey, { action: 'continue' })
-
-                return jsonResponse({
-                    success: true,
-                    action: 'standard_analysis',
-                    match: `${nextMatch.home} vs ${nextMatch.away}`,
-                    result: nextMatch.standard_error ? 'failed' : 'success'
-                })
-            }
-
-            // ═══ PROCESAR PARLAY ANALYSIS ═══
-            if (!nextMatch.parlay_done) {
-                state.current_phase = 'parlay'
-                state.current_match_name = `${nextMatch.home} vs ${nextMatch.away} (Parlay)`
-                await updateState(supabase, state)
-
-                console.log(`[AutoAnalyzer] Parlay: ${nextMatch.home} vs ${nextMatch.away}`)
-
-                // Si standard falló, saltar parlay
-                if (nextMatch.standard_error) {
-                    console.log(`[AutoAnalyzer] Saltando parlay (standard falló)`)
-                    nextMatch.parlay_done = true
-                    nextMatch.parlay_error = 'skipped (standard failed)'
-                } else {
-                    try {
-                        // Buscar job estándar completado para obtener etl_context
-                        const { data: stdJob } = await supabase
-                            .from('analysis_jobs_v2')
-                            .select('id, etl_context')
-                            .eq('fixture_id', nextMatch.fixture_id)
-                            .or('analysis_type.eq.standard,analysis_type.is.null')
-                            .eq('status', 'done')
-                            .order('created_at', { ascending: false })
-                            .limit(1)
-                            .single()
-
-                        if (!stdJob?.etl_context) {
-                            throw new Error('No etl_context found for standard job')
-                        }
-
-                        // Verificar que no existe ya un parlay job para hoy
-                        const today = new Date().toISOString().split('T')[0]
-                        const { data: existingParlay } = await supabase
-                            .from('analysis_jobs_v2')
-                            .select('id')
-                            .eq('fixture_id', nextMatch.fixture_id)
-                            .eq('analysis_type', 'parlay')
-                            .gte('created_at', today)
-                            .limit(1)
-
-                        if (existingParlay && existingParlay.length > 0) {
-                            console.log(`[AutoAnalyzer] Parlay ya existe para fixture ${nextMatch.fixture_id}, saltando`)
-                            nextMatch.parlay_done = true
-                        } else {
-                            // Crear parlay job en analysis_jobs_v2
-                            const { data: parlayJob, error: parlayJobErr } = await supabase
-                                .from('analysis_jobs_v2')
-                                .insert({
-                                    fixture_id: nextMatch.fixture_id,
-                                    status: 'etl',
-                                    current_motor: 'PARLAY-ANALYZER',
-                                    engine_version: 'V8.2-STRATEGIC',
-                                    analysis_type: 'parlay',
-                                    etl_context: stdJob.etl_context
-                                })
-                                .select()
-                                .single()
-
-                            if (parlayJobErr || !parlayJob) {
-                                throw new Error(`Failed to create parlay job: ${parlayJobErr?.message}`)
-                            }
-
-                            // Invocar v3-parlay-analyzer (await ~40-60s)
-                            console.log(`[AutoAnalyzer] Invocando v3-parlay-analyzer (job ${parlayJob.id})...`)
-                            const parlayResp = await fetch(
-                                `${supabaseUrl}/functions/v1/v3-parlay-analyzer`,
-                                {
-                                    method: 'POST',
-                                    headers: {
-                                        'Authorization': `Bearer ${supabaseServiceKey}`,
-                                        'Content-Type': 'application/json'
-                                    },
-                                    body: JSON.stringify({
-                                        job_id: parlayJob.id,
-                                        fixture_id: nextMatch.fixture_id
-                                    })
-                                }
-                            )
-
-                            const parlayData = await parlayResp.json()
-                            if (!parlayResp.ok) {
-                                throw new Error(`Parlay analyzer HTTP ${parlayResp.status}: ${parlayData?.error || 'unknown'}`)
-                            }
-
-                            console.log(`[AutoAnalyzer] Parlay completado para ${nextMatch.home} vs ${nextMatch.away}`)
-                            nextMatch.parlay_done = true
-                        }
-
-                    } catch (err: any) {
-                        console.error(`[AutoAnalyzer] Error en parlay:`, err.message)
-                        nextMatch.parlay_done = true
-                        nextMatch.parlay_error = err.message
-                        state.errors.push(`[PLY] ${nextMatch.home} vs ${nextMatch.away}: ${err.message}`)
+                    if (isQualityGate || attempts >= 2) {
+                        // Marcar como hecho: o pasó el gate de calidad (análisis-retry-pending lo recogerá),
+                        // o ya intentamos 2 veces en este batch. Evita bloquear el batch entero.
+                        nextMatch.standard_done = true
+                        console.log(`[AutoAnalyzer] [RETRY-INTRABATCH] ${nextMatch.home} vs ${nextMatch.away}: ${isQualityGate ? 'quality gate failed' : `giving up after ${attempts} attempts`}, moving on`)
+                    } else {
+                        console.log(`[AutoAnalyzer] [RETRY-INTRABATCH] ${nextMatch.home} vs ${nextMatch.away}: attempt ${attempts}/2 failed (${err.message.substring(0, 80)}), will retry`)
                     }
+
+                    state.errors.push(`[STD] ${nextMatch.home} vs ${nextMatch.away} (attempt ${attempts}): ${err.message}`)
                 }
 
-                // Actualizar processed_count
-                state.processed_count = state.matches.filter((m: any) => m.standard_done && m.parlay_done).length
+                // Once standard is done, the match is fully processed (parlay disabled).
+                state.processed_count = state.matches.filter((m: any) => m.standard_done).length
                 await updateState(supabase, state)
 
                 // Self-invoke para siguiente partido
@@ -514,12 +406,14 @@ serve(async (req) => {
 
                 return jsonResponse({
                     success: true,
-                    action: 'parlay_analysis',
+                    action: 'standard_analysis',
                     match: `${nextMatch.home} vs ${nextMatch.away}`,
-                    result: nextMatch.parlay_error ? 'failed' : 'success',
+                    result: nextMatch.standard_error ? 'failed' : 'success',
                     progress: `${state.processed_count}/${state.total_matches}`
                 })
             }
+
+            // Parlay processing removed — once standard analysis is done, the match is fully processed.
         }
 
         // Action no reconocido
