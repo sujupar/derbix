@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY')!;
-const DEEPSEEK_FLASH_MODEL = 'deepseek-v4-flash';
+const DEEPSEEK_MODEL = 'deepseek-v4-pro';
 const DEEPSEEK_ENDPOINT = 'https://api.deepseek.com/chat/completions';
 
 interface RequestBody {
@@ -12,7 +12,7 @@ interface RequestBody {
   context_data?: Record<string, any>;
 }
 
-async function callDeepSeekFlash(systemPrompt: string, userPrompt: string): Promise<string> {
+async function callDeepSeek(systemPrompt: string, userPrompt: string): Promise<string> {
   const res = await fetch(DEEPSEEK_ENDPOINT, {
     method: 'POST',
     headers: {
@@ -20,7 +20,7 @@ async function callDeepSeekFlash(systemPrompt: string, userPrompt: string): Prom
       Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
     },
     body: JSON.stringify({
-      model: DEEPSEEK_FLASH_MODEL,
+      model: DEEPSEEK_MODEL,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -31,7 +31,7 @@ async function callDeepSeekFlash(systemPrompt: string, userPrompt: string): Prom
   });
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(`DeepSeek-Flash error ${res.status}: ${txt.slice(0, 200)}`);
+    throw new Error(`DeepSeek error ${res.status}: ${txt.slice(0, 200)}`);
   }
   const data = await res.json();
   return data.choices?.[0]?.message?.content?.trim() ?? '';
@@ -70,7 +70,7 @@ serve(async (req) => {
 
     const userPrompt = `Genera un mensaje variado y profesional. Contexto adicional: ${JSON.stringify(body.context_data || {})}.\n\nFecha: ${new Date().toLocaleDateString('es-CO', { timeZone: 'America/Bogota' })}.`;
 
-    const text = await callDeepSeekFlash(tpl.system_prompt, userPrompt);
+    const text = await callDeepSeek(tpl.system_prompt, userPrompt);
 
     await supabase
       .from('telegram_content_templates')

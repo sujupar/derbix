@@ -1,5 +1,6 @@
 // _shared/llm-client.ts — DeepSeek-only client with retry on retryable failures.
 // V9 pipeline (2026-05-05): no fallback to Gemini/Groq/OpenRouter/Mistral.
+// 2026-05-11: migrated from deepseek-v4-flash to deepseek-v4-pro (full platform).
 // If DeepSeek fails permanently, the caller's job fails and goes to retry queue.
 
 export interface LLMConfig {
@@ -29,10 +30,10 @@ interface ProviderDef {
 
 const PROVIDERS: ProviderDef[] = [
   {
-    name: 'deepseek-v4-flash',
+    name: 'deepseek-v4-pro',
     type: 'openai',
     endpoint: 'https://api.deepseek.com/chat/completions',
-    model: 'deepseek-v4-flash',
+    model: 'deepseek-v4-pro',
     envKey: 'DEEPSEEK_API_KEY',
   },
 ];
@@ -136,7 +137,7 @@ async function callOpenAICompatible(
 }
 
 export async function callLLM(prompt: string, config: LLMConfig = {}): Promise<LLMResponse> {
-  const provider = PROVIDERS[0]; // deepseek-v4-flash only
+  const provider = PROVIDERS[0]; // deepseek-v4-pro only
   const apiKey = Deno.env.get(provider.envKey);
   if (!apiKey) {
     throw new Error(`[llm-client] DEEPSEEK_API_KEY missing — pipeline cannot proceed without it`);

@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   const url = new URL(req.url);
-  const model = url.searchParams.get('model') || 'deepseek-v4-flash';
+  const model = url.searchParams.get('model') || 'deepseek-v4-pro';
   const max_tokens = parseInt(url.searchParams.get('max_tokens') || '500');
 
   const t0 = Date.now();

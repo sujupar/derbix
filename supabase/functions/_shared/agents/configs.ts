@@ -7,7 +7,7 @@ export const AGENTS: Record<string, AgentConfig> = {
   OFFENSIVE: {
     name: 'Analista Ofensivo',
     role: 'offensive_analyst',
-    preferred_provider: 'deepseek-v4-flash',
+    preferred_provider: 'deepseek-v4-pro',
     temperature: 0.3,
     max_tokens: 2500,
     system_prompt: `Eres el Analista Ofensivo Senior de Derbix, con 20 años de experiencia siguiendo a Opta Sports. Tu especialidad es evaluar la CAPACIDAD OFENSIVA de los equipos.
@@ -32,7 +32,7 @@ Tu misión: decir quién CREARÁ más oportunidades y quién las APROVECHARÁ.`,
   DEFENSIVE: {
     name: 'Analista Defensivo',
     role: 'defensive_analyst',
-    preferred_provider: 'deepseek-v4-flash',
+    preferred_provider: 'deepseek-v4-pro',
     temperature: 0.3,
     max_tokens: 2500,
     system_prompt: `Eres el Analista Defensivo Senior de Derbix, enfocado en solidez defensiva y clean sheets.
@@ -59,7 +59,7 @@ Tu misión: decir quién DEFENDERÁ mejor y cuál es la probabilidad de CLEAN SH
   TACTICAL: {
     name: 'Analista Táctico',
     role: 'tactical_analyst',
-    preferred_provider: 'deepseek-v4-flash',
+    preferred_provider: 'deepseek-v4-pro',
     temperature: 0.4,
     max_tokens: 3000,
     system_prompt: `Eres el Analista Táctico Senior de Derbix. Tu especialidad es Mirror Analysis y Style Matchups.
@@ -98,7 +98,7 @@ Tu misión: decir CÓMO se va a jugar el partido tácticamente — pero SOLO con
   CONTEXTUAL: {
     name: 'Analista Contextual',
     role: 'contextual_analyst',
-    preferred_provider: 'deepseek-v4-flash',
+    preferred_provider: 'deepseek-v4-pro',
     temperature: 0.3,
     max_tokens: 2500,
     system_prompt: `Eres el Analista Contextual Senior de Derbix. Tu trabajo es encontrar FACTORES EXTERNOS al juego que impacten el partido.
@@ -137,7 +137,7 @@ Tu misión: encontrar EL factor no-estadístico que puede decidir este partido �
   MARKET: {
     name: 'Analista de Mercado',
     role: 'market_analyst',
-    preferred_provider: 'deepseek-v4-flash',
+    preferred_provider: 'deepseek-v4-pro',
     temperature: 0.2,
     max_tokens: 2500,
     system_prompt: `Eres el Analista de Mercado Senior de Derbix. Tu especialidad es detectar INEFICIENCIAS en las cuotas.
@@ -166,7 +166,7 @@ Tu misión: encontrar DÓNDE ESTÁ EL DINERO — qué mercados ofrecen valor rea
   SKEPTIC: {
     name: 'Abogado del Diablo',
     role: 'skeptic',
-    preferred_provider: 'deepseek-v4-flash',
+    preferred_provider: 'deepseek-v4-pro',
     temperature: 0.5,
     max_tokens: 2500,
     system_prompt: `Eres el Abogado del Diablo de Derbix. Tu ÚNICO trabajo es encontrar razones para NO apostar o para DUDAR de los picks propuestos.
@@ -207,7 +207,7 @@ Tu misión: PROTEGER EL BANKROLL. Mejor perder una oportunidad que perder dinero
   JUDGE: {
     name: 'Juez Sintetizador',
     role: 'judge',
-    preferred_provider: 'deepseek-v4-flash',
+    preferred_provider: 'deepseek-v4-pro',
     temperature: 0.2,
     max_tokens: 4500,
     system_prompt: `Eres el Juez Sintetizador Principal de Derbix. Recibes los análisis de 6 agentes especializados y debes producir el VEREDICTO FINAL.
