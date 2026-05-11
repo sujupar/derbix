@@ -11,7 +11,6 @@ import { GameCard as DetailsGameCard } from './live/GameCard';
 import FlashscoreLeagueGroup from './live/FlashscoreLeagueGroup';
 import MatchDetailModal from './live/MatchDetailModal';
 import HighProbPicks from './ai/HighProbPicks';
-// SmartParlays component disabled (parlay system removed to save budget). See LiveFeed below.
 import BatchProgressBanner from './ai/BatchProgressBanner';
 // ResultadosPublic moved to standalone ResultadosPage (sidebar section)
 import { useAuth } from '../hooks/useAuth';
@@ -151,7 +150,7 @@ export const FixturesFeed: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [selectedDate, setSelectedDate] = useState(getCurrentDateInBogota());
-    const [viewMode, setViewMode] = useState<'fixtures' | 'top-picks' | 'parlays'>('top-picks');
+    const [viewMode, setViewMode] = useState<'fixtures' | 'top-picks'>('top-picks');
     const [resultsRefreshKey, setResultsRefreshKey] = useState(0);
     const handlePickOverridden = useCallback(() => setResultsRefreshKey(k => k + 1), []);
     const [showLiveOnly, setShowLiveOnly] = useState(false);
@@ -850,7 +849,7 @@ export const FixturesFeed: React.FC = () => {
                     </div>
                 </div>
 
-                {viewMode === 'top-picks' || viewMode === 'parlays' ? (
+                {viewMode === 'top-picks' ? (
                     <div className="glass rounded-2xl p-3 sm:p-4 md:p-6 min-h-[500px] animate-fade-in border border-white/5">
                         <HighProbPicks
                             date={selectedDate}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../services/supabaseService';
-import { SparklesIcon, ComputerDesktopIcon, BoltIcon, CheckCircleIcon, ChartBarIcon, EyeSlashIcon, BrainIcon, LightBulbIcon, PaperAirplaneIcon, CalendarDaysIcon } from '../icons/Icons';
+import { ComputerDesktopIcon, BoltIcon, CheckCircleIcon, ChartBarIcon, EyeSlashIcon, BrainIcon, LightBulbIcon, PaperAirplaneIcon, CalendarDaysIcon } from '../icons/Icons';
 
 interface BatchMatch {
     fixture_id: number;
@@ -8,9 +8,7 @@ interface BatchMatch {
     away: string;
     league: string;
     standard_done: boolean;
-    parlay_done: boolean;
     standard_error: string | null;
-    parlay_error: string | null;
 }
 
 interface BatchState {
@@ -31,7 +29,6 @@ interface BatchState {
 export const OperationsCenter: React.FC = () => {
     const [settings, setSettings] = useState<{ [key: string]: boolean }>({
         auto_analysis_enabled: true,
-        auto_parlay_enabled: true,
         auto_verification_enabled: true,
         ml_strategic_insights_enabled: false,
         presentation_mode: false,
@@ -197,8 +194,6 @@ export const OperationsCenter: React.FC = () => {
         switch (phase) {
             case 'starting': return 'Iniciando';
             case 'standard': return 'Analizando';
-            case 'parlay': return 'Parlay';
-            case 'generating_combos': return 'Generando Smart Parlays';
             case 'completed': return 'Completado';
             case 'cancelled': return 'Cancelado';
             case 'failed': return 'Error';
@@ -233,26 +228,6 @@ export const OperationsCenter: React.FC = () => {
                         </div>
                         <h3 className="font-bold text-gray-200">Análisis Diario</h3>
                         <p className="text-xs text-gray-400 mt-1">Analiza automáticamente los partidos del día siguiente a las 12:30 AM.</p>
-                    </div>
-
-                    {/* Switch 2: Auto Parlay */}
-                    <div className={`p-4 rounded-xl border transition-all ${settings.auto_parlay_enabled ? 'bg-green-900/20 border-green-500/30' : 'bg-slate-800/50 border-slate-700'}`}>
-                        <div className="flex justify-between items-start mb-2">
-                            <div className="p-2 rounded-lg bg-green-500/10">
-                                <SparklesIcon className={`w-6 h-6 ${settings.auto_parlay_enabled ? 'text-green-400' : 'text-slate-500'}`} />
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    className="sr-only peer"
-                                    checked={settings.auto_parlay_enabled}
-                                    onChange={() => toggleSetting('auto_parlay_enabled')}
-                                />
-                                <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
-                            </label>
-                        </div>
-                        <h3 className="font-bold text-gray-200">Generador de Parlays</h3>
-                        <p className="text-xs text-gray-400 mt-1">Crea combinadas automáticamente tras finalizar los análisis diarios.</p>
                     </div>
 
                     {/* Switch 3: ML Auto-Learning */}

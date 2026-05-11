@@ -29,18 +29,11 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
     }, []);
 
     const features = (plan: SubscriptionPlan) => {
-        const parlayPct = plan.parlay_percentage ?? 0;
         return [
             {
                 label: 'Oportunidades',
                 value: plan.predictions_percentage <= 1 ? '1 diario' : `${plan.predictions_percentage}%`,
                 included: true
-            },
-            {
-                label: 'Parlays diarios',
-                value: parlayPct === 0 ? 'No incluido' :
-                    parlayPct >= 100 ? '100% (Todos)' : `${parlayPct}%`,
-                included: parlayPct > 0
             },
             {
                 label: 'Análisis de partidos',

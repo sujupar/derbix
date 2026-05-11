@@ -32,37 +32,6 @@ export const getAllowedPickCount = (
 };
 
 /**
- * Determina si el usuario puede ver parlays de una fecha especifica.
- * - Historico: siempre true
- * - Free/Starter (percentage=0): no ve parlays del dia actual
- */
-export const canViewParlays = (
-    parlayPercentage: number,
-    isHistorical: boolean
-): boolean => {
-    if (isHistorical) return true;
-    return parlayPercentage > 0;
-};
-
-/**
- * Calcula cuantos parlays puede ver el usuario segun su plan.
- * - Historico: todos visibles
- * - Free/Starter (percentage=0): 0 parlays
- * - Pro (30%): 30% del total
- * - Premium (80%): 80% del total
- */
-export const getAllowedParlayCount = (
-    totalParlays: number,
-    parlayPercentage: number,
-    isHistorical: boolean
-): number => {
-    if (isHistorical) return totalParlays;
-    if (parlayPercentage >= 100) return totalParlays;
-    if (parlayPercentage <= 0) return 0;
-    return Math.ceil(totalParlays * (parlayPercentage / 100));
-};
-
-/**
  * Determina si el usuario puede ver/generar analisis de una fecha.
  * - Historico: siempre true
  * - Free (percentage=0): no puede analizar hoy
@@ -91,14 +60,6 @@ export const getAllowedAnalysisCount = (
     if (analysisPercentage >= 100) return totalMatches;
     if (analysisPercentage === 0) return 0;
     return Math.ceil(totalMatches * (analysisPercentage / 100));
-};
-
-/**
- * Determina si un parlay limit es "ilimitado"
- * -1 = ilimitado (Premium), 999999 = admin bypass
- */
-export const isUnlimitedParlays = (limit: number): boolean => {
-    return limit === -1 || limit >= 999999;
 };
 
 /**
@@ -131,13 +92,6 @@ export const PLAN_PREDICTIONS_PERCENTAGES: Record<PlanTier, number> = {
     starter: 35,
     pro: 80,
     premium: 100,
-};
-
-export const PLAN_PARLAY_PERCENTAGES: Record<PlanTier, number> = {
-    free: 0,
-    starter: 0,
-    pro: 30,
-    premium: 80,
 };
 
 /**

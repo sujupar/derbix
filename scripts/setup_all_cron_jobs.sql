@@ -17,6 +17,8 @@ DO $$ BEGIN PERFORM cron.unschedule('daily-results-verifier-cron'); EXCEPTION WH
 DO $$ BEGIN PERFORM cron.unschedule('daily-results-verifier-schedule'); EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN PERFORM cron.unschedule('hourly-results-verifier'); EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN PERFORM cron.unschedule('seo-retry-pending-articles'); EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN PERFORM cron.unschedule('analysis-retry-pending'); EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN PERFORM cron.unschedule('sync-trm-daily'); EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 -- =====================================================
 -- PASO 1.5: Asegurar que auto_analysis_state existe
@@ -32,7 +34,6 @@ ON CONFLICT (key) DO NOTHING;
 -- 1. ANALIZADOR AUTOMÁTICO - START - 12:30 AM Colombia (5:30 AM UTC)
 -- Inicia el batch de análisis para los partidos de HOY
 -- Popula daily_matches, filtra amistosos, procesa secuencialmente
--- Incluye: análisis estándar + parlay por partido + combos al final
 SELECT cron.schedule(
     'daily-analysis-generator',
     '30 5 * * *',  -- 5:30 AM UTC = 12:30 AM Colombia
@@ -40,7 +41,7 @@ SELECT cron.schedule(
     SELECT
       net.http_post(
           url:='https://nokejmhlpsaoerhddcyc.supabase.co/functions/v1/daily-analysis-generator',
-          headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5va2VqbWhscHNhb2VyaGRkY3ljIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTgxNjAwNywiZXhwIjoyMDgxMzkyMDA3fQ.cMBnVvWGmxyTBqLqQQtPcymKdXMqF0Xr1_EI_Y1G3ZU"}'::jsonb,
+          headers:='{"Content-Type": "application/json", "Authorization": "Bearer __ROTATED_KEY_LOAD_FROM_ENV__"}'::jsonb,
           body:='{"action":"start","auto":true}'::jsonb
       ) as request_id;
     $$
@@ -56,24 +57,8 @@ SELECT cron.schedule(
     SELECT
       net.http_post(
           url:='https://nokejmhlpsaoerhddcyc.supabase.co/functions/v1/daily-analysis-generator',
-          headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5va2VqbWhscHNhb2VyaGRkY3ljIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTgxNjAwNywiZXhwIjoyMDgxMzkyMDA3fQ.cMBnVvWGmxyTBqLqQQtPcymKdXMqF0Xr1_EI_Y1G3ZU"}'::jsonb,
+          headers:='{"Content-Type": "application/json", "Authorization": "Bearer __ROTATED_KEY_LOAD_FROM_ENV__"}'::jsonb,
           body:='{"action":"heartbeat"}'::jsonb
-      ) as request_id;
-    $$
-);
-
--- 3. GENERADOR DE PARLAYS (BACKUP) - 4:00 AM Colombia (9:00 AM UTC)
--- Safety net: el batch ya genera parlays al completar, pero este CRON
--- actúa como respaldo en caso de que el batch falle antes de llegar a parlays
-SELECT cron.schedule(
-    'daily-parlay-generator',
-    '0 9 * * *',  -- 9:00 AM UTC = 4:00 AM Colombia
-    $$
-    SELECT
-      net.http_post(
-          url:='https://nokejmhlpsaoerhddcyc.supabase.co/functions/v1/daily-parlay-generator',
-          headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5va2VqbWhscHNhb2VyaGRkY3ljIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTgxNjAwNywiZXhwIjoyMDgxMzkyMDA3fQ.cMBnVvWGmxyTBqLqQQtPcymKdXMqF0Xr1_EI_Y1G3ZU"}'::jsonb,
-          body:='{}'::jsonb
       ) as request_id;
     $$
 );
@@ -88,7 +73,7 @@ SELECT cron.schedule(
     SELECT
       net.http_post(
           url:='https://nokejmhlpsaoerhddcyc.supabase.co/functions/v1/hourly-results-verifier',
-          headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5va2VqbWhscHNhb2VyaGRkY3ljIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTgxNjAwNywiZXhwIjoyMDgxMzkyMDA3fQ.cMBnVvWGmxyTBqLqQQtPcymKdXMqF0Xr1_EI_Y1G3ZU"}'::jsonb,
+          headers:='{"Content-Type": "application/json", "Authorization": "Bearer __ROTATED_KEY_LOAD_FROM_ENV__"}'::jsonb,
           body:='{}'::jsonb
       ) as request_id;
     $$
@@ -104,7 +89,41 @@ SELECT cron.schedule(
     SELECT
       net.http_post(
           url:='https://nokejmhlpsaoerhddcyc.supabase.co/functions/v1/seo-retry-pending-articles',
-          headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5va2VqbWhscHNhb2VyaGRkY3ljIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTgxNjAwNywiZXhwIjoyMDgxMzkyMDA3fQ.cMBnVvWGmxyTBqLqQQtPcymKdXMqF0Xr1_EI_Y1G3ZU"}'::jsonb,
+          headers:='{"Content-Type": "application/json", "Authorization": "Bearer __ROTATED_KEY_LOAD_FROM_ENV__"}'::jsonb,
+          body:='{}'::jsonb
+      ) as request_id;
+    $$
+);
+
+-- 6. ANALYSIS RETRY - Cada 30 minutos
+-- Reintenta jobs con status='failed', 'analyzing' stuck, o 'done' con picks vacíos.
+-- Límite: 20 jobs por tick, 3 intentos máximos antes de permanent_failure=true.
+-- Usa CAS lock (status='retrying') para evitar doble-disparo entre ticks concurrentes.
+SELECT cron.schedule(
+    'analysis-retry-pending',
+    '*/30 * * * *',  -- Cada 30 minutos
+    $$
+    SELECT
+      net.http_post(
+          url:='https://nokejmhlpsaoerhddcyc.supabase.co/functions/v1/analysis-retry-pending',
+          headers:='{"Content-Type": "application/json", "Authorization": "Bearer __ROTATED_KEY_LOAD_FROM_ENV__"}'::jsonb,
+          body:='{}'::jsonb
+      ) as request_id;
+    $$
+);
+
+-- 7. SYNC TRM (Tasa Representativa del Mercado USD→COP) - 12:15 AM Colombia
+-- Sincroniza la TRM oficial colombiana una vez al día desde Datos Abiertos
+-- (fallback: open.er-api.com). Se usa para mostrar el equivalente en COP
+-- debajo del precio en USD en landing y página de planes.
+SELECT cron.schedule(
+    'sync-trm-daily',
+    '15 5 * * *',  -- 5:15 AM UTC = 12:15 AM Colombia
+    $$
+    SELECT
+      net.http_post(
+          url:='https://nokejmhlpsaoerhddcyc.supabase.co/functions/v1/sync-trm',
+          headers:='{"Content-Type": "application/json", "Authorization": "Bearer __ROTATED_KEY_LOAD_FROM_ENV__"}'::jsonb,
           body:='{}'::jsonb
       ) as request_id;
     $$
@@ -126,11 +145,9 @@ ORDER BY jobname;
 -- =====================================================
 -- 12:30 AM → daily-analysis-generator START: Popula daily_matches para hoy,
 --            filtra amistosos, inicia batch secuencial (1 partido a la vez)
---            Cada partido: ETL → Analyzer → Parlay Analyzer → siguiente
+--            Cada partido: ETL → Analyzer → siguiente
 -- ~2:30 AM → Batch típicamente completado (~30 partidos × 4 min/partido)
---            Al terminar, dispara daily-parlay-generator para generar combos
 -- */5 min  → Heartbeat: detecta batches estancados y reinicia la cadena
--- 4:00 AM  → Parlay Generator backup (por si el batch no llegó a generar combos)
 -- Cada hora → hourly-results-verifier verifica resultados de partidos finalizados
 -- =====================================================
 -- NOTA: daily-match-scanner fue ELIMINADO — daily-analysis-generator

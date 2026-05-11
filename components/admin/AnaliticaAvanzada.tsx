@@ -19,7 +19,6 @@ const AnaliticaAvanzada: React.FC = () => {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
     const [startDate, setStartDate] = useState(thirtyDaysAgo);
     const [endDate, setEndDate] = useState(today);
-    const [pickType, setPickType] = useState<'oportunidad' | 'parlay'>('oportunidad');
     const [marketFilter, setMarketFilter] = useState('all');
     const [bankroll, setBankroll] = useState(100);
     const [recalculating, setRecalculating] = useState(false);
@@ -33,7 +32,6 @@ const AnaliticaAvanzada: React.FC = () => {
                 startDate,
                 endDate,
                 startingBankroll: bankroll,
-                pickType,
                 market: marketFilter !== 'all' ? marketFilter : undefined,
             };
             const result = await getAdvancedAnalytics(filters);
@@ -277,17 +275,6 @@ const AnaliticaAvanzada: React.FC = () => {
                         <label className="text-[11px] sm:text-[10px] text-slate-500 uppercase block mb-1">Hasta</label>
                         <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
                             className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2" />
-                    </div>
-                    <div>
-                        <label className="text-[11px] sm:text-[10px] text-slate-500 uppercase block mb-1">Tipo</label>
-                        <select
-                            value={pickType}
-                            onChange={e => setPickType(e.target.value as 'oportunidad' | 'parlay')}
-                            className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2"
-                        >
-                            <option value="oportunidad">Oportunidades</option>
-                            <option value="parlay">Parlays</option>
-                        </select>
                     </div>
                     <div>
                         <label className="text-[11px] sm:text-[10px] text-slate-500 uppercase block mb-1">Capital ($)</label>

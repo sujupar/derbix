@@ -561,8 +561,6 @@ export interface GameDetails {
     teamStats: { home: APITeamSeasonStats | null; away: APITeamSeasonStats | null; };
     lastMatches: { home: Game[] | null; away: Game[] | null; };
 }
-export interface ParlayLeg { fixtureId?: number; game: string; market: string; prediction: string; odds: number; reasoning: string; status?: 'pending' | 'won' | 'lost' | 'void'; }
-export interface ParlayAnalysisResult { parlayTitle: string; legs: ParlayLeg[]; finalOdds: number; overallStrategy: string; winProbability: number; }
 export interface GamedayBettingOpportunity { market: string; prediction: string; probability: number; reasoning: string; confidence: ConfidenceLevel; }
 export interface GameAnalysis { league: string; matchup: string; time: string; overallContext: string; topOpportunities: GamedayBettingOpportunity[]; }
 export type GamedayAnalysisResult = GameAnalysis[];
@@ -623,35 +621,6 @@ export interface PublicResultsData {
     bestStreak?: number;
     worstStreak?: number;
     avgOdds?: number;
-    parlays?: {
-        totalVerified: number;
-        totalPending: number;
-        won: number;
-        lost: number;
-        winRate: number;
-        periodProfit: number;
-        periodStaked: number;
-        recentResults: ParlayResultData[];
-    };
-}
-
-export interface ParlayResultData {
-    id: string;
-    date: string;
-    picks: Array<{
-        fixture_id: number;
-        market: string;
-        selection: string;
-        odds: number;
-        home_team: string;
-        away_team: string;
-        result: PickResult;
-    }>;
-    combined_odds: number;
-    risk_tier: string;
-    status: PickResult;
-    profit_loss: number;
-    verified_at: string | null;
 }
 
 // --- PER-PLAN PERFORMANCE TYPES ---
@@ -691,7 +660,6 @@ export interface PerPlanComparisonData {
 export interface AdvancedAnalyticsFilters {
     startDate: string;
     endDate: string;
-    pickType?: 'oportunidad' | 'parlay';
     market?: string;
     startingBankroll: number;
 }
@@ -790,14 +758,6 @@ export interface DailyRecapData {
         profit_loss: number;
         league?: string;
     }>;
-
-    // Parlays (starter+)
-    parlays?: {
-        won: number;
-        lost: number;
-        totalVerified: number;
-        bestOdds?: number;
-    };
 
     // Multi-period context (for bad days)
     periodStats?: {

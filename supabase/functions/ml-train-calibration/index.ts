@@ -616,59 +616,6 @@ serve(async (req) => {
             else console.error(`[ml-train-calibration] Error upserting ${f.dimension}|${f.dimension_key}:`, error);
         }
 
-        // ═══ STEP 10: Process parlays (unchanged) ═══
-        let parlayFactorsUpdated = 0;
-        try {
-            const { data: parlays } = await supabase
-                .from('parlay_combos_v2')
-                .select('id, picks, risk_tier, combined_odds, status, date')
-                .in('date', validDates)
-                .in('status', ['won', 'lost']);
-
-            if (parlays && parlays.length > 0) {
-                const parlayAggs = new Map<string, { wins: number; losses: number; totalOdds: number }>();
-                for (const p of parlays) {
-                    const legsCount = Array.isArray(p.picks) ? p.picks.length : 0;
-                    const risk = p.risk_tier || 'moderate';
-                    const key = `${legsCount}|${risk}`;
-                    if (!parlayAggs.has(key)) parlayAggs.set(key, { wins: 0, losses: 0, totalOdds: 0 });
-                    const agg = parlayAggs.get(key)!;
-                    if (p.status === 'won') agg.wins++; else agg.losses++;
-                    agg.totalOdds += p.combined_odds || 0;
-                }
-
-                for (const [key, stats] of parlayAggs.entries()) {
-                    const [legsStr, risk] = key.split('|');
-                    const legsCount = parseInt(legsStr);
-                    const total = stats.wins + stats.losses;
-                    if (total < 8) continue;
-
-                    const wr = (stats.wins / total) * 100;
-                    const avgOdds = stats.totalOdds / total;
-                    const roi = calculateROI(stats.wins, stats.losses, avgOdds);
-                    const recMaxLegs = wr < 20 ? Math.max(2, legsCount - 1) : legsCount;
-                    const recMinProb = wr < 30 ? 85 : wr < 50 ? 83 : 80;
-
-                    const { error } = await supabase
-                        .from('ml_parlay_calibration')
-                        .upsert({
-                            legs_count: legsCount, risk_level: risk,
-                            sample_size: total, wins: stats.wins,
-                            actual_wr: Math.round(wr * 100) / 100,
-                            avg_odds: Math.round(avgOdds * 100) / 100,
-                            roi: Math.round(roi * 100) / 100,
-                            recommended_max_legs: recMaxLegs,
-                            recommended_min_leg_prob: recMinProb,
-                            status: 'active',
-                            last_updated: new Date().toISOString(),
-                        }, { onConflict: 'legs_count,risk_level' });
-                    if (!error) parlayFactorsUpdated++;
-                }
-            }
-        } catch (parlayErr) {
-            console.error('[ml-train-calibration] Parlay calibration error (non-blocking):', parlayErr);
-        }
-
         // ═══ STEP 11: Save training runs ═══
         const totalWon = trainingPicks.filter(p => p.result === 'WON').length;
         const totalLost = trainingPicks.filter(p => p.result === 'LOST').length;
@@ -737,7 +684,6 @@ serve(async (req) => {
             `V4 Entrenamiento: ${validDates.length} dia(s) procesado(s).`,
             `${trainingPicks.length} picks analizados (${totalWon}W / ${totalLost}L / ${voidPicks}V).`,
             `${factorsUpdated} factores actualizados (EMA α=${EMA_ALPHA}).`,
-            `${parlayFactorsUpdated} factores de parlay.`,
             `${patternsGenerated} patrones.`,
             plattInfo,
             skippedDates.length > 0 ? `${skippedDates.length} dia(s) omitido(s).` : '',
@@ -750,7 +696,7 @@ serve(async (req) => {
             daysProcessed: validDates.length,
             daysSkipped: skippedDates.length,
             totalPicksProcessed: trainingPicks.length,
-            factorsUpdated: factorsUpdated + parlayFactorsUpdated,
+            factorsUpdated,
             patternsGenerated,
             platt: {
                 A: Math.round(plattA * 10000) / 10000,

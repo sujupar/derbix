@@ -17,12 +17,6 @@ const STEPS: Step[] = [
     icon: '\uD83C\uDFC6',
   },
   {
-    target: '[data-onboarding="tab-parlays"]',
-    title: 'Combina y Gana',
-    subtitle: 'Parlays inteligentes generados por IA',
-    icon: '\u2728',
-  },
-  {
     target: '[data-onboarding="results"]',
     title: 'Resultados Reales',
     subtitle: 'Track record p\u00FAblico y verificable',

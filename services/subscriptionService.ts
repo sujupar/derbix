@@ -33,7 +33,6 @@ export interface SubscriptionPlan {
     whop_plan_id_annual?: string;
     annual_price_cents: number;
     annual_discount_percentage: number;
-    parlay_percentage: number;
 }
 
 export interface UserSubscription {
@@ -75,7 +74,6 @@ export interface UserPlan {
     renews_at: string | null;
     ls_subscription_id: string | null;
     customer_portal_url: string | null;
-    parlay_percentage: number;
 }
 
 export interface UsageStats {
@@ -456,8 +454,7 @@ export const getSubscriptionSummary = async (userId: string, orgId: string) => {
             billing_period: 'monthly',
             renews_at: null,
             ls_subscription_id: null,
-            customer_portal_url: null,
-            parlay_percentage: 0
+            customer_portal_url: null
         },
         usage,
         subscription,

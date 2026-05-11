@@ -1,5 +1,5 @@
 // utils/roles.ts — Single source of truth for role classification
-// AGENCY = full access (analyze, generate parlays, manage accounts)
+// AGENCY = full access (analyze, manage accounts)
 // CLIENT = view only (according to their subscription plan)
 
 // Roles de plataforma (profiles.role en DB)

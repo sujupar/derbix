@@ -1,20 +1,21 @@
 // components/live/ResultadosPublic.tsx
-// Public results tab - accessible to all users
-// Shows system performance: accuracy, recent results, streaks, bankroll projection
-// Includes Smart Parlay results with filtering (Todos / Pronósticos / Parlays)
+// Public results tab — accessible to all users.
+// Admin: selector con 5 opciones (Global + 4 planes) para inspeccionar el rendimiento por plan.
+// User no-premium: toggle "Mi Plan / Plan Máquina".
+// User premium: vista única (su plan ya es el más alto).
 
 import React, { useState, useEffect } from 'react';
 import { getPublicResults, getResultsByPlan } from '../../services/resultsService';
-import type { PublicResultsData, ParlayResultData, PickResult, PlanTier } from '../../types';
+import type { PublicResultsData, PickResult, PlanTier } from '../../types';
 import { ChartBarIcon, ArrowPathIcon, TrophyIcon } from '../icons/Icons';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { PLAN_DISPLAY_NAMES, PLAN_PREDICTIONS_PERCENTAGES, getRecommendedUpgradePlan } from '../../utils/planAccessUtils';
 import { getCurrentDateInBogota } from '../../utils/dateUtils';
-import { getFilterStakingLabel, getStakingLabel } from '../../services/stakingService';
 
 type PeriodKey = 'ayer' | 'hoy' | '7d' | '30d' | '90d' | 'all';
 type PeriodOption = { key: PeriodKey; label: string };
-type ResultFilter = 'all' | 'picks' | 'parlays';
+type ViewMode = 'plan' | 'maquina';
+type AdminInspectPlan = PlanTier | 'global';
 
 const PERIODS: PeriodOption[] = [
     { key: 'ayer', label: 'Ayer' },
@@ -25,14 +26,17 @@ const PERIODS: PeriodOption[] = [
     { key: 'all', label: 'Todo' },
 ];
 
-const RESULT_FILTERS: { key: ResultFilter; label: string }[] = [
-    { key: 'all', label: 'Todos' },
-    { key: 'picks', label: 'Pronósticos' },
-    { key: 'parlays', label: 'Parlays' },
+const PLAN_OPTIONS: { value: AdminInspectPlan; label: string }[] = [
+    { value: 'global', label: 'Global' },
+    { value: 'free', label: 'Explorador' },
+    { value: 'starter', label: 'Ventaja' },
+    { value: 'pro', label: 'Elite' },
+    { value: 'premium', label: 'Máquina' },
 ];
 
+const STAKING_LABEL = '2-4u por pronóstico';
+
 function getDateRange(period: PeriodKey): { startDate: string; endDate: string } {
-    // Use Bogotá timezone to match Oportunidades date handling
     const todayStr = getCurrentDateInBogota();
     const [y, m, d] = todayStr.split('-').map(Number);
     const bogotaToday = new Date(y, m - 1, d);
@@ -71,39 +75,36 @@ function getDateRange(period: PeriodKey): { startDate: string; endDate: string }
     }
 }
 
-const RISK_COLORS: Record<string, string> = {
-    conservative: 'from-emerald-500 to-green-600',
-    balanced: 'from-amber-500 to-orange-600',
-    aggressive: 'from-red-500 to-rose-600',
-};
-
-const RISK_LABELS: Record<string, string> = {
-    conservative: 'Conservador',
-    balanced: 'Equilibrado',
-    aggressive: 'Agresivo',
-};
-
-type ViewMode = 'plan' | 'global';
-
 const ResultadosPublic: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigger }) => {
     const [data, setData] = useState<PublicResultsData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedPeriod, setSelectedPeriod] = useState<PeriodKey>('7d');
-    const [resultFilter, setResultFilter] = useState<ResultFilter>('all');
-    const [viewMode, setViewMode] = useState<ViewMode>('plan');
 
     const { plan, isAdmin } = useSubscription();
     const planName = plan.plan_name as PlanTier;
-    const isUnlimited = planName === 'premium' || isAdmin;
-    const effectiveViewMode = isUnlimited ? 'global' : viewMode;
+    const isPremium = planName === 'premium';
+
+    // Admin: selector entre Global + 4 planes. Default: global.
+    const [adminInspectPlan, setAdminInspectPlan] = useState<AdminInspectPlan>('global');
+    // User no-premium: toggle entre su plan y el plan Máquina.
+    const [viewMode, setViewMode] = useState<ViewMode>('plan');
+
+    // Plan efectivo a consultar:
+    //  - Admin → adminInspectPlan ('global' o un PlanTier).
+    //  - Premium → su propio plan (sin toggle visible).
+    //  - Resto → 'plan' = su plan; 'maquina' = premium.
+    const effectivePlanToQuery: AdminInspectPlan = (() => {
+        if (isAdmin) return adminInspectPlan;
+        if (isPremium) return 'premium';
+        return viewMode === 'maquina' ? 'premium' : planName;
+    })();
 
     const loadResults = async (retryCount = 0) => {
         setLoading(true);
         setError(null);
 
-        // Check sessionStorage cache (TTL 5 min)
-        const cacheKey = `results_${selectedPeriod}_${resultFilter}_${effectiveViewMode}_${planName}`;
+        const cacheKey = `results_${selectedPeriod}_${effectivePlanToQuery}`;
         const cached = sessionStorage.getItem(cacheKey);
         if (cached && retryCount === 0) {
             try {
@@ -118,18 +119,13 @@ const ResultadosPublic: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigge
 
         try {
             const { startDate, endDate } = getDateRange(selectedPeriod);
-            let results: PublicResultsData;
-            if (effectiveViewMode === 'plan' && !isUnlimited) {
-                results = await getResultsByPlan(startDate, endDate, planName, resultFilter);
-            } else {
-                results = await getPublicResults(startDate, endDate, resultFilter);
-            }
+            const results: PublicResultsData = effectivePlanToQuery === 'global'
+                ? await getPublicResults(startDate, endDate)
+                : await getResultsByPlan(startDate, endDate, effectivePlanToQuery);
             setData(results);
-            // Cache result
             try { sessionStorage.setItem(cacheKey, JSON.stringify({ data: results, ts: Date.now() })); } catch { /* quota exceeded */ }
         } catch (err: any) {
             console.error('[ResultadosPublic] Error:', err);
-            // Auto-retry once on network error
             if (retryCount === 0) {
                 console.log('[ResultadosPublic] Retrying...');
                 return loadResults(1);
@@ -140,7 +136,7 @@ const ResultadosPublic: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigge
         }
     };
 
-    useEffect(() => { loadResults(); }, [selectedPeriod, resultFilter, refreshTrigger, effectiveViewMode]);
+    useEffect(() => { loadResults(); }, [selectedPeriod, refreshTrigger, effectivePlanToQuery]);
 
     if (loading) {
         return (
@@ -155,7 +151,7 @@ const ResultadosPublic: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigge
         return (
             <div className="flex flex-col items-center justify-center py-16 text-center">
                 <p className="text-red-400 mb-4 bg-red-900/20 px-4 py-2 rounded-lg border border-red-500/30">{error}</p>
-                <button onClick={loadResults} className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white font-bold rounded-xl hover:bg-slate-600 transition-all">
+                <button onClick={() => loadResults()} className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white font-bold rounded-xl hover:bg-slate-600 transition-all">
                     <ArrowPathIcon className="w-4 h-4" /> Reintentar
                 </button>
             </div>
@@ -163,10 +159,8 @@ const ResultadosPublic: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigge
     }
 
     const hasPickResults = data && data.totalVerified > 0;
-    const hasParlayResults = data?.parlays && data.parlays.totalVerified > 0;
-    const hasAnyResults = hasPickResults || hasParlayResults;
 
-    if (!hasAnyResults) {
+    if (!hasPickResults) {
         return (
             <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -179,9 +173,17 @@ const ResultadosPublic: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigge
                             <p className="text-sm text-slate-400">Pronósticos verificados del sistema</p>
                         </div>
                     </div>
-                    <PeriodFilters selectedPeriod={selectedPeriod} onSelect={setSelectedPeriod} onRefresh={loadResults} />
+                    <PeriodFilters selectedPeriod={selectedPeriod} onSelect={setSelectedPeriod} onRefresh={() => loadResults()} />
                 </div>
-                <ResultFilterButtons selected={resultFilter} onSelect={setResultFilter} />
+                {isAdmin ? (
+                    <AdminPlanSelector selected={adminInspectPlan} onSelect={setAdminInspectPlan} />
+                ) : !isPremium ? (
+                    <UserPlanToggle
+                        selected={viewMode}
+                        onSelect={setViewMode}
+                        myPlanDisplayName={PLAN_DISPLAY_NAMES[planName] || plan.display_name}
+                    />
+                ) : null}
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                     <div className="w-24 h-24 bg-slate-800/50 rounded-full flex items-center justify-center mb-6 border border-white/5">
                         <ChartBarIcon className="w-12 h-12 text-slate-600" />
@@ -197,19 +199,17 @@ const ResultadosPublic: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigge
 
     const s = data!;
     const br = s.bankroll;
-    const pl = s.parlays;
 
-    // Determine which stats to show based on filter
-    const showPicks = resultFilter !== 'parlays';
-    const showParlays = resultFilter !== 'picks';
-
-    // Compute display KPIs based on filter
-    const displayWon = resultFilter === 'parlays' ? (pl?.won ?? 0) : resultFilter === 'picks' ? s.won : s.won + (pl?.won ?? 0);
-    const displayLost = resultFilter === 'parlays' ? (pl?.lost ?? 0) : resultFilter === 'picks' ? s.lost : s.lost + (pl?.lost ?? 0);
+    const displayWon = s.won;
+    const displayLost = s.lost;
     const displayTotal = displayWon + displayLost;
     const displayWinRate = displayTotal > 0 ? (displayWon / displayTotal) * 100 : 0;
-    const displayPending = resultFilter === 'parlays' ? (pl?.totalPending ?? 0) : resultFilter === 'picks' ? s.totalPending : s.totalPending + (pl?.totalPending ?? 0);
-    const stakingLabel = getFilterStakingLabel(resultFilter);
+    const displayPending = s.totalPending;
+
+    // Plan que se está mostrando (para el banner del usuario)
+    const previewPlan: PlanTier = isAdmin
+        ? (adminInspectPlan === 'global' ? planName : (adminInspectPlan as PlanTier))
+        : (effectivePlanToQuery === 'global' ? planName : (effectivePlanToQuery as PlanTier));
 
     return (
         <div className="space-y-6">
@@ -228,32 +228,42 @@ const ResultadosPublic: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigge
                         </p>
                     </div>
                 </div>
-                <PeriodFilters selectedPeriod={selectedPeriod} onSelect={setSelectedPeriod} onRefresh={loadResults} />
+                <PeriodFilters selectedPeriod={selectedPeriod} onSelect={setSelectedPeriod} onRefresh={() => loadResults()} />
             </div>
 
-            {/* View Mode Toggle (Mi Plan / Global) — only for non-admin users */}
-            {!isUnlimited && (
-                <div className="flex items-center gap-2">
-                    <ViewModeToggle selected={effectiveViewMode} onSelect={setViewMode} planDisplayName={PLAN_DISPLAY_NAMES[planName] || plan.display_name} />
-                </div>
-            )}
-
-            {/* Plan Value Banner — only in plan view mode for non-admin users */}
-            {effectiveViewMode === 'plan' && !isUnlimited && data && data.totalVerified > 0 && (
-                <PlanValueBanner
-                    data={data}
-                    planName={planName}
-                    planDisplayName={PLAN_DISPLAY_NAMES[planName] || plan.display_name}
-                    predictionsPercentage={PLAN_PREDICTIONS_PERCENTAGES[planName] || plan.predictions_percentage}
+            {/* Selector según rol */}
+            {isAdmin ? (
+                <AdminPlanSelector selected={adminInspectPlan} onSelect={setAdminInspectPlan} />
+            ) : !isPremium ? (
+                <UserPlanToggle
+                    selected={viewMode}
+                    onSelect={setViewMode}
+                    myPlanDisplayName={PLAN_DISPLAY_NAMES[planName] || plan.display_name}
                 />
-            )}
+            ) : null}
 
-            {/* Result Type Filter */}
-            <ResultFilterButtons selected={resultFilter} onSelect={setResultFilter} />
+            {/* Banner contextual */}
+            {isAdmin ? (
+                <div className="px-4 py-2 rounded-lg bg-slate-800/50 border border-white/5 text-xs text-slate-400">
+                    <span className="font-semibold text-emerald-400">Vista Admin</span> — inspeccionando{' '}
+                    <span className="text-white font-bold">
+                        {adminInspectPlan === 'global'
+                            ? 'Global (todos los picks)'
+                            : (PLAN_OPTIONS.find(p => p.value === adminInspectPlan)?.label || adminInspectPlan)}
+                    </span>
+                </div>
+            ) : !isPremium ? (
+                <PlanValueBanner
+                    data={s}
+                    planName={previewPlan}
+                    planDisplayName={PLAN_DISPLAY_NAMES[previewPlan] || plan.display_name}
+                    predictionsPercentage={PLAN_PREDICTIONS_PERCENTAGES[previewPlan] || plan.predictions_percentage}
+                    isPreviewingMaquina={viewMode === 'maquina'}
+                />
+            ) : null}
 
             {/* KPI Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {/* Aciertos */}
                 <div className="bg-slate-900 border border-white/10 rounded-xl p-5 text-center">
                     <div className={`text-3xl font-black ${displayWinRate >= 55 ? 'text-emerald-400' : displayWinRate >= 45 ? 'text-amber-400' : 'text-red-400'}`}>
                         {displayWinRate.toFixed(1)}%
@@ -272,7 +282,6 @@ const ResultadosPublic: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigge
                     )}
                 </div>
 
-                {/* Resultado del Periodo */}
                 {br && (
                     <div className="bg-slate-900 border border-white/10 rounded-xl p-5 text-center">
                         <div className={`text-3xl font-black ${(br.periodProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -285,7 +294,6 @@ const ResultadosPublic: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigge
                     </div>
                 )}
 
-                {/* Rentabilidad del Periodo */}
                 {br && (
                     <div className="bg-slate-900 border border-white/10 rounded-xl p-5 text-center">
                         <div className={`text-3xl font-black ${(br.periodROI ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -298,7 +306,6 @@ const ResultadosPublic: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigge
                     </div>
                 )}
 
-                {/* Capital Actual */}
                 {br && (
                     <div className="bg-slate-900 border border-white/10 rounded-xl p-5 text-center">
                         <div className="text-3xl font-black text-white">
@@ -306,7 +313,7 @@ const ResultadosPublic: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigge
                         </div>
                         <span className="block text-xs text-slate-400 uppercase mt-1">Capital Actual</span>
                         <span className="block text-xs text-slate-500 mt-0.5">
-                            {stakingLabel}
+                            {STAKING_LABEL}
                         </span>
                     </div>
                 )}
@@ -371,13 +378,13 @@ const ResultadosPublic: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigge
                     </div>
                     <div className="flex items-center gap-4 text-sm">
                         <span className="text-slate-500">Capital: <span className="text-white font-bold">${br.base}</span></span>
-                        <span className="text-slate-500">Stake: <span className="text-white font-bold">{stakingLabel}</span></span>
+                        <span className="text-slate-500">Stake: <span className="text-white font-bold">{STAKING_LABEL}</span></span>
                     </div>
                 </div>
             )}
 
             {/* Recent Pick Results */}
-            {showPicks && s.recentResults.length > 0 && (
+            {s.recentResults.length > 0 && (
                 <div className="bg-slate-900 border border-white/10 rounded-xl overflow-hidden">
                     <div className="p-4 border-b border-white/5">
                         <h4 className="text-white font-bold">Resultados Recientes — Pronósticos</h4>
@@ -398,8 +405,8 @@ const ResultadosPublic: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigge
                                     <div className="flex items-center gap-2 text-xs">
                                         <span className="text-slate-500">{translateMarket(pick.market)}</span>
                                         <span className="text-slate-400 font-medium">{pick.selection}</span>
-                                        {pick.league && <span className="text-slate-600">{'\u2022'} {pick.league}</span>}
-                                        {pick.match_date && <span className="text-slate-600">{'\u2022'} {pick.match_date}</span>}
+                                        {pick.league && <span className="text-slate-600">{'•'} {pick.league}</span>}
+                                        {pick.match_date && <span className="text-slate-600">{'•'} {pick.match_date}</span>}
                                     </div>
                                 </div>
                                 <div className="text-right ml-4 flex-shrink-0">
@@ -415,22 +422,38 @@ const ResultadosPublic: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigge
                     </div>
                 </div>
             )}
-
-            {/* Parlay Results */}
-            {showParlays && (
-                <ParlayResultsSection parlays={pl} baseBankroll={br?.base || 100} />
-            )}
         </div>
     );
 };
 
-// ─── Plan View Sub-components ────────────────────────────────
+// ─── Selectores ──────────────────────────────────────────────
 
-const ViewModeToggle: React.FC<{
+const AdminPlanSelector: React.FC<{
+    selected: AdminInspectPlan;
+    onSelect: (p: AdminInspectPlan) => void;
+}> = ({ selected, onSelect }) => (
+    <div className="flex items-center bg-slate-800 rounded-lg border border-white/10 p-0.5 flex-wrap">
+        {PLAN_OPTIONS.map(opt => (
+            <button
+                key={opt.value}
+                onClick={() => onSelect(opt.value)}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                    selected === opt.value
+                        ? 'bg-emerald-500/20 text-emerald-300 shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                }`}
+            >
+                {opt.label}
+            </button>
+        ))}
+    </div>
+);
+
+const UserPlanToggle: React.FC<{
     selected: ViewMode;
     onSelect: (m: ViewMode) => void;
-    planDisplayName: string;
-}> = ({ selected, onSelect, planDisplayName }) => (
+    myPlanDisplayName: string;
+}> = ({ selected, onSelect, myPlanDisplayName }) => (
     <div className="flex items-center bg-slate-800 rounded-lg border border-white/10 p-0.5">
         <button
             onClick={() => onSelect('plan')}
@@ -440,17 +463,17 @@ const ViewModeToggle: React.FC<{
                     : 'text-slate-400 hover:text-white'
             }`}
         >
-            Mi Plan ({planDisplayName})
+            Mi Plan ({myPlanDisplayName})
         </button>
         <button
-            onClick={() => onSelect('global')}
+            onClick={() => onSelect('maquina')}
             className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
-                selected === 'global'
+                selected === 'maquina'
                     ? 'bg-emerald-500/20 text-emerald-300 shadow-sm'
                     : 'text-slate-400 hover:text-white'
             }`}
         >
-            Global
+            Plan Máquina
         </button>
     </div>
 );
@@ -460,7 +483,8 @@ const PlanValueBanner: React.FC<{
     planName: PlanTier;
     planDisplayName: string;
     predictionsPercentage: number;
-}> = ({ data, planName, planDisplayName, predictionsPercentage }) => {
+    isPreviewingMaquina: boolean;
+}> = ({ data, planName, planDisplayName, predictionsPercentage, isPreviewingMaquina }) => {
     const br = data.bankroll;
     const periodProfit = br?.periodProfit ?? 0;
     const isPositive = periodProfit >= 0;
@@ -480,7 +504,7 @@ const PlanValueBanner: React.FC<{
                     </div>
                     <div>
                         <h4 className="text-white font-bold text-sm">
-                            Tu Plan {planDisplayName}
+                            {isPreviewingMaquina ? 'Vista previa: Plan Máquina' : `Tu Plan ${planDisplayName}`}
                             <span className="text-slate-500 font-normal ml-2 text-xs">
                                 {predictionsPercentage >= 100 ? '100%' : predictionsPercentage <= 1 ? '1 pick/dia' : `${predictionsPercentage}%`} de los picks
                             </span>
@@ -498,12 +522,12 @@ const PlanValueBanner: React.FC<{
                         </div>
                     </div>
                 </div>
-                {upgradePlan && upgradeDisplayName && (
+                {!isPreviewingMaquina && upgradePlan && upgradeDisplayName && (
                     <a
                         href="/app/pricing"
                         className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors font-medium whitespace-nowrap"
                     >
-                        Desbloquea mas con {upgradeDisplayName} →
+                        Desbloquea más con {upgradeDisplayName} →
                     </a>
                 )}
             </div>
@@ -512,206 +536,6 @@ const PlanValueBanner: React.FC<{
 };
 
 // ─── Sub-components ──────────────────────────────────────────
-
-const ResultFilterButtons: React.FC<{ selected: ResultFilter; onSelect: (f: ResultFilter) => void }> = ({ selected, onSelect }) => (
-    <div className="flex items-center gap-2">
-        {RESULT_FILTERS.map(f => (
-            <button
-                key={f.key}
-                onClick={() => onSelect(f.key)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-                    selected === f.key
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
-                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
-                }`}
-            >
-                {f.label}
-            </button>
-        ))}
-    </div>
-);
-
-const ParlayResultsSection: React.FC<{ parlays?: PublicResultsData['parlays']; baseBankroll?: number }> = ({ parlays, baseBankroll = 100 }) => {
-    if (!parlays || parlays.recentResults.length === 0) {
-        if (parlays && parlays.totalPending > 0) {
-            return (
-                <div className="bg-slate-900 border border-white/10 rounded-xl p-6 text-center">
-                    <h4 className="text-white font-bold mb-2">Smart Parlays</h4>
-                    <p className="text-amber-400 text-sm">
-                        {parlays.totalPending} parlay{parlays.totalPending > 1 ? 's' : ''} pendiente{parlays.totalPending > 1 ? 's' : ''} de verificación
-                    </p>
-                </div>
-            );
-        }
-        return (
-            <div className="bg-slate-900 border border-white/10 rounded-xl p-6 text-center">
-                <h4 className="text-white font-bold mb-2">Smart Parlays</h4>
-                <p className="text-slate-400 text-sm">
-                    Sin parlays verificados en este periodo.
-                </p>
-            </div>
-        );
-    }
-
-    // Calculate financial summary
-    const stakePerParlay = baseBankroll * 0.01;
-    const wonParlays = parlays.recentResults.filter(p => p.status === 'WON');
-    const lostParlays = parlays.recentResults.filter(p => p.status === 'LOST');
-    const totalGains = wonParlays.reduce((sum, p) => sum + (stakePerParlay * ((p.combined_odds || 1) - 1)), 0);
-    const totalLosses = lostParlays.length * stakePerParlay;
-    const netResult = totalGains - totalLosses;
-    const netPct = baseBankroll > 0 ? (netResult / baseBankroll) * 100 : 0;
-    const gainsPct = baseBankroll > 0 ? (totalGains / baseBankroll) * 100 : 0;
-    const lossesPct = baseBankroll > 0 ? (totalLosses / baseBankroll) * 100 : 0;
-    const parlayROI = parlays.periodStaked > 0 ? (parlays.periodProfit / parlays.periodStaked) * 100 : 0;
-
-    return (
-        <div className="space-y-4">
-            {/* Financial Summary Card */}
-            <div className="bg-slate-900 border border-white/10 rounded-xl overflow-hidden">
-                <div className="p-4 border-b border-white/5 flex items-center justify-between">
-                    <h4 className="text-white font-bold">Rendimiento Parlays</h4>
-                    <span className="text-xs text-slate-500">0.25-1u por parlay</span>
-                </div>
-                <div className="p-4 space-y-3">
-                    {/* Net Result - Hero Number */}
-                    <div className="text-center py-2">
-                        <div className={`text-3xl font-black ${netResult >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {netResult >= 0 ? '+' : ''}{netPct.toFixed(1)}%
-                        </div>
-                        <span className="text-xs text-slate-400">
-                            {netResult >= 0 ? '+' : ''}${netResult.toFixed(2)} resultado neto
-                        </span>
-                    </div>
-
-                    {/* Gains vs Losses Breakdown */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 text-center">
-                            <div className="text-emerald-400 font-bold text-lg">
-                                {parlays.won} ganado{parlays.won !== 1 ? 's' : ''}
-                            </div>
-                            <span className="text-emerald-300/70 text-xs block">
-                                +${totalGains.toFixed(2)} (+{gainsPct.toFixed(1)}%)
-                            </span>
-                        </div>
-                        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center">
-                            <div className="text-red-400 font-bold text-lg">
-                                {parlays.lost} perdido{parlays.lost !== 1 ? 's' : ''}
-                            </div>
-                            <span className="text-red-300/70 text-xs block">
-                                -${totalLosses.toFixed(2)} (-{lossesPct.toFixed(1)}%)
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Detail Row */}
-                    <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-white/5">
-                        <span>Apostado: ${parlays.periodStaked.toFixed(2)} ({parlays.totalVerified} parlay{parlays.totalVerified !== 1 ? 's' : ''})</span>
-                        <span>ROI: <span className={parlayROI >= 0 ? 'text-emerald-400' : 'text-red-400'}>{parlayROI >= 0 ? '+' : ''}{parlayROI.toFixed(0)}%</span></span>
-                    </div>
-
-                    {parlays.totalPending > 0 && (
-                        <div className="text-center text-xs text-amber-400 pt-1">
-                            {parlays.totalPending} parlay{parlays.totalPending > 1 ? 's' : ''} pendiente{parlays.totalPending > 1 ? 's' : ''} de verificación
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Individual Parlay Cards */}
-            <div className="bg-slate-900 border border-white/10 rounded-xl overflow-hidden">
-                <div className="p-4 border-b border-white/5 flex items-center justify-between">
-                    <h4 className="text-white font-bold">Detalle por Parlay</h4>
-                    <div className="flex items-center gap-2 text-xs">
-                        <span className="text-emerald-400 font-bold">{parlays.won}W</span>
-                        <span className="text-slate-600">/</span>
-                        <span className="text-red-400 font-bold">{parlays.lost}L</span>
-                    </div>
-                </div>
-                <div className="divide-y divide-white/5">
-                    {parlays.recentResults.map((parlay) => (
-                        <ParlayCard key={parlay.id} parlay={parlay} />
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const ParlayCard: React.FC<{ parlay: ParlayResultData }> = ({ parlay }) => {
-    const isWon = parlay.status === 'WON';
-    const isLost = parlay.status === 'LOST';
-    const riskGradient = RISK_COLORS[parlay.risk_tier] || RISK_COLORS.balanced;
-    const riskLabel = RISK_LABELS[parlay.risk_tier] || parlay.risk_tier;
-
-    return (
-        <div className={`p-4 ${isLost ? 'opacity-60' : ''}`}>
-            {/* Parlay Header */}
-            <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                    <ResultIcon result={parlay.status} />
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold bg-gradient-to-r ${riskGradient} text-white`}>
-                        {riskLabel}
-                    </span>
-                    <span className="text-amber-400 font-bold text-sm">
-                        @{parlay.combined_odds.toFixed(2)}
-                    </span>
-                </div>
-                <div className="text-right">
-                    <span className={`font-bold text-sm ${parlay.profit_loss >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {parlay.profit_loss >= 0 ? '+' : ''}${parlay.profit_loss.toFixed(2)}
-                    </span>
-                    {parlay.date && (
-                        <span className="block text-[10px] text-slate-500">{parlay.date}</span>
-                    )}
-                </div>
-            </div>
-
-            {/* Legs */}
-            <div className="space-y-1.5 ml-7">
-                {parlay.picks.map((leg, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs">
-                        <LegResultIcon result={leg.result} />
-                        <span className="text-slate-300 truncate">
-                            {leg.home_team} vs {leg.away_team}
-                        </span>
-                        <span className="text-slate-500 flex-shrink-0">{translateMarket(leg.market)}</span>
-                        <span className="text-slate-400 font-medium flex-shrink-0">{leg.selection}</span>
-                        {leg.odds > 0 && (
-                            <span className="text-amber-400/60 text-[10px] flex-shrink-0">@{leg.odds.toFixed(2)}</span>
-                        )}
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-const LegResultIcon: React.FC<{ result: PickResult }> = ({ result }) => {
-    if (result === 'WON') {
-        return (
-            <span className="w-4 h-4 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                <svg className="w-2.5 h-2.5 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                </svg>
-            </span>
-        );
-    }
-    if (result === 'LOST') {
-        return (
-            <span className="w-4 h-4 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
-                <svg className="w-2.5 h-2.5 text-red-400" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </span>
-        );
-    }
-    return (
-        <span className="w-4 h-4 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-            <span className="w-1.5 h-1.5 bg-amber-400 rounded-full"></span>
-        </span>
-    );
-};
 
 const PeriodFilters: React.FC<{ selectedPeriod: PeriodKey; onSelect: (p: PeriodKey) => void; onRefresh: () => void }> = ({ selectedPeriod, onSelect, onRefresh }) => (
     <div className="flex items-center gap-2 flex-wrap">

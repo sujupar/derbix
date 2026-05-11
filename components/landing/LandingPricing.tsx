@@ -4,6 +4,8 @@ import { CheckIcon, SparklesIcon } from '../icons/Icons';
 import { getActivePlans, SubscriptionPlan } from '../../services/subscriptionService';
 import { getPlanPrice } from '../../services/lemonSqueezyService';
 import { useScrollReveal } from './useScrollReveal';
+import { useTRM } from '../../hooks/useTRM';
+import { CopPriceBadge } from '../pricing/CopPriceBadge';
 
 type BillingPeriod = 'monthly' | 'annual';
 
@@ -39,13 +41,6 @@ const getFeatures = (plan: SubscriptionPlan): string[] => {
         features.push('1 oportunidad diaria de muestra');
     }
 
-    const parlayPct = plan.parlay_percentage ?? 0;
-    if (parlayPct >= 100) {
-        features.push('Todos los parlays inteligentes');
-    } else if (parlayPct > 0) {
-        features.push(`${parlayPct}% de los parlays inteligentes`);
-    }
-
     if (plan.predictions_percentage >= 100) {
         features.push('Análisis completo de todos los partidos');
     } else if (plan.predictions_percentage >= 50) {
@@ -75,6 +70,7 @@ export const LandingPricing: React.FC = () => {
     const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
     const [loading, setLoading] = useState(true);
     const { ref, isVisible } = useScrollReveal();
+    const { trm } = useTRM();
 
     useEffect(() => {
         const load = async () => {
@@ -214,6 +210,16 @@ export const LandingPricing: React.FC = () => {
                                                 </span>
                                                 <span className="text-slate-500 text-sm">/mes</span>
                                             </div>
+                                            <CopPriceBadge
+                                                usdAmount={
+                                                    billingPeriod === 'annual' && annualCents > 0
+                                                        ? annualCents / 12 / 100
+                                                        : plan.price_cents / 100
+                                                }
+                                                trm={trm}
+                                                suffix="/mes"
+                                                className="mt-1"
+                                            />
                                             <div className="flex flex-wrap gap-2 mt-1">
                                                 {savingsPercent && (
                                                     <span className="inline-flex items-center px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/30 rounded text-emerald-400 text-xs font-bold">

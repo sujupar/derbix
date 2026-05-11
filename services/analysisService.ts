@@ -308,9 +308,6 @@ export const createAnalysisJob = async (apiFixtureId: number, timezone: string =
                 } catch (_e) { /* ignore body read errors */ }
             } else {
                 console.log(`[V3] ✅ Analyzer completó exitosamente para job ${responseData.job_id}`);
-                // Parlay auto-launch DISABLED (2026-05-06): the parlay flow was generating
-                // confusing "No etl_context found" errors after the main analysis. Parlays
-                // can still be generated explicitly from the Smart Parlays panel.
             }
         }).catch(err => {
             console.error(`[V3] Analyzer call failed:`, err.message);
@@ -322,84 +319,6 @@ export const createAnalysisJob = async (apiFixtureId: number, timezone: string =
         console.error("[V2] Error crítico:", err);
         throw new Error(err.message || "Error en el Motor V2. Intenta nuevamente.");
     }
-};
-
-/**
- * Lanza el parlay analyzer para un fixture DESPUÉS de que el análisis estándar completó.
- * Se ejecuta con un delay para evitar competir con Gemini API rate limits.
- * Fire-and-forget desde el browser — no bloquea el batch.
- */
-export const launchParlayForFixture = (fixtureId: number, delayMs: number = 8000): void => {
-    console.log(`[Parlay] Programando parlay analysis para fixture ${fixtureId} en ${delayMs/1000}s...`);
-    setTimeout(async () => {
-        try {
-            // Check if a parlay job already exists for this fixture today (avoid duplicates)
-            const today = new Date().toISOString().split('T')[0];
-            const { data: existingParlay } = await supabase
-                .from('analysis_jobs_v2')
-                .select('id')
-                .eq('fixture_id', fixtureId)
-                .eq('analysis_type', 'parlay')
-                .gte('created_at', today)
-                .limit(1);
-
-            if (existingParlay && existingParlay.length > 0) {
-                console.log(`[Parlay] Parlay job already exists for fixture ${fixtureId}. Skipping.`);
-                return;
-            }
-
-            // Buscar el job estándar para obtener el etl_context
-            const { data: standardJob } = await supabase
-                .from('analysis_jobs_v2')
-                .select('id, etl_context')
-                .eq('fixture_id', fixtureId)
-                .or('analysis_type.eq.standard,analysis_type.is.null')
-                .eq('status', 'done')
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-
-            if (!standardJob?.etl_context) {
-                console.warn(`[Parlay] No etl_context found for fixture ${fixtureId}. Skipping parlay.`);
-                return;
-            }
-
-            // Crear job de parlay en DB
-            const { data: parlayJob, error: parlayErr } = await supabase
-                .from('analysis_jobs_v2')
-                .insert({
-                    fixture_id: fixtureId,
-                    status: 'etl',
-                    current_motor: 'PARLAY-ANALYZER',
-                    engine_version: 'V8.2-STRATEGIC',
-                    analysis_type: 'parlay',
-                    etl_context: standardJob.etl_context
-                })
-                .select()
-                .single();
-
-            if (parlayErr || !parlayJob) {
-                console.warn(`[Parlay] Failed to create parlay job:`, parlayErr?.message);
-                return;
-            }
-
-            console.log(`[Parlay] Invocando v3-parlay-analyzer para job ${parlayJob.id}...`);
-            const { error: invokeErr } = await supabase.functions.invoke('v3-parlay-analyzer', {
-                body: {
-                    job_id: parlayJob.id,
-                    fixture_id: fixtureId
-                }
-            });
-
-            if (invokeErr) {
-                console.error(`[Parlay] Parlay analyzer error:`, invokeErr);
-            } else {
-                console.log(`[Parlay] ✅ Parlay analysis completado para fixture ${fixtureId}`);
-            }
-        } catch (err: any) {
-            console.warn(`[Parlay] Error (non-blocking):`, err.message);
-        }
-    }, delayMs);
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -478,7 +397,7 @@ export const markJobAsTimedOut = async (jobId: string): Promise<void> => {
  * Prioriza V2, luego fallback a V1.
  */
 export const getAnalysisResultByFixture = async (fixtureId: number): Promise<VisualAnalysisResult | null> => {
-    // 1. Buscar último job V2 completado para este fixture (excluir parlay jobs)
+    // 1. Buscar último job V2 completado para este fixture
     const { data: v2Job } = await supabase
         .from('analysis_jobs_v2')
         .select('id')
@@ -1213,7 +1132,7 @@ export const getAnalysisResult = async (jobId: string): Promise<VisualAnalysisRe
  */
 export const getAnalysesByDate = async (date: string): Promise<VisualAnalysisResult[]> => {
     const targetDate = date.split('T')[0]; // Asegurar YYYY-MM-DD
-    console.log(`[ParlayBuilder] Getting analyses for match date: ${targetDate}`);
+    console.log(`[AnalysesByDate] Getting analyses for match date: ${targetDate}`);
 
     // FILTRO CORRECTO: Usar match_date de analysis_runs (fecha del PARTIDO)
     // No usar created_at que es la fecha de creación del análisis
@@ -1228,11 +1147,11 @@ export const getAnalysesByDate = async (date: string): Promise<VisualAnalysisRes
     }
 
     if (!runs || runs.length === 0) {
-        console.log(`[ParlayBuilder] No analysis runs found for match date ${targetDate}`);
+        console.log(`[AnalysesByDate] No analysis runs found for match date ${targetDate}`);
         return [];
     }
 
-    console.log(`[ParlayBuilder] Found ${runs.length} analysis runs for match date ${targetDate}`);
+    console.log(`[AnalysesByDate] Found ${runs.length} analysis runs for match date ${targetDate}`);
 
     // Mapear resultados
     return runs
@@ -1287,7 +1206,7 @@ export const getAnalysisResultByFixtureId = async (fixtureId: number): Promise<V
         .maybeSingle();
 
     if (analisisData?.resultado_analisis) {
-        // Freshness check: see if there's a newer completed job (exclude parlay jobs)
+        // Freshness check: see if there's a newer completed job
         const { data: newerJob } = await supabase
             .from('analysis_jobs_v2')
             .select('id, created_at')

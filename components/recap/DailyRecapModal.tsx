@@ -484,31 +484,6 @@ export const DailyRecapModal: React.FC<DailyRecapModalProps> = ({
                         </motion.div>
                     )}
 
-                    {/* --- PARLAYS (starter+) --- */}
-                    {isAtLeast('starter') && data.parlays && data.parlays.totalVerified > 0 && (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.75 }}
-                            className="mx-6 mb-4 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/5"
-                        >
-                            <h4 className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Smart Parlays</h4>
-                            <div className="flex items-center gap-4">
-                                <span className="text-sm">
-                                    <span className="text-emerald-400 font-bold">{data.parlays.won}</span>
-                                    <span className="text-slate-600 mx-1">/</span>
-                                    <span className="text-red-400 font-bold">{data.parlays.lost}</span>
-                                    <span className="text-slate-500 text-xs ml-1">({data.parlays.totalVerified} total)</span>
-                                </span>
-                                {data.parlays.bestOdds && data.parlays.bestOdds > 0 && (
-                                    <span className="text-xs text-amber-400 font-semibold">
-                                        Mejor: @{data.parlays.bestOdds.toFixed(2)}
-                                    </span>
-                                )}
-                            </div>
-                        </motion.div>
-                    )}
-
                     {/* --- MARKET INSIGHT (pro+) --- */}
                     {isAtLeast('pro') && data.bestMarket && (
                         <motion.div

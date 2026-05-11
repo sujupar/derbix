@@ -33,7 +33,6 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
     if (!isOpen) return null;
 
     const featureNames: Record<string, string> = {
-        parlays: 'Parlays',
         analyses: 'Análisis de partidos',
         predictions: 'Oportunidades premium'
     };

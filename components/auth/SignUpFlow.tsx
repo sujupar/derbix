@@ -59,8 +59,16 @@ export const SignUpFlow: React.FC = () => {
             return;
         }
 
-        if (signUpData.password.length < 6) {
-            setError('La contraseña debe tener al menos 6 caracteres');
+        if (signUpData.password.length < 8) {
+            setError('La contraseña debe tener al menos 8 caracteres');
+            return;
+        }
+
+        // Require at least one letter and one digit. Keep the rule modest so
+        // we don't add friction for users on mobile, but block the absolute
+        // worst passwords ("12345678", "password").
+        if (!/[A-Za-z]/.test(signUpData.password) || !/[0-9]/.test(signUpData.password)) {
+            setError('La contraseña debe incluir al menos una letra y un número');
             return;
         }
 
@@ -365,185 +373,186 @@ export const SignUpFlow: React.FC = () => {
                             </div>
                         </div>
                     ) : step === 1 ? (
-                        /* STEP 1: User Data */
-                        <div className="max-w-md mx-auto">
-                            {/* Context banner for ads traffic */}
-                            <div className="mb-6">
-                                <div className="bg-brand/5 border border-brand/20 rounded-2xl p-5 text-center">
-                                    <h2 className="text-lg sm:text-xl font-bold text-white mb-3">
-                                        ⚡ Estás a 30 segundos de tener tus pronósticos del día
-                                    </h2>
-                                    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-slate-300">
-                                        <span className="flex items-center gap-1">
-                                            <svg className="w-3.5 h-3.5 text-brand" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                            </svg>
-                                            Sin tarjeta de crédito
-                                        </span>
-                                        <span className="flex items-center gap-1">
-                                            <svg className="w-3.5 h-3.5 text-brand" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                            </svg>
-                                            Plan gratis disponible
-                                        </span>
-                                        <span className="flex items-center gap-1">
-                                            <svg className="w-3.5 h-3.5 text-brand" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                            </svg>
-                                            Resultados 100% verificables
-                                        </span>
+                        /* STEP 1: Pain hero + form (cold-traffic optimized) */
+                        <div className="grid lg:grid-cols-5 gap-6 lg:gap-10 items-start">
+                            {/* LEFT: Marketing content */}
+                            <div className="lg:col-span-3 space-y-6">
+                                <div>
+                                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/30 mb-4">
+                                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                                        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-red-400">Para apostadores de fútbol</span>
+                                    </div>
+                                    <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-4 leading-[1.1]">
+                                        Deja de perder dinero con <span className="text-red-400">tipsters que adivinan</span>.
+                                    </h1>
+                                    <p className="text-base sm:text-lg text-slate-300 leading-relaxed">
+                                        Derbix usa IA para analizar cada partido del día con probabilidad calibrada y resultados <strong className="text-white">verificables hora a hora</strong>. Cero promesas vacías. Datos públicos.
+                                    </p>
+                                </div>
+
+                                {/* Real stats from MEMORY: 65.1% WR, +29% ROI, 83%+ prob */}
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                                    <div className="bg-slate-800/50 border border-brand/20 rounded-xl p-3 sm:p-4 text-center">
+                                        <div className="text-2xl sm:text-3xl font-black text-brand">65%</div>
+                                        <div className="text-[10px] sm:text-xs text-slate-400 mt-1 leading-tight">Acierto verificado</div>
+                                    </div>
+                                    <div className="bg-slate-800/50 border border-brand/20 rounded-xl p-3 sm:p-4 text-center">
+                                        <div className="text-2xl sm:text-3xl font-black text-brand">+29%</div>
+                                        <div className="text-[10px] sm:text-xs text-slate-400 mt-1 leading-tight">ROI banda óptima</div>
+                                    </div>
+                                    <div className="bg-slate-800/50 border border-brand/20 rounded-xl p-3 sm:p-4 text-center">
+                                        <div className="text-2xl sm:text-3xl font-black text-brand">83%+</div>
+                                        <div className="text-[10px] sm:text-xs text-slate-400 mt-1 leading-tight">Probabilidad mín.</div>
+                                    </div>
+                                    <div className="bg-slate-800/50 border border-brand/20 rounded-xl p-3 sm:p-4 text-center">
+                                        <div className="text-2xl sm:text-3xl font-black text-brand">100%</div>
+                                        <div className="text-[10px] sm:text-xs text-slate-400 mt-1 leading-tight">Verificable</div>
                                     </div>
                                 </div>
+
+                                {/* Tipster vs Derbix comparison */}
+                                <div>
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Por qué Derbix ≠ tipsters</h3>
+                                    <div className="space-y-2">
+                                        {[
+                                            ['"Confía en mí, va a ganar"', 'Probabilidad calibrada con sample size'],
+                                            ['Borra los picks que pierden', 'Resultados públicos verificados hora a hora'],
+                                            ['$200K/mes por sus tips', 'Plan gratis sin tarjeta'],
+                                        ].map(([bad, good], i) => (
+                                            <div key={i} className="grid grid-cols-2 gap-2 sm:gap-3">
+                                                <div className="bg-red-500/5 border border-red-500/20 rounded-lg px-3 py-2.5 flex items-start gap-2">
+                                                    <span className="text-red-400 text-base leading-none mt-0.5">✗</span>
+                                                    <span className="text-xs sm:text-sm text-slate-300">{bad}</span>
+                                                </div>
+                                                <div className="bg-brand/5 border border-brand/20 rounded-lg px-3 py-2.5 flex items-start gap-2">
+                                                    <span className="text-brand text-base leading-none mt-0.5">✓</span>
+                                                    <span className="text-xs sm:text-sm text-slate-300">{good}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* What you get */}
+                                <div className="bg-gradient-to-br from-brand/10 to-emerald-500/5 border border-brand/30 rounded-2xl p-5">
+                                    <div className="text-sm font-bold text-white mb-3">⚡ Lo que recibes hoy mismo:</div>
+                                    <ul className="space-y-2 text-xs sm:text-sm text-slate-200">
+                                        {[
+                                            'Pronósticos del día con probabilidad ≥ 83%',
+                                            'Análisis IA con xG, momentum y forma reciente',
+                                            'Resultados verificables con histórico transparente',
+                                            'Sin tarjeta de crédito. Plan gratis disponible.',
+                                        ].map((item, i) => (
+                                            <li key={i} className="flex items-start gap-2">
+                                                <svg className="w-4 h-4 text-brand mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                                </svg>
+                                                {item}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
                             </div>
 
-                            <div className="text-center mb-8">
-                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand/10 border border-brand/20 mb-4">
-                                    <SparklesIcon className="w-4 h-4 text-brand" />
-                                    <span className="text-xs font-bold uppercase tracking-wider text-brand">Únete Ahora</span>
-                                </div>
-                                <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white mb-2">Crea tu Cuenta</h1>
-                                <p className="text-slate-400">Accede a oportunidades de alto valor en segundos</p>
-                            </div>
+                            {/* RIGHT: Form */}
+                            <div className="lg:col-span-2 lg:sticky lg:top-8">
+                                <div className="bg-slate-800/50 backdrop-blur border border-white/10 rounded-2xl p-5 sm:p-6">
+                                    <div className="text-center mb-5">
+                                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand/10 border border-brand/30 mb-3">
+                                            <SparklesIcon className="w-3.5 h-3.5 text-brand" />
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-brand">30 segundos</span>
+                                        </div>
+                                        <h2 className="text-xl sm:text-2xl font-black text-white mb-1">Crea tu cuenta gratis</h2>
+                                        <p className="text-xs text-slate-400">Empieza a ver oportunidades hoy</p>
+                                    </div>
 
-                            <form onSubmit={handleStep1Submit} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                                        Nombre Completo
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={signUpData.fullName}
-                                        onChange={(e) => setSignUpData({ ...signUpData, fullName: e.target.value })}
-                                        className="w-full px-4 py-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:outline-none focus:border-brand transition-colors"
-                                        placeholder="Juan Pérez"
-                                        required
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                                        Email
-                                    </label>
-                                    <input
-                                        type="email"
-                                        value={signUpData.email}
-                                        onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
-                                        className="w-full px-4 py-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:outline-none focus:border-brand transition-colors"
-                                        placeholder="tu@email.com"
-                                        required
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                                        Contraseña
-                                    </label>
-                                    <input
-                                        type="password"
-                                        value={signUpData.password}
-                                        onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
-                                        className="w-full px-4 py-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:outline-none focus:border-brand transition-colors"
-                                        placeholder="Mínimo 6 caracteres"
-                                        required
-                                        minLength={6}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                                        Confirmar Contraseña
-                                    </label>
-                                    <input
-                                        type="password"
-                                        value={signUpData.confirmPassword}
-                                        onChange={(e) => setSignUpData({ ...signUpData, confirmPassword: e.target.value })}
-                                        className="w-full px-4 py-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:outline-none focus:border-brand transition-colors"
-                                        placeholder="Repite tu contraseña"
-                                        required
-                                        minLength={6}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                                        WhatsApp <span className="text-slate-500 font-normal">(opcional)</span>
-                                    </label>
-                                    <div className="flex gap-2">
-                                        <select
-                                            value={signUpData.phoneCountryCode}
-                                            onChange={(e) => setSignUpData({ ...signUpData, phoneCountryCode: e.target.value })}
-                                            className="w-28 px-3 py-3 bg-slate-800 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-brand transition-colors"
-                                        >
-                                            <option value="+57">+57 CO</option>
-                                            <option value="+52">+52 MX</option>
-                                            <option value="+54">+54 AR</option>
-                                            <option value="+56">+56 CL</option>
-                                            <option value="+51">+51 PE</option>
-                                            <option value="+593">+593 EC</option>
-                                            <option value="+58">+58 VE</option>
-                                            <option value="+34">+34 ES</option>
-                                            <option value="+1">+1 US</option>
-                                        </select>
+                                    <form onSubmit={handleStep1Submit} className="space-y-3">
                                         <input
-                                            type="tel"
-                                            value={signUpData.phoneNumber}
-                                            onChange={(e) => setSignUpData({
-                                                ...signUpData,
-                                                phoneNumber: e.target.value.replace(/[^0-9]/g, '')
-                                            })}
-                                            className="flex-1 px-4 py-3 bg-slate-800 border border-white/10 rounded-xl text-white focus:outline-none focus:border-brand transition-colors"
-                                            placeholder="300 123 4567"
+                                            type="text"
+                                            value={signUpData.fullName}
+                                            onChange={(e) => setSignUpData({ ...signUpData, fullName: e.target.value })}
+                                            className="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand transition-colors"
+                                            placeholder="Nombre completo"
+                                            required
                                         />
-                                    </div>
-                                    <p className="text-xs text-slate-500 mt-1">
-                                        Recibe alertas de oportunidades y resultados por WhatsApp
-                                    </p>
+                                        <input
+                                            type="email"
+                                            value={signUpData.email}
+                                            onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
+                                            className="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand transition-colors"
+                                            placeholder="Tu email"
+                                            required
+                                        />
+                                        <input
+                                            type="password"
+                                            value={signUpData.password}
+                                            onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
+                                            className="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand transition-colors"
+                                            placeholder="Contraseña (mín. 6)"
+                                            required
+                                            minLength={8}
+                                        />
+                                        <input
+                                            type="password"
+                                            value={signUpData.confirmPassword}
+                                            onChange={(e) => setSignUpData({ ...signUpData, confirmPassword: e.target.value })}
+                                            className="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand transition-colors"
+                                            placeholder="Repite la contraseña"
+                                            required
+                                            minLength={8}
+                                        />
+
+                                        {error && (
+                                            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                                                <p className="text-red-400 text-xs">{error}</p>
+                                            </div>
+                                        )}
+
+                                        <button
+                                            type="submit"
+                                            className="w-full py-3.5 bg-gradient-to-r from-brand to-emerald-400 text-slate-900 font-black rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            Empezar gratis
+                                            <ArrowRightIcon className="w-5 h-5" />
+                                        </button>
+
+                                        <p className="text-[10px] text-slate-500 text-center leading-relaxed pt-1">
+                                            Al registrarte aceptas nuestros{' '}
+                                            <a href="/terms" className="text-slate-400 hover:text-brand underline">Términos</a> y{' '}
+                                            <a href="/privacy" className="text-slate-400 hover:text-brand underline">Privacidad</a>
+                                        </p>
+
+                                        <div className="pt-3 border-t border-white/5 text-center">
+                                            <p className="text-xs text-slate-400">
+                                                ¿Ya tienes cuenta?{' '}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => navigate('/login')}
+                                                    className="text-brand hover:text-emerald-400 font-bold"
+                                                >
+                                                    Inicia sesión
+                                                </button>
+                                            </p>
+                                        </div>
+                                    </form>
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm text-slate-300 mb-2">
-                                        Tu usuario de Telegram <span className="text-slate-500">(opcional)</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={signUpData.telegramUsername}
-                                        onChange={(e) => setSignUpData({
-                                            ...signUpData,
-                                            telegramUsername: e.target.value.replace(/\s/g, '')
-                                        })}
-                                        className="w-full px-4 py-3 bg-slate-800 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand transition-colors"
-                                        placeholder="@tu_usuario"
-                                    />
-                                    <p className="text-xs text-slate-500 mt-1">
-                                        Si te suscribes al canal, te damos la bienvenida con tu @ al final del día.
-                                    </p>
-                                </div>
-
-                                {error && (
-                                    <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                                        <p className="text-red-400 text-sm">{error}</p>
+                                {/* Mini trust row */}
+                                <div className="mt-4 flex items-center justify-center gap-4 text-[10px] sm:text-xs text-slate-500">
+                                    <div className="flex items-center gap-1.5">
+                                        <svg className="w-3.5 h-3.5 text-brand" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Sin tarjeta
                                     </div>
-                                )}
-
-                                <button
-                                    type="submit"
-                                    className="w-full py-4 bg-gradient-to-r from-brand to-emerald-400 text-slate-900 font-bold rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all flex items-center justify-center gap-2"
-                                >
-                                    Continuar
-                                    <ArrowRightIcon className="w-5 h-5" />
-                                </button>
-
-                                <p className="text-center text-sm text-slate-400 mt-4">
-                                    ¿Ya tienes cuenta?{' '}
-                                    <button
-                                        type="button"
-                                        onClick={() => navigate('/login')}
-                                        className="text-brand hover:text-emerald-400 font-medium"
-                                    >
-                                        Inicia Sesión
-                                    </button>
-                                </p>
-                            </form>
+                                    <div className="flex items-center gap-1.5">
+                                        <svg className="w-3.5 h-3.5 text-brand" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                                        </svg>
+                                        Cancela cuando quieras
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     ) : (
                         /* STEP 2: Plan Selection */
@@ -602,7 +611,7 @@ export const SignUpFlow: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="w-4 h-4 rounded-full bg-brand"></div>
-                            <span>75% accuracy</span>
+                            <span>65% acierto verificado</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="w-4 h-4 rounded-full bg-blue-500"></div>

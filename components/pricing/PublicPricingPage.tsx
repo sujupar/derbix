@@ -7,12 +7,14 @@ import { getActivePlans, SubscriptionPlan } from '../../services/subscriptionSer
 import { getPlanPrice } from '../../services/lemonSqueezyService';
 import { useAuth } from '../../hooks/useAuth';
 import { trackUpgradePremium } from '../../services/analyticsService';
+import { useTRM } from '../../hooks/useTRM';
+import { CopPriceBadge } from './CopPriceBadge';
+import { TRMRate } from '../../services/trmService';
 
 // --- Value Stack Data ---
 const VALUE_STACK_ITEMS = [
     { icon: '🎯', label: 'Motor IA de Oportunidades', value: '$197/mes', desc: 'Analiza todos los partidos, filtra solo 83%+' },
     { icon: '⚡', label: 'Análisis Automático Diario', value: '$97/mes', desc: '+50 partidos procesados cada día' },
-    { icon: '🔗', label: 'Parlays Inteligentes', value: '$147/mes', desc: 'Combinaciones por nivel de riesgo' },
     { icon: '📊', label: 'Historial Verificable', value: '$97/mes', desc: 'Resultados públicos, sin editar' },
     { icon: '🛡️', label: 'Gestión de Riesgo', value: '$97/mes', desc: 'Recomendaciones de staking por pick' },
     { icon: '📈', label: 'Dashboard de ROI', value: '$47/mes', desc: 'Trackea tu rendimiento real' },
@@ -74,8 +76,6 @@ const STATS = [
 
 // --- Features per plan (benefit-oriented copy) ---
 const getPlanFeatures = (plan: SubscriptionPlan): { label: string; included: boolean }[] => {
-    const parlayPct = plan.parlay_percentage ?? 0;
-
     const features: { label: string; included: boolean }[] = [];
 
     // Oportunidades
@@ -85,13 +85,6 @@ const getPlanFeatures = (plan: SubscriptionPlan): { label: string; included: boo
         features.push({ label: 'Todas las oportunidades diarias (100%)', included: true });
     } else {
         features.push({ label: `${plan.predictions_percentage}% de oportunidades diarias`, included: true });
-    }
-
-    // Parlays
-    if (parlayPct > 0) {
-        features.push({ label: `${parlayPct >= 100 ? 'Todos' : `${parlayPct}%`} los parlays inteligentes`, included: true });
-    } else {
-        features.push({ label: 'Parlays inteligentes', included: false });
     }
 
     // Análisis
@@ -120,10 +113,14 @@ interface PricingCardProps {
     billingPeriod: 'monthly' | 'annual';
     onSelect: (plan: SubscriptionPlan) => void;
     isProcessing: boolean;
+    trm: TRMRate | null;
 }
 
-const PricingCard: React.FC<PricingCardProps> = ({ plan, isPopular, billingPeriod, onSelect, isProcessing }) => {
+const PricingCard: React.FC<PricingCardProps> = ({ plan, isPopular, billingPeriod, onSelect, isProcessing, trm }) => {
     const priceDisplay = getPlanPrice(plan.price_cents, plan.annual_price_cents, billingPeriod);
+    const monthlyEquivalentUsd = billingPeriod === 'annual' && plan.annual_price_cents > 0
+        ? plan.annual_price_cents / 12 / 100
+        : plan.price_cents / 100;
     const perceivedValue = PLAN_PERCEIVED_VALUES[plan.name];
     const bonuses = PLAN_BONUSES[plan.name] || [];
     const cta = PLAN_CTAS[plan.name] || 'Seleccionar Plan';
@@ -166,6 +163,14 @@ const PricingCard: React.FC<PricingCardProps> = ({ plan, isPopular, billingPerio
                             <span className="text-gray-500">/mes</span>
                         )}
                     </div>
+                    {plan.price_cents > 0 && (
+                        <CopPriceBadge
+                            usdAmount={monthlyEquivalentUsd}
+                            trm={trm}
+                            suffix="/mes"
+                            className="mt-1.5"
+                        />
+                    )}
                     {/* Savings badge */}
                     {savingsPercent && (
                         <div className="mt-1 inline-flex items-center px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/30 rounded text-emerald-400 text-xs font-bold">
@@ -275,6 +280,7 @@ export const PublicPricingPage: React.FC = () => {
     const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
     const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
     const [loading, setLoading] = useState(true);
+    const { trm } = useTRM();
 
     useEffect(() => {
         const loadPlans = async () => {
@@ -406,6 +412,7 @@ export const PublicPricingPage: React.FC = () => {
                         billingPeriod={billingPeriod}
                         onSelect={handleSelectPlan}
                         isProcessing={false}
+                        trm={trm}
                     />
                 ))}
             </div>
@@ -463,8 +470,9 @@ export const PublicPricingPage: React.FC = () => {
             {/* Footer note */}
             <div className="max-w-3xl mx-auto text-center">
                 <p className="text-gray-500 text-sm">
-                    Precios en USD. Puedes cancelar en cualquier momento.
-                    Todos los planes incluyen acceso al historial completo de resultados anteriores.
+                    Precios en USD. Equivalencia en COP referencial, calculada con la TRM oficial
+                    actualizada diariamente. Puedes cancelar en cualquier momento. Todos los planes
+                    incluyen acceso al historial completo de resultados anteriores.
                 </p>
             </div>
         </div>

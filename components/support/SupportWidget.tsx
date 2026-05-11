@@ -24,10 +24,6 @@ const FAQ_ITEMS = [
     a: 'Es la probabilidad estimada por nuestro modelo de IA de que el evento ocurra. Cuanto m\u00E1s alta, m\u00E1s confianza tiene el modelo.',
   },
   {
-    q: '\u00BFC\u00F3mo funcionan los Parlays?',
-    a: 'Son combinaciones de m\u00FAltiples picks generadas autom\u00E1ticamente por IA, organizadas por nivel de riesgo (conservador, moderado, agresivo).',
-  },
-  {
     q: '\u00BFC\u00F3mo cambio mi plan?',
     a: 'Ve a la secci\u00F3n "Planes" desde el sidebar. Puedes actualizar o gestionar tu suscripci\u00F3n en cualquier momento.',
   },

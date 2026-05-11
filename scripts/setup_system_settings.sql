@@ -34,9 +34,8 @@ CREATE POLICY "Allow insert for authenticated users" ON system_settings
 
 -- 4. Insertar Valores por Defecto (SOLO SI NO EXISTEN)
 INSERT INTO system_settings (key, value, description)
-VALUES 
+VALUES
     ('auto_analysis_enabled', 'true'::jsonb, 'Activa/Desactiva el análisis automático de partidos'),
-    ('auto_parlay_enabled', 'true'::jsonb, 'Activa/Desactiva la generación automática de parlays diarios'),
     ('auto_learning_enabled', 'false'::jsonb, 'Activa/Desactiva el auto-entrenamiento del modelo')
 ON CONFLICT (key) DO NOTHING;
 

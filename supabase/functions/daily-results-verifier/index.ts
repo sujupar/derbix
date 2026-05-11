@@ -213,15 +213,6 @@ serve(async (req) => {
             await new Promise(r => setTimeout(r, 100));
         }
 
-        // Parlays
-        const { data: parlays } = await supabase.from('daily_auto_parlays').select('*').eq('parlay_date', today).eq('status', 'pending');
-        if (parlays) {
-            for (const par of parlays) {
-                const parStatus = await evaluateParlay(supabase, par);
-                await supabase.from('daily_auto_parlays').update({ status: parStatus, updated_at: new Date().toISOString() }).eq('id', par.id);
-            }
-        }
-
         if (jobId) {
             await supabase.rpc('complete_automation_job', {
                 p_job_id: jobId,
@@ -345,17 +336,3 @@ function evaluatePrediction(prediction: any, match: any): boolean | null {
 }
 
 
-async function evaluateParlay(supabase: any, par: any): Promise<string> {
-    const legs = par.legs as any[]
-    let won = 0, lost = 0, pending = 0;
-    for (const leg of legs) {
-        const { data: pred } = await supabase.from('predictions').select('is_won').eq('match_date', par.parlay_date).ilike('home_team', `%${leg.match.split(' vs ')[0]}%`).maybeSingle();
-        if (!pred || pred.is_won === null) pending++;
-        else if (pred.is_won) won++;
-        else lost++;
-    }
-    if (lost > 0) return 'lost';
-    if (pending > 0) return 'pending';
-    if (won === legs.length) return 'won';
-    return 'partial';
-}

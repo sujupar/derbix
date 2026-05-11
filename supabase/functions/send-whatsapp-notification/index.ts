@@ -3,7 +3,7 @@
  * Envía notificaciones WhatsApp a usuarios vía WhatsApp Cloud API.
  *
  * Tipos de notificación:
- * - predictions_ready → Pronósticos del día listos (trigger: daily-parlay-generator)
+ * - predictions_ready → Pronósticos del día listos (trigger: daily-analysis-generator)
  * - daily_results     → Resultados del día verificados (trigger: hourly-results-verifier)
  * - test              → Mensaje de prueba a un número específico (admin)
  *
@@ -18,6 +18,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { corsHeaders } from '../_shared/cors.ts'
+import { requireAdminOrService, authErrorResponse } from '../_shared/auth-guard.ts'
 
 const BATCH_SIZE = 50;
 const BATCH_DELAY_MS = 1500;
@@ -175,12 +176,14 @@ function buildPredictionsReadyContent(
     }
 
     // Paid users get more detail
-    const parlaysCount = String(data.parlays_count || data.combos_count || '?');
     const topPick = data.top_pick || 'Consulta la plataforma';
 
     return {
         templateName: 'pronosticos_listos_paid',
-        params: [userName, picksCount, parlaysCount, topPick],
+        // NOTE: WhatsApp template still expects 4 params; pass empty string for the
+        // legacy parlay slot so the template accepts the payload until it can be
+        // updated in Meta Business to a 3-param version.
+        params: [userName, picksCount, '', topPick],
         urlPath: '/app?tab=top-picks',
         campaign: 'predictions_ready_paid'
     };
@@ -221,7 +224,7 @@ function buildDailyResultsContent(
 // ================================================================
 
 async function fetchPredictionsStats(supabase: any, date: string) {
-    const stats: any = { picks_count: 0, parlays_count: 0, top_pick: '' };
+    const stats: any = { picks_count: 0, top_pick: '' };
 
     // Count high-probability picks for today
     const { count: picksCount } = await supabase
@@ -231,14 +234,6 @@ async function fetchPredictionsStats(supabase: any, date: string) {
         .gte('p_model', 0.83);
 
     stats.picks_count = picksCount || 0;
-
-    // Count parlays
-    const { count: parlaysCount } = await supabase
-        .from('parlay_combos_v2')
-        .select('id', { count: 'exact', head: true })
-        .eq('match_date', date);
-
-    stats.parlays_count = parlaysCount || 0;
 
     // Get top pick (highest probability)
     const { data: topPick } = await supabase
@@ -309,6 +304,11 @@ serve(async (req) => {
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders });
     }
+
+    // SECURITY: This endpoint sends WhatsApp messages to real users (cost
+    // money + reputation). Restrict to admins or internal cron callers.
+    const auth = await requireAdminOrService(req);
+    if (!auth.ok) return authErrorResponse(auth as any, corsHeaders);
 
     const logs: string[] = [];
     const log = (msg: string) => { console.log(msg); logs.push(msg); };
@@ -402,7 +402,7 @@ serve(async (req) => {
 
         if (notification_type === 'predictions_ready') {
             stats = await fetchPredictionsStats(supabase, targetDate);
-            log(`${PREFIX} Stats: ${stats.picks_count} picks, ${stats.parlays_count} parlays`);
+            log(`${PREFIX} Stats: ${stats.picks_count} picks`);
         } else {
             stats = await fetchResultsStats(supabase, targetDate);
             log(`${PREFIX} Stats: ${stats.won}W/${stats.lost}L, accuracy=${stats.accuracy}%`);

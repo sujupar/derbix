@@ -32,7 +32,7 @@ function getDateNDaysAgo(n: number): string {
 
 async function fetchPeriodStats(startDate: string, endDate: string): Promise<RecapPeriodStats> {
     try {
-        const data = await getPublicResults(startDate, endDate, 'all');
+        const data = await getPublicResults(startDate, endDate);
         return {
             winRate: data.winRate,
             roi: data.bankroll?.periodROI || 0,
@@ -50,7 +50,7 @@ export async function fetchDailyRecapData(tier: RecapTier): Promise<DailyRecapDa
     const today = getCurrentDateInBogota();
 
     // Core data — all tiers
-    const publicResults = await getPublicResults(yesterday, yesterday, 'all');
+    const publicResults = await getPublicResults(yesterday, yesterday);
 
     const totalVerified = publicResults.totalVerified;
     const totalPending = publicResults.totalPending;
@@ -136,14 +136,6 @@ export async function fetchDailyRecapData(tier: RecapTier): Promise<DailyRecapDa
             profit_loss: p.profit_loss,
             league: p.league,
         })),
-        parlays: publicResults.parlays ? {
-            won: publicResults.parlays.won,
-            lost: publicResults.parlays.lost,
-            totalVerified: publicResults.parlays.totalVerified,
-            bestOdds: publicResults.parlays.recentResults
-                .filter(p => p.status === 'WON')
-                .reduce((max, p) => Math.max(max, p.combined_odds || 0), 0) || undefined,
-        } : undefined,
     };
 
     // Bad day: fetch multi-period stats for business perspective
