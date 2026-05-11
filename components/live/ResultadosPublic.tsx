@@ -82,7 +82,9 @@ const ResultadosPublic: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigge
     const [selectedPeriod, setSelectedPeriod] = useState<PeriodKey>('7d');
 
     const { plan, isAdmin } = useSubscription();
-    const planName = plan.plan_name as PlanTier;
+    // SubscriptionContext puede emitir plan.plan_name vacío en el primer render.
+    // Fallback a 'free' para que filterPicksByPlan no reciba undefined.
+    const planName = (plan.plan_name as PlanTier) || 'free';
     const isPremium = planName === 'premium';
 
     // Admin: selector entre Global + 4 planes. Default: global.

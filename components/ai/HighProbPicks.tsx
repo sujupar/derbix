@@ -151,6 +151,9 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
             // SLOW PATH: Generate via edge function (first time or force refresh)
             console.log(`[HighProbPicks] Requesting picks for date: ${date} (Force: ${forceRegenerate})`);
 
+            // v2-generate-parlays también marca is_opportunity=true en value_picks_v2
+            // (Step 5.5) — es el motor que produce las Oportunidades visibles. NO eliminar
+            // esta función edge aunque los parleys ya no existan en la plataforma.
             const { data, error: fnError } = await supabase.functions.invoke('v2-generate-parlays', {
                 body: { date, force_regenerate: forceRegenerate }
             });
