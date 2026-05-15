@@ -41,3 +41,9 @@ supabase/.temp/
 
 # Local-only Claude settings (may contain dev secrets in permission rules)
 .claude/settings.local.json
+
+# Creative assets (subidos a Meta API, no deben pesar en el repo)
+marketing/meta-ads/creatives/*.mp4
+marketing/meta-ads/creatives/*.mov
+marketing/meta-ads/creatives/*.jpg
+marketing/meta-ads/creatives/*.png

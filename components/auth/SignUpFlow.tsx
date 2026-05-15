@@ -373,89 +373,231 @@ export const SignUpFlow: React.FC = () => {
                             </div>
                         </div>
                     ) : step === 1 ? (
-                        /* STEP 1: Pain hero + form (cold-traffic optimized) */
+                        /* STEP 1: High-conversion long-form landing */
                         <div className="grid lg:grid-cols-5 gap-6 lg:gap-10 items-start">
-                            {/* LEFT: Marketing content */}
-                            <div className="lg:col-span-3 space-y-6">
-                                <div>
-                                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/30 mb-4">
-                                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                                        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-red-400">Para apostadores de fútbol</span>
+                            {/* LEFT: Long-form landing content */}
+                            <div className="lg:col-span-3 space-y-12">
+
+                                {/* ====================================================== */}
+                                {/* SECTION 1 — HOT ZONE (hero) */}
+                                {/* ====================================================== */}
+                                <section>
+                                    {/* Urgency strip — connects with ad copy */}
+                                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand/10 border border-brand/30 mb-5">
+                                        <span className="w-2 h-2 rounded-full bg-brand animate-pulse"></span>
+                                        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-brand">⚡ Pronósticos del día listos · IA · Colombia 🇨🇴</span>
                                     </div>
-                                    <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-4 leading-[1.1]">
-                                        Deja de perder dinero con <span className="text-red-400">tipsters que adivinan</span>.
+
+                                    {/* Titular */}
+                                    <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-3 leading-[1.05]">
+                                        El análisis <span className="text-brand">ya está hecho</span>.<br className="hidden sm:block" /> Tú solo aplica.
                                     </h1>
-                                    <p className="text-base sm:text-lg text-slate-300 leading-relaxed">
-                                        Derbix usa IA para analizar cada partido del día con probabilidad calibrada y resultados <strong className="text-white">verificables hora a hora</strong>. Cero promesas vacías. Datos públicos.
+
+                                    {/* Subtitular */}
+                                    <p className="text-base sm:text-lg text-slate-300 leading-relaxed mb-5">
+                                        Cada día Derbix analiza con IA <strong className="text-white">+3.000 datos por partido</strong> y te entrega los pronósticos con mejor probabilidad. Sin tipsters. Sin humo. Solo datos en tu mano.
                                     </p>
-                                </div>
 
-                                {/* Real stats from MEMORY: 65.1% WR, +29% ROI, 83%+ prob */}
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                                    <div className="bg-slate-800/50 border border-brand/20 rounded-xl p-3 sm:p-4 text-center">
-                                        <div className="text-2xl sm:text-3xl font-black text-brand">65%</div>
-                                        <div className="text-[10px] sm:text-xs text-slate-400 mt-1 leading-tight">Acierto verificado</div>
+                                    {/* TODO: Hero video slot — reemplazar este div con <video> cuando esté renderizado */}
+                                    <div className="relative aspect-video bg-gradient-to-br from-slate-800 via-slate-900 to-brand/10 rounded-2xl border border-white/10 overflow-hidden mb-5 group cursor-pointer">
+                                        {/* Placeholder visual hasta que tengamos el video Remotion */}
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <div className="w-16 h-16 rounded-full bg-brand/20 border-2 border-brand flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                                <svg className="w-7 h-7 text-brand ml-1" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M8 5v14l11-7z" />
+                                                </svg>
+                                            </div>
+                                            <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Cómo funciona Derbix · 30s</span>
+                                        </div>
+                                        {/* Faux dashboard preview decoration */}
+                                        <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-slate-950/80 to-transparent" />
                                     </div>
-                                    <div className="bg-slate-800/50 border border-brand/20 rounded-xl p-3 sm:p-4 text-center">
-                                        <div className="text-2xl sm:text-3xl font-black text-brand">+29%</div>
-                                        <div className="text-[10px] sm:text-xs text-slate-400 mt-1 leading-tight">ROI banda óptima</div>
-                                    </div>
-                                    <div className="bg-slate-800/50 border border-brand/20 rounded-xl p-3 sm:p-4 text-center">
-                                        <div className="text-2xl sm:text-3xl font-black text-brand">83%+</div>
-                                        <div className="text-[10px] sm:text-xs text-slate-400 mt-1 leading-tight">Probabilidad mín.</div>
-                                    </div>
-                                    <div className="bg-slate-800/50 border border-brand/20 rounded-xl p-3 sm:p-4 text-center">
-                                        <div className="text-2xl sm:text-3xl font-black text-brand">100%</div>
-                                        <div className="text-[10px] sm:text-xs text-slate-400 mt-1 leading-tight">Verificable</div>
-                                    </div>
-                                </div>
 
-                                {/* Tipster vs Derbix comparison */}
-                                <div>
-                                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Por qué Derbix ≠ tipsters</h3>
-                                    <div className="space-y-2">
+                                    {/* Beneficios cortos (chips) */}
+                                    <div className="flex flex-wrap gap-2 mb-5">
+                                        {['IA + estadísticas', 'Datos en tiempo real', 'Plan gratis', 'Sin tarjeta'].map((b, i) => (
+                                            <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/60 border border-white/10 text-xs text-slate-200">
+                                                <svg className="w-3 h-3 text-brand" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                                </svg>
+                                                {b}
+                                            </span>
+                                        ))}
+                                    </div>
+
+                                    {/* CTA primario — scroll to form on mobile */}
+                                    <a href="#signup-form" className="lg:hidden inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-brand to-emerald-400 text-slate-900 font-black rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all">
+                                        Crear cuenta gratis
+                                        <ArrowRightIcon className="w-5 h-5" />
+                                    </a>
+                                    <p className="hidden lg:block text-sm text-slate-400">
+                                        👉 Tu cuenta gratis está al lado derecho. 30 segundos y listo.
+                                    </p>
+                                </section>
+
+                                {/* ====================================================== */}
+                                {/* SECTION 2 — 3 BENEFITS */}
+                                {/* ====================================================== */}
+                                <section>
+                                    <div className="text-center mb-6">
+                                        <h2 className="text-2xl sm:text-3xl font-black text-white mb-2">Lo que hace Derbix distinto</h2>
+                                        <p className="text-sm text-slate-400">Tres razones por las que +1.000 fanáticos del fútbol ya lo usan</p>
+                                    </div>
+                                    <div className="grid sm:grid-cols-3 gap-3">
                                         {[
-                                            ['"Confía en mí, va a ganar"', 'Probabilidad calibrada con sample size'],
-                                            ['Borra los picks que pierden', 'Resultados públicos verificados hora a hora'],
-                                            ['$200K/mes por sus tips', 'Plan gratis sin tarjeta'],
-                                        ].map(([bad, good], i) => (
-                                            <div key={i} className="grid grid-cols-2 gap-2 sm:gap-3">
-                                                <div className="bg-red-500/5 border border-red-500/20 rounded-lg px-3 py-2.5 flex items-start gap-2">
-                                                    <span className="text-red-400 text-base leading-none mt-0.5">✗</span>
-                                                    <span className="text-xs sm:text-sm text-slate-300">{bad}</span>
-                                                </div>
-                                                <div className="bg-brand/5 border border-brand/20 rounded-lg px-3 py-2.5 flex items-start gap-2">
-                                                    <span className="text-brand text-base leading-none mt-0.5">✓</span>
-                                                    <span className="text-xs sm:text-sm text-slate-300">{good}</span>
-                                                </div>
+                                            {
+                                                icon: '🧠',
+                                                title: 'IA real, no marketing',
+                                                desc: 'Algoritmo que procesa +3.000 datos por partido: forma, xG, momentum, lesiones, clima.',
+                                            },
+                                            {
+                                                icon: '📊',
+                                                title: 'Historial 100% público',
+                                                desc: 'Cada pronóstico queda registrado. Aciertos y fallas. Sin borrar lo que pierde.',
+                                            },
+                                            {
+                                                icon: '🆓',
+                                                title: 'Plan gratis sin tarjeta',
+                                                desc: 'Empieza sin pagar. Sin trial de 7 días. Sin domiciliación. Cancela cuando quieras.',
+                                            },
+                                        ].map((b, i) => (
+                                            <div key={i} className="bg-slate-800/50 border border-white/10 rounded-2xl p-5 hover:border-brand/30 transition-colors">
+                                                <div className="text-3xl mb-3">{b.icon}</div>
+                                                <h3 className="text-sm font-bold text-white mb-2">{b.title}</h3>
+                                                <p className="text-xs text-slate-400 leading-relaxed">{b.desc}</p>
                                             </div>
                                         ))}
                                     </div>
-                                </div>
+                                </section>
 
-                                {/* What you get */}
-                                <div className="bg-gradient-to-br from-brand/10 to-emerald-500/5 border border-brand/30 rounded-2xl p-5">
-                                    <div className="text-sm font-bold text-white mb-3">⚡ Lo que recibes hoy mismo:</div>
-                                    <ul className="space-y-2 text-xs sm:text-sm text-slate-200">
+                                {/* ====================================================== */}
+                                {/* SECTION 3 — STORYTELLING */}
+                                {/* ====================================================== */}
+                                <section className="bg-gradient-to-br from-slate-800/40 to-slate-900/40 border border-white/10 rounded-3xl p-6 sm:p-8">
+                                    <div className="text-center mb-6">
+                                        <span className="inline-block px-3 py-1 rounded-full bg-brand/10 border border-brand/30 text-[10px] font-bold uppercase tracking-wider text-brand mb-3">Historia real</span>
+                                        <h2 className="text-2xl sm:text-3xl font-black text-white">Antes del análisis vs. después</h2>
+                                    </div>
+                                    <div className="grid sm:grid-cols-2 gap-4">
+                                        {/* Antes */}
+                                        <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-5">
+                                            <div className="text-xs font-bold uppercase tracking-wider text-red-400 mb-3">❌ Antes de Derbix</div>
+                                            <ul className="space-y-2.5 text-sm text-slate-300">
+                                                <li className="flex items-start gap-2">
+                                                    <span className="text-red-400 mt-0.5">·</span>
+                                                    <span>Veía un partido y apostaba a corazonada</span>
+                                                </li>
+                                                <li className="flex items-start gap-2">
+                                                    <span className="text-red-400 mt-0.5">·</span>
+                                                    <span>Pagaba a tipsters de Instagram que prometían el oro</span>
+                                                </li>
+                                                <li className="flex items-start gap-2">
+                                                    <span className="text-red-400 mt-0.5">·</span>
+                                                    <span>Cuando perdían, borraban el pick y desaparecían</span>
+                                                </li>
+                                                <li className="flex items-start gap-2">
+                                                    <span className="text-red-400 mt-0.5">·</span>
+                                                    <span>Sin manera de validar si tenían razón</span>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                        {/* Después */}
+                                        <div className="bg-brand/5 border border-brand/30 rounded-2xl p-5">
+                                            <div className="text-xs font-bold uppercase tracking-wider text-brand mb-3">✅ Con Derbix</div>
+                                            <ul className="space-y-2.5 text-sm text-slate-200">
+                                                <li className="flex items-start gap-2">
+                                                    <span className="text-brand mt-0.5">·</span>
+                                                    <span>Reviso datos antes de cualquier movimiento</span>
+                                                </li>
+                                                <li className="flex items-start gap-2">
+                                                    <span className="text-brand mt-0.5">·</span>
+                                                    <span>El algoritmo me muestra solo lo más prometedor</span>
+                                                </li>
+                                                <li className="flex items-start gap-2">
+                                                    <span className="text-brand mt-0.5">·</span>
+                                                    <span>Historial público: aciertos y fallas, todo visible</span>
+                                                </li>
+                                                <li className="flex items-start gap-2">
+                                                    <span className="text-brand mt-0.5">·</span>
+                                                    <span>Plan gratis. Decido yo con cabeza, no corazón</span>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                {/* ====================================================== */}
+                                {/* SECTION 4 — CTA MID */}
+                                {/* ====================================================== */}
+                                <section className="text-center">
+                                    <h3 className="text-xl sm:text-2xl font-black text-white mb-3">¿Sigues apostando a corazonada?</h3>
+                                    <p className="text-sm text-slate-400 mb-5">Únete y deja que la IA haga el análisis por ti.</p>
+                                    <a href="#signup-form" className="inline-flex items-center gap-2 px-7 py-3.5 bg-gradient-to-r from-brand to-emerald-400 text-slate-900 font-black rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all">
+                                        Empezar gratis ahora
+                                        <ArrowRightIcon className="w-5 h-5" />
+                                    </a>
+                                </section>
+
+                                {/* ====================================================== */}
+                                {/* SECTION 5 — KEY BENEFITS */}
+                                {/* ====================================================== */}
+                                <section>
+                                    <div className="mb-5">
+                                        <span className="inline-block px-3 py-1 rounded-full bg-brand/10 border border-brand/30 text-[10px] font-bold uppercase tracking-wider text-brand mb-3">Lo más importante</span>
+                                        <h2 className="text-2xl sm:text-3xl font-black text-white mb-2">Por qué importa</h2>
+                                        <p className="text-sm text-slate-400">Datos verificables. Sin promesas vacías.</p>
+                                    </div>
+                                    <div className="grid sm:grid-cols-2 gap-3">
                                         {[
-                                            'Pronósticos del día con probabilidad ≥ 83%',
-                                            'Análisis IA con xG, momentum y forma reciente',
-                                            'Resultados verificables con histórico transparente',
-                                            'Sin tarjeta de crédito. Plan gratis disponible.',
-                                        ].map((item, i) => (
-                                            <li key={i} className="flex items-start gap-2">
-                                                <svg className="w-4 h-4 text-brand mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                                </svg>
-                                                {item}
-                                            </li>
+                                            {
+                                                num: '+3.000',
+                                                label: 'Datos por partido',
+                                                desc: 'Estadísticas, forma reciente, xG, momentum, lesiones, clima, head-to-head.',
+                                            },
+                                            {
+                                                num: '65%',
+                                                label: 'Acierto verificado',
+                                                desc: 'Win rate medido en pronósticos con probabilidad ≥ 83%, registrado públicamente.',
+                                            },
+                                            {
+                                                num: '83%+',
+                                                label: 'Probabilidad mín.',
+                                                desc: 'Filtro estricto: solo recibes lo que el modelo evalúa como alta probabilidad.',
+                                            },
+                                            {
+                                                num: '100%',
+                                                label: 'Histórico público',
+                                                desc: 'Cada pronóstico verificado en tiempo real. Cero borrado de picks perdedores.',
+                                            },
+                                        ].map((b, i) => (
+                                            <div key={i} className="bg-slate-800/50 border border-brand/20 rounded-2xl p-5">
+                                                <div className="text-3xl font-black text-brand mb-1">{b.num}</div>
+                                                <div className="text-sm font-bold text-white mb-2">{b.label}</div>
+                                                <p className="text-xs text-slate-400 leading-relaxed">{b.desc}</p>
+                                            </div>
                                         ))}
-                                    </ul>
-                                </div>
+                                    </div>
+                                </section>
+
+                                {/* ====================================================== */}
+                                {/* SECTION 6 — FINAL CTA */}
+                                {/* ====================================================== */}
+                                <section className="text-center bg-gradient-to-br from-brand/10 via-slate-900 to-slate-900 border border-brand/30 rounded-3xl p-6 sm:p-10">
+                                    <div className="text-4xl mb-3">⚡</div>
+                                    <h3 className="text-2xl sm:text-3xl font-black text-white mb-3">Los pronósticos de hoy ya están listos</h3>
+                                    <p className="text-base text-slate-300 mb-6 max-w-md mx-auto">
+                                        No esperes mañana. Únete gratis ahora y revisa el análisis de los partidos del día.
+                                    </p>
+                                    <a href="#signup-form" className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-brand to-emerald-400 text-slate-900 font-black rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all text-base">
+                                        Crear cuenta gratis
+                                        <ArrowRightIcon className="w-5 h-5" />
+                                    </a>
+                                    <p className="text-[11px] text-slate-500 mt-4">30 segundos · sin tarjeta · cancela cuando quieras</p>
+                                </section>
                             </div>
 
                             {/* RIGHT: Form */}
-                            <div className="lg:col-span-2 lg:sticky lg:top-8">
+                            <div id="signup-form" className="lg:col-span-2 lg:sticky lg:top-8 scroll-mt-8">
                                 <div className="bg-slate-800/50 backdrop-blur border border-white/10 rounded-2xl p-5 sm:p-6">
                                     <div className="text-center mb-5">
                                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand/10 border border-brand/30 mb-3">
