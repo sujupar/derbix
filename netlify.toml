@@ -41,9 +41,8 @@
     # HTTPS-only — 6 months. Add `; preload` once you're ready to be on the HSTS preload list.
     Strict-Transport-Security = "max-age=15552000; includeSubDomains"
 
-    # Clickjacking
+    # Clickjacking — frame-ancestors is also set in the CSP below
     X-Frame-Options = "DENY"
-    Content-Security-Policy-Report-Only = "frame-ancestors 'none'"
 
     # MIME sniffing
     X-Content-Type-Options = "nosniff"
