@@ -398,21 +398,6 @@ export const SignUpFlow: React.FC = () => {
                                         Cada día Derbix analiza con IA <strong className="text-white">+3.000 datos por partido</strong> y te entrega los pronósticos con mejor probabilidad. Sin tipsters. Sin humo. Solo datos en tu mano.
                                     </p>
 
-                                    {/* TODO: Hero video slot — reemplazar este div con <video> cuando esté renderizado */}
-                                    <div className="relative aspect-video bg-gradient-to-br from-slate-800 via-slate-900 to-brand/10 rounded-2xl border border-white/10 overflow-hidden mb-5 group cursor-pointer">
-                                        {/* Placeholder visual hasta que tengamos el video Remotion */}
-                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                            <div className="w-16 h-16 rounded-full bg-brand/20 border-2 border-brand flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                                <svg className="w-7 h-7 text-brand ml-1" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M8 5v14l11-7z" />
-                                                </svg>
-                                            </div>
-                                            <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Cómo funciona Derbix · 30s</span>
-                                        </div>
-                                        {/* Faux dashboard preview decoration */}
-                                        <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-slate-950/80 to-transparent" />
-                                    </div>
-
                                     {/* Beneficios cortos (chips) */}
                                     <div className="flex flex-wrap gap-2 mb-5">
                                         {['IA + estadísticas', 'Datos en tiempo real', 'Plan gratis', 'Sin tarjeta'].map((b, i) => (
