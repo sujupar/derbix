@@ -187,6 +187,10 @@ export const SignUpFlow: React.FC = () => {
                         event_name: 'CompleteRegistration',
                         email: signUpData.email,
                         event_id: eventID,
+                        // user_id lets the edge function verify this is a
+                        // freshly-created auth.users row when there's no
+                        // session yet (email confirmation still pending).
+                        user_id: userId,
                         source_url: typeof window !== 'undefined' ? window.location.href : undefined,
                         user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
                         fbp: readCookie('_fbp'),
