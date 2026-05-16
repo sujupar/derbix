@@ -39,8 +39,15 @@ async function verifyFreshSignup(userId: string, email: string): Promise<{ ok: t
     if (!sbUrl || !sbServiceKey) return { ok: false, reason: 'Server misconfiguration' };
 
     const admin = createClient(sbUrl, sbServiceKey);
-    const { data, error } = await admin.auth.admin.getUserById(userId);
-    if (error || !data?.user) return { ok: false, reason: 'User not found' };
+    let data;
+    try {
+        const result = await admin.auth.admin.getUserById(userId);
+        if (result.error || !result.data?.user) return { ok: false, reason: 'User not found' };
+        data = result.data;
+    } catch (e) {
+        // Malformed UUID or transient API error — treat as not found.
+        return { ok: false, reason: 'User not found' };
+    }
 
     const u = data.user;
     if (!u.email || u.email.toLowerCase() !== email.toLowerCase()) {

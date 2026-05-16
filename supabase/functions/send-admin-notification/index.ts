@@ -13,7 +13,40 @@
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { requireServiceCaller, requireAuthenticatedUser, authErrorResponse } from "../_shared/auth-guard.ts"
+
+// Match the window used in meta-conversions-api: a freshly-created auth user
+// (< 5 min old) can trigger their own new_registration notification without
+// a session JWT, since email confirmation hasn't happened yet at signup time.
+const SIGNUP_TRACK_WINDOW_MS = 5 * 60 * 1000;
+
+async function verifyFreshSignup(userId: string, email: string): Promise<{ ok: true } | { ok: false; reason: string }> {
+    const sbUrl = Deno.env.get('SUPABASE_URL');
+    const sbServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!sbUrl || !sbServiceKey) return { ok: false, reason: 'Server misconfiguration' };
+
+    const admin = createClient(sbUrl, sbServiceKey);
+    let data;
+    try {
+        const result = await admin.auth.admin.getUserById(userId);
+        if (result.error || !result.data?.user) return { ok: false, reason: 'User not found' };
+        data = result.data;
+    } catch (e) {
+        // Malformed UUID or transient API error — treat as not found.
+        return { ok: false, reason: 'User not found' };
+    }
+
+    const u = data.user;
+    if (!u.email || u.email.toLowerCase() !== email.toLowerCase()) {
+        return { ok: false, reason: 'Email mismatch' };
+    }
+    const created = u.created_at ? Date.parse(u.created_at) : 0;
+    if (!created || Date.now() - created > SIGNUP_TRACK_WINDOW_MS) {
+        return { ok: false, reason: 'User not fresh' };
+    }
+    return { ok: true };
+}
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -220,14 +253,25 @@ serve(async (req) => {
         return new Response('ok', { headers: corsHeaders });
     }
 
-    // SECURITY: callable by (a) other edge functions / cron via the shared
-    // INTERNAL_FUNCTION_SECRET (webhook → admin email), or (b) any
-    // authenticated user — the frontend signup flow uses this path. We
-    // reject anonymous callers to prevent unauthenticated email spam.
+    // SECURITY: three ways in:
+    //   1. INTERNAL_FUNCTION_SECRET header → other edge functions and cron
+    //      (whop-webhook / ls-webhook use this for `new_subscription`).
+    //   2. Authenticated user JWT → existing signed-in users.
+    //   3. Anonymous + body carries `data.user_id` of a JUST-CREATED user
+    //      (created < 5 min ago) whose email matches `data.email`. Only
+    //      valid for `type === 'new_registration'` because that's the
+    //      only event a not-yet-confirmed user can legitimately trigger.
+    //
+    // Anything else is rejected to prevent unauthenticated email spam.
+    let isFreshSignupCall = false;
     const internalAuth = requireServiceCaller(req);
     if (!internalAuth.ok) {
         const userAuth = await requireAuthenticatedUser(req);
-        if (!userAuth.ok) return authErrorResponse(userAuth, corsHeaders);
+        if (!userAuth.ok) {
+            // Defer rejection until we read the body so we can attempt the
+            // fresh-signup verification path.
+            isFreshSignupCall = true;
+        }
     }
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
@@ -246,6 +290,30 @@ serve(async (req) => {
         const { type, data } = body;
 
         console.log(`[send-admin-notification] Event: ${type}`);
+
+        // Mode 3 (anonymous + fresh signup): only allowed for new_registration.
+        // Require user_id + email in `data`, verify auth.users server-side.
+        if (isFreshSignupCall) {
+            if (type !== 'new_registration') {
+                return new Response(JSON.stringify({ success: false, error: 'Anonymous calls only allowed for new_registration' }), {
+                    status: 401, headers: corsHeaders
+                });
+            }
+            const userId = data?.user_id;
+            const emailAddr = data?.email;
+            if (!userId || !emailAddr) {
+                return new Response(JSON.stringify({ success: false, error: 'user_id and email required for unauthenticated calls' }), {
+                    status: 401, headers: corsHeaders
+                });
+            }
+            const check = await verifyFreshSignup(userId, emailAddr);
+            if (!check.ok) {
+                console.warn(`[send-admin-notification] fresh-signup verification failed for user_id=${userId}: ${check.reason}`);
+                return new Response(JSON.stringify({ success: false, error: check.reason }), {
+                    status: 401, headers: corsHeaders
+                });
+            }
+        }
 
         let email: { subject: string; html: string };
 

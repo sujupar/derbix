@@ -235,6 +235,10 @@ export const SignUpFlow: React.FC = () => {
                 body: {
                     type: 'new_registration',
                     data: {
+                        // user_id lets the edge function verify the call
+                        // when the session JWT isn't available yet
+                        // (email confirmation still pending).
+                        user_id: userId,
                         name: signUpData.fullName,
                         email: signUpData.email,
                         created_at: new Date().toISOString(),
