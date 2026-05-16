@@ -103,6 +103,20 @@ export interface UserProfile {
     is_org_owner?: boolean;
     phone_number?: string;
     phone_country_code?: string;
+    telegram_username?: string;
+    utm_source?: string | null;
+    utm_medium?: string | null;
+    utm_campaign?: string | null;
+    utm_ref?: string | null;
+    updated_at?: string;
+}
+
+/** Item para la lista admin con datos extra (plan activo). */
+export interface AdminUserListItem extends UserProfile {
+    /** Display name del plan activo (free / starter / pro / premium). */
+    active_plan?: string | null;
+    /** Status de la suscripción asociada al plan activo. */
+    subscription_status?: SubscriptionStatus | null;
 }
 
 export type JobStatus = 'queued' | 'ingesting' | 'data_ready' | 'analyzing' | 'done' | 'insufficient_data' | 'failed';

@@ -7,6 +7,34 @@ import { openCheckoutOverlay, getVariantId } from '../../services/lemonSqueezySe
 import { SubscriptionPlan } from '../../services/subscriptionService';
 import { trackSignupWithAttribution } from '../../services/analyticsService';
 
+/**
+ * Poll the profiles table for `userId` until the row exists or the timeout
+ * expires. The handle_new_user() trigger inserts the profile during the same
+ * transaction as auth.signUp(), but client-side it's not guaranteed to be
+ * visible immediately — so we wait briefly before firing analytics. Returns
+ * true if the row appeared, false if the timeout elapsed.
+ */
+async function waitForProfile(userId: string, timeoutMs: number): Promise<boolean> {
+    const intervalMs = 400;
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', userId)
+            .maybeSingle();
+        if (data?.id) return true;
+        if (error && error.code !== 'PGRST116') {
+            // PGRST116 = no rows; anything else is a real error and we should
+            // bail out early so the caller can decide.
+            console.error('[waitForProfile] query error:', error);
+            return false;
+        }
+        await new Promise(r => setTimeout(r, intervalMs));
+    }
+    return false;
+}
+
 interface SignUpData {
     fullName: string;
     email: string;
@@ -106,10 +134,25 @@ export const SignUpFlow: React.FC = () => {
             if (authError) throw authError;
             if (!authData.user) throw new Error('No se pudo crear el usuario');
 
-            // Track successful signup with UTM attribution
-            trackSignupWithAttribution({ utmSource, utmMedium, utmCampaign, utmRef });
+            const userId = authData.user.id;
 
-            // Save UTM attribution to profile (fire-and-forget)
+            // Wait for handle_new_user() trigger to insert the profile before
+            // firing analytics. If we fire the pixel before the row exists and
+            // the trigger fails (RLS, FK, etc.), Meta reports a registration
+            // that has no real user in `profiles` — the "ghost registrations"
+            // we saw on 2026-05-15 (Meta said 6, platform had 2). Polling up
+            // to 5s is fast in practice (trigger usually fires in <500ms).
+            const profileExists = await waitForProfile(userId, 5000);
+
+            if (profileExists) {
+                trackSignupWithAttribution({ utmSource, utmMedium, utmCampaign, utmRef });
+            } else {
+                console.warn('[signup] profile row not visible after 5s — Pixel NOT fired to avoid ghost registration. User:', userId);
+            }
+
+            // Save UTM attribution to profile (fire-and-forget). Surface
+            // failures in the console — silencing made the email bug
+            // invisible for days.
             if (utmSource || utmMedium || utmCampaign || utmRef) {
                 supabase
                     .from('profiles')
@@ -119,22 +162,34 @@ export const SignUpFlow: React.FC = () => {
                         utm_campaign: utmCampaign || null,
                         utm_ref: utmRef || null,
                     })
-                    .eq('id', authData.user.id)
-                    .then(() => {})
-                    .catch(() => {});
+                    .eq('id', userId)
+                    .then(({ error: utmErr }) => {
+                        if (utmErr) console.error('[signup] UTM update failed:', utmErr);
+                    });
             }
 
-            // Notificar admin del nuevo registro (fire-and-forget, no bloquea el flujo)
+            // Notificar admin del nuevo registro. Fire-and-forget pero con
+            // logging visible: si los secrets RESEND_API_KEY o
+            // ADMIN_NOTIFICATION_EMAILS faltan, el `success` viene false y
+            // queremos enterarnos en la consola.
             supabase.functions.invoke('send-admin-notification', {
                 body: {
                     type: 'new_registration',
                     data: {
                         name: signUpData.fullName,
                         email: signUpData.email,
-                        created_at: new Date().toISOString()
-                    }
+                        created_at: new Date().toISOString(),
+                    },
+                },
+            }).then(({ data: notifData, error: notifErr }) => {
+                if (notifErr) {
+                    console.error('[signup] admin notification failed:', notifErr);
+                } else if (notifData && notifData.success === false) {
+                    console.error('[signup] admin notification returned success:false →', notifData);
+                } else {
+                    console.log('[signup] admin notification sent:', notifData);
                 }
-            }).catch(() => {}); // Silencioso — el registro no depende de esto
+            });
 
             // Guardar teléfono WhatsApp si fue proporcionado (fire-and-forget)
             if (signUpData.phoneNumber) {
@@ -143,11 +198,12 @@ export const SignUpFlow: React.FC = () => {
                     .from('profiles')
                     .update({
                         phone_number: fullPhone,
-                        phone_country_code: signUpData.phoneCountryCode
+                        phone_country_code: signUpData.phoneCountryCode,
                     })
-                    .eq('id', authData.user.id)
-                    .then(() => {})
-                    .catch(() => {});
+                    .eq('id', userId)
+                    .then(({ error: phoneErr }) => {
+                        if (phoneErr) console.error('[signup] phone update failed:', phoneErr);
+                    });
             }
 
             // Guardar telegram username si fue proporcionado (fire-and-forget)
@@ -157,13 +213,14 @@ export const SignUpFlow: React.FC = () => {
                 supabase
                     .from('profiles')
                     .update({ telegram_username: tgNormalized })
-                    .eq('id', authData.user.id)
-                    .then(() => {})
-                    .catch(() => {});
+                    .eq('id', userId)
+                    .then(({ error: tgErr }) => {
+                        if (tgErr) console.error('[signup] telegram update failed:', tgErr);
+                    });
             }
 
             // Guardar userId para posible checkout posterior
-            signUpResultRef.current = { userId: authData.user.id };
+            signUpResultRef.current = { userId };
 
             // La suscripción free se crea automáticamente por el trigger handle_new_user()
             // Para planes de pago, el usuario irá al checkout después de confirmar email
