@@ -35,6 +35,16 @@ async function waitForProfile(userId: string, timeoutMs: number): Promise<boolea
     return false;
 }
 
+/**
+ * Read a cookie value by name. Used to grab Meta's `_fbp` (browser pixel id)
+ * and `_fbc` (click id) for CAPI matching/dedup.
+ */
+function readCookie(name: string): string | undefined {
+    if (typeof document === 'undefined') return undefined;
+    const match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[.$?*|{}()[\]\\/+^]/g, '\\$&') + '=([^;]*)'));
+    return match ? decodeURIComponent(match[1]) : undefined;
+}
+
 interface SignUpData {
     fullName: string;
     email: string;
@@ -145,7 +155,41 @@ export const SignUpFlow: React.FC = () => {
             const profileExists = await waitForProfile(userId, 5000);
 
             if (profileExists) {
-                trackSignupWithAttribution({ utmSource, utmMedium, utmCampaign, utmRef });
+                // Generate a single event id that BOTH the browser pixel and
+                // the server CAPI use. Meta keeps the first event it sees and
+                // discards the duplicate, giving us strict 1:1 registrations.
+                // The GTM tag for `signup_free` MUST forward `eventID` into
+                // fbq('track', 'CompleteRegistration', {}, { eventID }) —
+                // without that, the dedup chain breaks.
+                const eventID = (typeof crypto !== 'undefined' && crypto.randomUUID)
+                    ? crypto.randomUUID()
+                    : `signup_${userId}_${Date.now()}`;
+
+                trackSignupWithAttribution({ utmSource, utmMedium, utmCampaign, utmRef, eventID });
+
+                // Fire the server-side Conversions API in parallel. Using the
+                // same eventID lets Meta dedupe with whatever the browser
+                // pixel sends. fbp / fbc come from cookies — Meta sets them
+                // automatically when the user lands with ?fbclid=...
+                supabase.functions.invoke('meta-conversions-api', {
+                    body: {
+                        event_name: 'CompleteRegistration',
+                        email: signUpData.email,
+                        event_id: eventID,
+                        source_url: typeof window !== 'undefined' ? window.location.href : undefined,
+                        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+                        fbp: readCookie('_fbp'),
+                        fbc: readCookie('_fbc'),
+                    },
+                }).then(({ data: capiData, error: capiErr }) => {
+                    if (capiErr) {
+                        console.error('[signup] CAPI invoke failed:', capiErr);
+                    } else if (capiData && capiData.success === false) {
+                        console.error('[signup] CAPI returned success:false →', capiData);
+                    } else {
+                        console.log('[signup] CAPI sent:', capiData);
+                    }
+                });
             } else {
                 console.warn('[signup] profile row not visible after 5s — Pixel NOT fired to avoid ghost registration. User:', userId);
             }

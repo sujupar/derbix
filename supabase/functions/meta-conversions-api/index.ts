@@ -10,7 +10,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from '../_shared/cors.ts'
-import { requireServiceCaller, authErrorResponse } from '../_shared/auth-guard.ts'
+import { requireServiceCaller, requireAuthenticatedUser, authErrorResponse } from '../_shared/auth-guard.ts'
 
 const META_API_VERSION = 'v19.0';
 
@@ -26,10 +26,17 @@ serve(async (req) => {
         return new Response('ok', { headers: corsHeaders });
     }
 
-    // SECURITY: Only callable by other edge functions / cron via INTERNAL_FUNCTION_SECRET.
-    // Without this anyone could pollute the Meta Pixel with forged conversions.
+    // SECURITY: callable either by internal services (webhooks, cron) via
+    // INTERNAL_FUNCTION_SECRET, or by an authenticated end user. End users
+    // are further restricted to firing events for their OWN email — we
+    // check this further down once we know `email` from the body.
+    let callerEmail: string | null = null;
     const internalAuth = requireServiceCaller(req);
-    if (!internalAuth.ok) return authErrorResponse(internalAuth, corsHeaders);
+    if (!internalAuth.ok) {
+        const userAuth = await requireAuthenticatedUser(req);
+        if (!userAuth.ok) return authErrorResponse(userAuth, corsHeaders);
+        callerEmail = userAuth.email;
+    }
 
     const pixelId = Deno.env.get('META_PIXEL_ID');
     const accessToken = Deno.env.get('META_CONVERSIONS_TOKEN');
@@ -50,7 +57,10 @@ serve(async (req) => {
             currency,
             event_id,
             user_agent,
-            source_url
+            source_url,
+            fbp,
+            fbc,
+            client_ip_address,
         } = await req.json();
 
         if (!event_name) {
@@ -60,19 +70,41 @@ serve(async (req) => {
             });
         }
 
+        // If the call came from an end user (not an internal service), make sure
+        // they can only fire events for their own email — prevents anyone from
+        // polluting the Meta Pixel with someone else's identity.
+        if (callerEmail && email && email.toLowerCase() !== callerEmail.toLowerCase()) {
+            console.warn(`[meta-conversions-api] auth user ${callerEmail} tried to fire event for ${email} — blocked`);
+            return new Response(JSON.stringify({ success: false, error: 'Email mismatch' }), {
+                status: 403,
+                headers: corsHeaders
+            });
+        }
+
         // Hash email for privacy (Meta requires SHA256 hashed PII)
         const hashedEmail = email ? await hashSHA256(email) : undefined;
+
+        // Pull client IP from the request if the caller didn't pass it.
+        const xff = req.headers.get('x-forwarded-for');
+        const inferredIp = xff ? xff.split(',')[0].trim() : null;
+
+        const userData: Record<string, unknown> = {};
+        if (hashedEmail) userData.em = [hashedEmail];
+        if (fbp) userData.fbp = fbp;
+        if (fbc) userData.fbc = fbc;
+        const clientIp = client_ip_address || inferredIp;
+        if (clientIp) userData.client_ip_address = clientIp;
+        if (user_agent) userData.client_user_agent = user_agent;
 
         const eventData: Record<string, unknown> = {
             event_name,
             event_time: Math.floor(Date.now() / 1000),
             action_source: 'website',
-            user_data: {
-                em: hashedEmail ? [hashedEmail] : undefined,
-            },
+            user_data: userData,
         };
 
-        // Add event_id for deduplication with browser Pixel
+        // Add event_id for deduplication with the browser Pixel — when both
+        // sides send the same id, Meta keeps only one.
         if (event_id) {
             eventData.event_id = event_id;
         }

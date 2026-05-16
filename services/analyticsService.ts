@@ -33,18 +33,30 @@ export function trackSignupFree(): void {
   trackEvent('signup_free');
 }
 
-/** User completed signup with UTM attribution */
+/**
+ * User completed signup with UTM attribution + dedup eventID.
+ *
+ * The `eventID` is what lets Meta dedupe between the browser Pixel and the
+ * server-side Conversions API. Both must send the SAME eventID for the same
+ * signup. The GTM tag for `signup_free` MUST read this `eventID` from the
+ * dataLayer and pass it to `fbq('track', 'CompleteRegistration', {}, {eventID})`
+ * — without that, the browser fire is not dedup-eligible.
+ *
+ * See: https://developers.facebook.com/docs/marketing-api/conversions-api/deduplicate-pixel-and-server-events
+ */
 export function trackSignupWithAttribution(params: {
   utmSource?: string;
   utmMedium?: string;
   utmCampaign?: string;
   utmRef?: string;
+  eventID?: string;
 }): void {
   trackEvent('signup_free', {
     utm_source: params.utmSource,
     utm_medium: params.utmMedium,
     utm_campaign: params.utmCampaign,
     utm_ref: params.utmRef,
+    eventID: params.eventID,
   });
 }
 
