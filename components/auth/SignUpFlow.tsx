@@ -5,7 +5,9 @@ import { PlanSelector } from './PlanSelector';
 import { ArrowRightIcon, ArrowLeftIcon, SparklesIcon } from '../icons/Icons';
 import { openCheckoutOverlay, getVariantId } from '../../services/lemonSqueezyService';
 import { SubscriptionPlan } from '../../services/subscriptionService';
-import { trackSignupWithAttribution } from '../../services/analyticsService';
+// trackSignupWithAttribution se removió a propósito del flujo de signup —
+// ver comentario dentro de handleCompleteSignUp. La función sigue exportada
+// desde analyticsService por si la queremos restaurar más adelante.
 
 /**
  * Poll the profiles table for `userId` until the row exists or the timeout
@@ -155,22 +157,31 @@ export const SignUpFlow: React.FC = () => {
             const profileExists = await waitForProfile(userId, 5000);
 
             if (profileExists) {
-                // Generate a single event id that BOTH the browser pixel and
-                // the server CAPI use. Meta keeps the first event it sees and
-                // discards the duplicate, giving us strict 1:1 registrations.
-                // The GTM tag for `signup_free` MUST forward `eventID` into
-                // fbq('track', 'CompleteRegistration', {}, { eventID }) —
-                // without that, the dedup chain breaks.
+                // DECISIÓN 2026-05-16: Meta reportaba 11 conversiones con 4
+                // signups reales. La causa principal es el pixel browser
+                // (cargado vía GTM) que dispara el evento sin event_id —
+                // cada disparo cuenta como conversión separada, y Meta
+                // suma multi-touch + view-through encima.
+                //
+                // El cliente no quiere tocar GTM. La solución limpia es
+                // eliminar el `signup_free` push al dataLayer: GTM no
+                // recibe el evento → el pixel browser no se dispara →
+                // queda SOLO el CAPI server-side, que envía exactamente
+                // 1 evento por signup real. Resultado: 1:1 garantizado.
+                //
+                // Si en el futuro queremos volver a tener tracking en GA4
+                // o cualquier otro consumidor del dataLayer, basta con
+                // restaurar `trackSignupWithAttribution(...)` y configurar
+                // el tag de Meta Pixel en GTM para pasar `eventID` —
+                // entonces Meta dedupe entre browser y server.
                 const eventID = (typeof crypto !== 'undefined' && crypto.randomUUID)
                     ? crypto.randomUUID()
                     : `signup_${userId}_${Date.now()}`;
 
-                trackSignupWithAttribution({ utmSource, utmMedium, utmCampaign, utmRef, eventID });
-
-                // Fire the server-side Conversions API in parallel. Using the
-                // same eventID lets Meta dedupe with whatever the browser
-                // pixel sends. fbp / fbc come from cookies — Meta sets them
-                // automatically when the user lands with ?fbclid=...
+                // Server-side Conversions API es la ÚNICA fuente que dispara
+                // ahora. fbp / fbc vienen de cookies para que Meta haga
+                // matching del usuario contra el ad que vio (sin afectar
+                // dedup, eventID basta).
                 supabase.functions.invoke('meta-conversions-api', {
                     body: {
                         event_name: 'CompleteRegistration',
@@ -187,11 +198,11 @@ export const SignUpFlow: React.FC = () => {
                     } else if (capiData && capiData.success === false) {
                         console.error('[signup] CAPI returned success:false →', capiData);
                     } else {
-                        console.log('[signup] CAPI sent:', capiData);
+                        console.log('[signup] CAPI sent (browser pixel disabled):', capiData);
                     }
                 });
             } else {
-                console.warn('[signup] profile row not visible after 5s — Pixel NOT fired to avoid ghost registration. User:', userId);
+                console.warn('[signup] profile row not visible after 5s — CAPI NOT fired to avoid ghost registration. User:', userId);
             }
 
             // Save UTM attribution to profile (fire-and-forget). Surface
