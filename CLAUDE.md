@@ -54,6 +54,30 @@ v2-create-job-sportmonks (ETL) → v3-ai-analyzer (Gemini) → v2-generate-parla
 - Upsert DEBE usar `onConflict: 'api_fixture_id,match_date'` (ambos campos)
 - `daily_matches.league_id` tiene FK a `allowed_leagues(api_league_id)` — IDs de SportMonks difieren, usar NULL
 
+### LLM y costo por análisis (post-incidente 2026-05-15)
+- **Modelo productivo: `deepseek-v4-flash`** vía `https://api.deepseek.com` (proveedor que expone solo `v4-flash` y `v4-pro`, ambos modelos de reasoning).
+- **`deepseek-v4-pro` NO funciona en Supabase Edge**: consistentemente >130s solo el LLM (test directo: 0.3s, pero en pipeline genera demasiado reasoning_tokens). Wall-clock de Edge es ~150s — no cabe. Si se quiere v4-pro, mover `v9-pipeline-worker` a Cloud Run/VPS.
+- **Costo real medido**: ~$0.006 USD por análisis MEGA (~3858 prompt + 4948 completion tokens). Datos en `llm_usage_log` (insertada por `_shared/llm-client.ts` con cost_usd estimado).
+- **`stage-mega.ts`** debe pasar `stage: 'mega'` en config para que el log tenga atribución.
+- `_shared/llm-client.ts` tiene multi-provider chain (actualmente solo deepseek-v4-flash). El fallback a Gemini está deshabilitado mientras la key esté suspendida.
+- **Bug conocido pendiente**: el JSON.stringify del body falla con `"unexpected end of hex escape"` para fixtures con caracteres CJK/diacríticos especiales en nombres (Chinese Super League, algunos Eliteserien). Causa ~5% de los análisis a fallar con HTTP 400. Workaround pendiente: sanitizar/escapar el prompt antes del fetch.
+
+### Sanity gate prob ↔ odds (post-incidente cuotas infladas 2026-05-15)
+- `_shared/odds-selector.ts` exporta `checkProbOddsCoherence(prob, odds)` con tabla `PROB_ODDS_SANITY_TABLE` que cap el implied edge en ~25-30% por banda (0.80→1.60, 0.83→1.55, 0.85→1.50, 0.90→1.35, 0.95→1.25).
+- **`v9-pipeline-worker` aplica el sanity gate DESPUÉS del cross-val** — picks incoherentes son rechazados antes de persistir en `value_picks_v2`. NUNCA quitar este gate.
+- **El frontend `AnalysisReportModal.tsx`** tiene una versión espejo de `isProbOddsCoherent()` que muestra banner ámbar "Cuota incoherente" en picks rechazados — NO badge "Oportunidad de Valor". Si tocas la tabla del backend, sincroniza también el frontend.
+- **Modelo de coherencia**: edge = (prob − 1/odds) / (1/odds). Real bookmaker margin es 5-8%, así que edge >25% es casi siempre error (catálogo envenenado o LLM hallucinando).
+
+### Catálogo de odds — m_id mal clasificados (fix 2026-05-15)
+- `_shared/sportmonks-normalizer.ts` MARKET_DICT: `m_id=60` añadido a `CORNERS` (Corners 2-Way Over/Under estándar). `m_id=63, 334, 336` MOVIDOS a `OTHERS` (sus valores son incoherentes con Over/Under simple — probablemente Asian Handicaps/Goal Range).
+- Si SportMonks añade nuevos `m_id`, NUNCA los pongas en GOALS/CORNERS sin verificar que los valores son coherentes (Over+Under sum implied prob ~1.06-1.08). Si suma da otra cosa, es Asian/Handicap y va a OTHERS.
+
+### Gating de picks por plan
+- `v9-pipeline-worker` debe persistir `opportunity_rank: null` (no `idx + 1`) — el ranking global lo asigna `v2-generate-parlays` Step 5.5.
+- `HighProbPicks.tsx` ordena con `opportunity_rank.asc.nullsfirst,p_model.desc` como secondary — sin esto, free user ve un pick distinto cada refresh.
+- `PLAN_PREDICTIONS_PERCENTAGES`: free=1, starter=35, pro=80, premium=100. `getAllowedPickCount` usa `Math.min(1, n)` para free → siempre 1 pick.
+- `v2-generate-parlays` Step 5.5 hace **surgical unmark** (NO bulk reset) — si el slow path encuentra menos picks que los ya persistidos por v9, NO los borra.
+
 ### Mercado Empate No Acción (Draw No Bet) — gotcha de cross-validation
 - **NO confundir**: "Draw No Bet" / "Empate No Acción" es un **mercado de apuestas a 2 vías** (gana el equipo, o se devuelve la stake si empatan). NO es una recomendación de "no apostar".
 - SportMonks lo expone con `m_id=6` y label **"Match Winner (no draw)"** (en inglés). En `_shared/sportmonks-normalizer.ts` se renombra a **"Empate No Acción"** para consistencia con el resto del catálogo en español.
