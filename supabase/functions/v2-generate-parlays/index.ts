@@ -406,7 +406,7 @@ serve(async (req) => {
                 // Normalize: if stored as decimal (0.85), convert to percentage (85)
                 if (prob > 0 && prob < 1) prob = prob * 100;
                 // If stored as percentage already (85), keep as is
-                if (prob < 83) continue;
+                if (prob < OPPORTUNITIES_THRESHOLD_PERCENT) continue;
 
                 const pickKey = `${vp.fixture_id}_${(vp.market || '').toLowerCase()}_${(vp.selection || '').toLowerCase()}`;
                 if (seenPickKeys.has(pickKey)) continue;
@@ -508,7 +508,7 @@ serve(async (req) => {
                             || 0;
                         let prob = typeof probRaw === 'string' ? parseFloat(probRaw.replace('%', '')) : probRaw;
                         if (prob > 0 && prob < 1) prob = prob * 100;
-                        if (prob < 83) continue;
+                        if (prob < OPPORTUNITIES_THRESHOLD_PERCENT) continue;
 
                         const pickKey = `${row.partido_id}_${(p.mercado || '').toLowerCase()}_${(p.seleccion || '').toLowerCase()}`;
                         if (seenPickKeys.has(pickKey)) continue;
@@ -743,12 +743,32 @@ serve(async (req) => {
         // Must run AFTER SYNC (Step 5) so all picks have real UUIDs.
         // ═══════════════════════════════════════════════════════════════
         try {
-            // RESET: Clear previous opportunity flags for this date
-            const { error: resetErr } = await supabase
+            // 2026-05-15 FIX: do NOT bulk-reset is_opportunity for the date.
+            // Previous logic wiped ALL is_opportunity=true picks for the date
+            // and then re-set only the ones this run found. When this run found
+            // FEWER picks than v9-pipeline-worker had persisted (because v9 has
+            // strict odds verification + sanity gate that this slow path doesn't
+            // exactly replicate), valid picks were silently dropped from the tab.
+            //
+            // New approach: surgical reset — only unmark picks for this date that
+            // are NOT in the current highProbPicks selection.
+            const finalIds = new Set(highProbPicks.map((p: any) => p.id).filter(Boolean));
+            const { data: previouslyMarked } = await supabase
                 .from('value_picks_v2')
-                .update({ is_opportunity: false, opportunity_rank: null, opportunity_date: null })
-                .eq('opportunity_date', date);
-            if (resetErr) log(`[OPP-V8.1] PERSIST reset warning: ${resetErr.message}`);
+                .select('id')
+                .eq('opportunity_date', date)
+                .eq('is_opportunity', true);
+            const toUnmark = (previouslyMarked || [])
+                .map((r: any) => r.id)
+                .filter((id: string) => !finalIds.has(id));
+            if (toUnmark.length > 0) {
+                const { error: unmarkErr } = await supabase
+                    .from('value_picks_v2')
+                    .update({ is_opportunity: false, opportunity_rank: null, opportunity_date: null })
+                    .in('id', toUnmark);
+                if (unmarkErr) log(`[OPP-V8.1] PERSIST surgical-unmark warning: ${unmarkErr.message}`);
+                else log(`[OPP-V8.1] PERSIST: surgically unmarked ${toUnmark.length} stale picks (kept ${finalIds.size} validated)`);
+            }
 
             // SET: Mark each of the final picks as opportunity with rank
             let persistedCount = 0;

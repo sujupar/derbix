@@ -925,7 +925,7 @@ const MARKET_DICT: Record<number, { name: string; cat: 'MAIN' | 'GOALS' | 'TEAMS
     1:   { name: 'Resultado 1X2',                cat: 'MAIN' },
     2:   { name: 'Asian Handicap',               cat: 'TEAMS' },
     5:   { name: 'Half Time / Full Time',        cat: 'COMBOS' },
-    6:   { name: 'Match Winner (no draw)',       cat: 'MAIN' },
+    6:   { name: 'Empate No Acción',             cat: 'MAIN' },  // a.k.a. "Draw No Bet" — 2-way market (refund on draw). Spanish-consistent label so MEGA stops aliasing it as "Resultado 1X2 - Draw No Bet"
     7:   { name: 'Más/Menos Goles',              cat: 'GOALS' },  // Goal Line (alternativa estándar)
     10:  { name: 'Doble Oportunidad',            cat: 'MAIN' },
     12:  { name: 'Más/Menos Goles',              cat: 'GOALS' },
@@ -940,7 +940,8 @@ const MARKET_DICT: Record<number, { name: string; cat: 'MAIN' | 'GOALS' | 'TEAMS
     38:  { name: 'Total Goles Local',            cat: 'TEAMS' },
     47:  { name: 'Doble Oportunidad y Goles',    cat: 'COMBOS' },
     53:  { name: 'Más/Menos Goles',              cat: 'GOALS' },
-    63:  { name: 'Más/Menos Goles',              cat: 'GOALS' },
+    60:  { name: 'Más/Menos Esquinas',           cat: 'CORNERS' }, // 2026-05-15 — added: "Corners 2-Way" Over/Under standard. Margin ~5-8% (coherent). Bookmaker-aligned numbers. Was falling into OTHERS, leaving CORNERS catalog dominated by phantom m_id=334/336 entries.
+    63:  { name: 'Mercado Especial (raw)',       cat: 'OTHERS' },  // 2026-05-15 — moved from GOALS: values were systematically incoherent vs m_id=80 standard (e.g. Over 4.5 cheaper than Under 4.5). Likely Asian Goal Range or Handicap; not Over/Under simple. Polluted catalog with phantom "Under 4.5 @ 2.02" entries that LLM treated as standard goals. See incident 2026-05-15.
     67:  { name: 'Asian Handicap Esquinas',      cat: 'CORNERS' },
     69:  { name: 'Asian Goal Lines',             cat: 'OTHERS' },  // moved out of GOALS — has integer thresholds (Under 5/6/7) that look like normal Under but are different market
     70:  { name: 'Más/Menos Goles',              cat: 'GOALS' },
@@ -960,8 +961,8 @@ const MARKET_DICT: Record<number, { name: string; cat: 'MAIN' | 'GOALS' | 'TEAMS
     107: { name: 'Total Goles Match',            cat: 'OTHERS' },  // variant with different threshold semantics
     120: { name: 'Estadísticas 1er Tiempo',      cat: 'HALVES' },
     121: { name: 'Estadísticas 2do Tiempo',      cat: 'HALVES' },
-    334: { name: 'Más/Menos Esquinas',           cat: 'CORNERS' },
-    336: { name: 'Más/Menos Esquinas',           cat: 'CORNERS' },
+    334: { name: 'Corner Handicap (raw)',        cat: 'OTHERS' },  // 2026-05-15 — moved from CORNERS: "Más/Menos Esquinas: 0.5" returned val=1.83 (real Over 0.5 corners is ~1.01). Likely Asian Handicap by team or Corner Range, not simple Over/Under. m_id=60 (Corners 2-Way) is the standard now.
+    336: { name: 'Corner Handicap (raw)',        cat: 'OTHERS' },  // 2026-05-15 — same as m_id=334: incoherent progressive values (Over 1.5=4, Over 2.5=8, Over 5.5=13...) suggest Asian Handicap by team, not match total. Polluted CORNERS catalog.
 };
 
 function buildEnrichedLabel(o: SelectedOdd, marketName: string, homeTeam?: string, awayTeam?: string): string {

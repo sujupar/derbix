@@ -73,17 +73,30 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
             // With STALENESS CHECK: if persisted < cap and more eligible picks exist, regenerate
             if (!forceRegenerate) {
                 console.log(`[HighProbPicks] Trying persisted opportunities for ${date}...`);
+                // 2026-05-15 FIX: secondary order by p_model DESC. v9-pipeline-worker
+                // leaves opportunity_rank=null until v2-generate-parlays assigns a
+                // global rank. Without the secondary order, free users (who see only
+                // pick #1) would get a non-deterministic pick — different each refresh.
                 const { data: persisted } = await supabase
                     .from('value_picks_v2')
                     .select('id, job_id, fixture_id, market, selection, p_model, odds, result, verified_at, actual_score, opportunity_rank')
                     .eq('is_opportunity', true)
                     .eq('opportunity_date', date)
-                    .order('opportunity_rank', { ascending: true });
+                    .order('opportunity_rank', { ascending: true, nullsFirst: false })
+                    .order('p_model', { ascending: false });
 
                 if (persisted && persisted.length > 0) {
                     let usePersistedData = true;
 
-                    // STALENESS CHECK: If we have fewer than the cap, check if more picks are available
+                    // STALENESS CHECK: only consider "unmarked" picks as evidence that
+                    // staleness exists. Picks already marked is_opportunity=false were
+                    // EXPLICITLY rejected (by sanity gate or admin cleanup) — they should
+                    // not trigger regeneration. Picks with is_opportunity IS NULL are the
+                    // ones that haven't been assessed yet by v2-generate-parlays.
+                    //
+                    // 2026-05-15 FIX: previous logic counted ALL picks >= threshold which
+                    // included rejected ones, causing staleness to trigger constantly and
+                    // wiping valid v9-validated picks via the v2-generate-parlays reset.
                     if (persisted.length < MAX_OPPORTUNITIES_PER_DAY) {
                         const { data: todayMatches } = await supabase
                             .from('daily_matches')
@@ -92,14 +105,15 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                         const todayFixtureIds = (todayMatches || []).map((m: any) => m.api_fixture_id);
 
                         if (todayFixtureIds.length > 0) {
-                            const { count: eligibleCount } = await supabase
+                            const { count: unmarkedCount } = await supabase
                                 .from('value_picks_v2')
                                 .select('id', { count: 'exact', head: true })
                                 .in('fixture_id', todayFixtureIds)
-                                .gte('p_model', OPPORTUNITIES_THRESHOLD);
+                                .gte('p_model', OPPORTUNITIES_THRESHOLD)
+                                .is('is_opportunity', null);
 
-                            if ((eligibleCount || 0) > persisted.length) {
-                                console.log(`[HighProbPicks] Stale: ${persisted.length} persisted but ${eligibleCount} eligible → regenerating`);
+                            if ((unmarkedCount || 0) > 0) {
+                                console.log(`[HighProbPicks] Stale: ${persisted.length} persisted, ${unmarkedCount} unmarked eligible → regenerating`);
                                 usePersistedData = false; // Fall through to slow path
                             }
                         }

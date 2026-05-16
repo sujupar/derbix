@@ -279,11 +279,33 @@ const VisualChart: React.FC<{ data: GraficoSugerido }> = ({ data }) => {
 
 const OPPORTUNITY_THRESHOLD = OPPORTUNITIES_THRESHOLD_PERCENT;
 
+// Mirror of supabase/functions/_shared/odds-selector.ts PROB_ODDS_SANITY_TABLE.
+// Keep both in sync — frontend uses this to flag UI picks that the backend
+// sanity gate would have rejected (prob/odds mathematically incoherent).
+const SANITY_MAX_ODDS = (p: number): number => {
+    if (p >= 0.95) return 1.25;
+    if (p >= 0.90) return 1.35;
+    if (p >= 0.85) return 1.50;
+    if (p >= 0.83) return 1.55;
+    if (p >= 0.80) return 1.60;
+    return Infinity; // below opportunities band — no constraint
+};
+const isProbOddsCoherent = (probPct: number, odds: number | null | undefined): boolean => {
+    if (!odds || !isFinite(odds) || odds <= 1.0) return false; // invalid odds
+    const p = probPct / 100;
+    if (p <= 0 || p > 1) return false;
+    return odds <= SANITY_MAX_ODDS(p);
+};
+
 const PredictionCard: React.FC<{ pred: DetallePrediccion }> = ({ pred }) => {
     const prob = pred.probabilidad_estimado_porcentaje;
-    const isOpportunity = prob >= OPPORTUNITY_THRESHOLD;
+    const coherent = isProbOddsCoherent(prob, pred.odds);
+    // Only show "Oportunidad de Valor" if BOTH prob >= threshold AND odds are
+    // mathematically coherent. An incoherent pick (e.g. prob 85% @ odds 2.50)
+    // implies an impossible edge and was rejected by the backend sanity gate.
+    const isOpportunity = prob >= OPPORTUNITY_THRESHOLD && coherent;
     const color = prob >= 70 ? 'text-green-accent' : prob >= 55 ? 'text-yellow-400' : 'text-gray-300';
-    const border = isOpportunity ? 'border-emerald-500' : prob >= 70 ? 'border-green-accent' : 'border-gray-600';
+    const border = isOpportunity ? 'border-emerald-500' : !coherent && prob >= OPPORTUNITY_THRESHOLD ? 'border-amber-500/50' : prob >= 70 ? 'border-green-accent' : 'border-gray-600';
 
     const justif = pred.justificacion_detallada;
     const edge = (pred as any).edge;
@@ -298,6 +320,14 @@ const PredictionCard: React.FC<{ pred: DetallePrediccion }> = ({ pred }) => {
                 <div className="bg-gradient-to-r from-emerald-600/20 to-emerald-500/10 px-5 py-2 flex items-center gap-2 border-b border-emerald-500/20">
                     <span className="text-emerald-400 text-sm">⚡</span>
                     <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Oportunidad de Valor</span>
+                </div>
+            )}
+            {!coherent && prob >= OPPORTUNITY_THRESHOLD && pred.odds && (
+                <div className="bg-amber-500/10 px-5 py-2 flex items-center gap-2 border-b border-amber-500/30">
+                    <ExclamationTriangleIcon className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs text-amber-300">
+                        <strong>Cuota incoherente con la probabilidad</strong> — esta predicción no se publica como oportunidad. La cuota @{pred.odds.toFixed(2)} implica una probabilidad mucho menor a {prob}%. Verifica la cuota real en tu bookmaker.
+                    </span>
                 </div>
             )}
             <div className="p-5 border-b border-gray-700 flex justify-between items-center bg-gray-700/20">

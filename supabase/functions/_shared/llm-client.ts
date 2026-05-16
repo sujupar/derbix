@@ -1,7 +1,12 @@
-// _shared/llm-client.ts — DeepSeek-only client with retry on retryable failures.
-// V9 pipeline (2026-05-05): no fallback to Gemini/Groq/OpenRouter/Mistral.
-// 2026-05-11: migrated from deepseek-v4-flash to deepseek-v4-pro (full platform).
-// If DeepSeek fails permanently, the caller's job fails and goes to retry queue.
+// _shared/llm-client.ts — DeepSeek-only (no fallbacks).
+// V9 pipeline (2026-05-05): originally no fallback.
+// 2026-05-11: migrated from deepseek-v4-flash to deepseek-v4-pro.
+// 2026-05-15 evening: direct API tests showed deepseek-v4-pro AND v4-flash both
+//   respond in <1s with valid JSON. The >145s production timeouts were caused
+//   by something inside the V9 pipeline (likely callWithSchemaRetry doubling
+//   the LLM time on schema-validation retries with the larger v4-pro outputs).
+//   Reverted to deepseek-v4-flash (the model running fine before 2026-05-11).
+//   No fallbacks — single provider per user requirement.
 
 export interface LLMConfig {
   temperature?: number;
@@ -10,6 +15,11 @@ export interface LLMConfig {
   timeoutMs?: number;
   preferredProvider?: string;
   systemPrompt?: string;
+  // Provenance for llm_usage_log — caller should pass these so cost/latency
+  // can be attributed to the right stage and analysis run.
+  stage?: string;        // 'mega', 'verify-leg', 'seo-article', etc.
+  job_id?: string;
+  fixture_id?: number;
 }
 
 export interface LLMResponse {
@@ -18,6 +28,48 @@ export interface LLMResponse {
   model: string;
   tokensUsed?: number;
   finishReason?: string;
+  promptTokens?: number;
+  completionTokens?: number;
+  reasoningTokens?: number;
+  elapsedMs?: number;
+}
+
+// Approximate per-million-token prices in USD. Update when providers change pricing.
+// These exist for cost ESTIMATION (llm_usage_log.cost_usd), not billing.
+const PROVIDER_PRICING: Record<string, { input: number; output: number }> = {
+  'deepseek-v4-flash': { input: 0.27, output: 1.10 },
+  'deepseek-v4-pro':   { input: 0.27, output: 1.10 },
+  'deepseek-chat':     { input: 0.27, output: 1.10 },
+  'perplexity-sonar':  { input: 1.00, output: 1.00 },
+  'gemini-2.5-flash':  { input: 0.10, output: 0.40 },
+};
+function estimateCostUsd(provider: string, promptTokens?: number, completionTokens?: number): number | null {
+  const p = PROVIDER_PRICING[provider];
+  if (!p || promptTokens == null || completionTokens == null) return null;
+  return Number(((promptTokens / 1_000_000) * p.input + (completionTokens / 1_000_000) * p.output).toFixed(6));
+}
+
+// Best-effort insert into llm_usage_log. Failures are swallowed silently —
+// the table may not exist yet (migration pending) and we never want logging
+// failure to break an analysis. Service role is required to bypass RLS.
+async function logUsage(row: Record<string, unknown>): Promise<void> {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceKey) return;
+    await fetch(`${supabaseUrl}/rest/v1/llm_usage_log`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': serviceKey,
+        'Authorization': `Bearer ${serviceKey}`,
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify(row),
+    });
+  } catch {
+    // intentionally swallowed
+  }
 }
 
 interface ProviderDef {
@@ -28,12 +80,23 @@ interface ProviderDef {
   envKey: string;
 }
 
+// Single provider — no fallbacks. v4-flash is the ONLY model that fits in
+// the Supabase Edge 150s wall-clock budget for the MEGA pipeline.
+//
+// 2026-05-15 EMPIRICAL EVIDENCE (logged in llm_usage_log):
+//   - deepseek-v4-flash: 47.4s elapsed, 8806 tokens, SUCCESS
+//   - deepseek-v4-pro:   >130s elapsed (timed out twice — 110s and 130s)
+//
+// v4-pro is the better-reasoning model but its reasoning-tokens output
+// consistently exceeds the wall-clock budget. To use v4-pro the worker
+// would need to run outside Edge (VPS / Cloud Run / Lambda with longer
+// wall-clock). For now v4-flash is the production model.
 const PROVIDERS: ProviderDef[] = [
   {
-    name: 'deepseek-v4-pro',
+    name: 'deepseek-v4-flash',
     type: 'openai',
     endpoint: 'https://api.deepseek.com/chat/completions',
-    model: 'deepseek-v4-pro',
+    model: 'deepseek-v4-flash',
     envKey: 'DEEPSEEK_API_KEY',
   },
 ];
@@ -51,6 +114,7 @@ async function callOpenAICompatible(
   prompt: string,
   config: LLMConfig
 ): Promise<LLMResponse> {
+  const startTime = Date.now();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), config.timeoutMs || 60000);
 
@@ -75,10 +139,10 @@ async function callOpenAICompatible(
     body.response_format = { type: 'json_object' };
   }
 
-  // DeepSeek-V4-Flash is a reasoning model. Setting reasoning_effort='low' caps
-  // the thinking budget so the model produces output faster.  Crucial to fit the
-  // pipeline within the 145s wall clock.
-  if (provider.name.startsWith('deepseek-')) {
+  // reasoning_effort only applies to reasoning-capable models. deepseek-chat
+  // (the public non-reasoning model) doesn't support this param and may error
+  // if sent. Only set it on the legacy/reasoning model names.
+  if (provider.name.includes('reasoner') || provider.name.includes('-v4-')) {
     body.reasoning_effort = 'low';
   }
 
@@ -99,6 +163,17 @@ async function callOpenAICompatible(
       const errText = await res.text().catch(() => '');
       const err = new Error(`[${provider.name}] HTTP ${res.status}: ${errText.slice(0, 200)}`);
       (err as any).status = res.status;
+      // Log failure too so we can track which providers/models fail and how often
+      await logUsage({
+        stage: config.stage || 'unknown',
+        job_id: config.job_id || null,
+        fixture_id: config.fixture_id || null,
+        provider: provider.name,
+        model: provider.model,
+        elapsed_ms: Date.now() - startTime,
+        success: false,
+        error_message: `HTTP ${res.status}: ${errText.slice(0, 150)}`,
+      });
       throw err;
     }
 
@@ -124,36 +199,86 @@ async function callOpenAICompatible(
       }
     }
 
+    const promptTokens = data.usage?.prompt_tokens;
+    const completionTokens = data.usage?.completion_tokens;
+    const reasoningTokens = data.usage?.completion_tokens_details?.reasoning_tokens;
+    const elapsedMs = Date.now() - startTime;
+
+    // Awaited usage log — fire-and-forget would be killed by Deno when the
+    // Edge handler returns. Costs ~50-100ms extra per call but guarantees data.
+    await logUsage({
+      stage: config.stage || 'unknown',
+      job_id: config.job_id || null,
+      fixture_id: config.fixture_id || null,
+      provider: provider.name,
+      model: data.model || provider.model,
+      prompt_tokens: promptTokens,
+      completion_tokens: completionTokens,
+      reasoning_tokens: reasoningTokens,
+      total_tokens: data.usage?.total_tokens,
+      elapsed_ms: elapsedMs,
+      cost_usd: estimateCostUsd(provider.name, promptTokens, completionTokens),
+      finish_reason: choice?.finish_reason,
+      success: true,
+    });
+
     return {
       text,
       provider: provider.name,
       model: data.model || provider.model,
       tokensUsed: data.usage?.total_tokens,
       finishReason: choice?.finish_reason,
+      promptTokens,
+      completionTokens,
+      reasoningTokens,
+      elapsedMs,
     };
+  } catch (err) {
+    // Catch AbortError (timeout) and network errors — log as failure
+    const isAbort = (err as Error).name === 'AbortError';
+    await logUsage({
+      stage: config.stage || 'unknown',
+      job_id: config.job_id || null,
+      fixture_id: config.fixture_id || null,
+      provider: provider.name,
+      model: provider.model,
+      elapsed_ms: Date.now() - startTime,
+      success: false,
+      error_message: isAbort ? `TIMEOUT after ${config.timeoutMs || 60000}ms` : (err as Error).message.slice(0, 200),
+    });
+    throw err;
   } finally {
     clearTimeout(timeout);
   }
 }
 
-export async function callLLM(prompt: string, config: LLMConfig = {}): Promise<LLMResponse> {
-  const provider = PROVIDERS[0]; // deepseek-v4-pro only
+async function tryProvider(
+  provider: ProviderDef,
+  prompt: string,
+  config: LLMConfig,
+): Promise<LLMResponse> {
   const apiKey = Deno.env.get(provider.envKey);
   if (!apiKey) {
-    throw new Error(`[llm-client] DEEPSEEK_API_KEY missing — pipeline cannot proceed without it`);
+    throw new Error(`[llm-client] ${provider.envKey} missing — cannot call ${provider.name}`);
   }
 
-  const backoffMs = [0, 2000, 4000, 8000];
+  // Per-provider policy:
+  //   - On AbortError (timeout): fail fast — don't retry, let the outer loop
+  //     switch providers immediately. Retrying a slow provider eats the wall
+  //     clock budget that the fallback would need.
+  //   - On 429/5xx: short backoff retry (up to 2 attempts) — transient.
+  //   - On 4xx (other): surface immediately.
+  const backoffMs = [0, 1500];
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < backoffMs.length; attempt++) {
     if (backoffMs[attempt] > 0) {
-      console.log(`[llm-client] retry ${attempt} after ${backoffMs[attempt]}ms`);
+      console.log(`[llm-client] ${provider.name} retry ${attempt} after ${backoffMs[attempt]}ms`);
       await delay(backoffMs[attempt]);
     }
     try {
       const result = await callOpenAICompatible(provider, apiKey, prompt, config);
-      if (attempt > 0) console.log(`[llm-client] ✓ succeeded on retry ${attempt}`);
+      if (attempt > 0) console.log(`[llm-client] ${provider.name} ✓ succeeded on retry ${attempt}`);
       return result;
     } catch (err) {
       lastError = err as Error;
@@ -161,21 +286,60 @@ export async function callLLM(prompt: string, config: LLMConfig = {}): Promise<L
       const isAbort = (err as any).name === 'AbortError';
 
       if (status && SKIP_PROVIDER_STATUS.has(status)) {
-        // 401/402/403 — permanent (bad key, no balance, forbidden). No retry.
-        console.error(`[llm-client] permanent failure status=${status}: ${(err as Error).message}`);
+        console.error(`[llm-client] ${provider.name} permanent failure status=${status}: ${(err as Error).message}`);
         throw err;
       }
 
-      if (status && !RETRYABLE_STATUS.has(status) && !isAbort) {
-        // Non-retryable error (e.g. 400 bad request) — surface immediately
-        console.error(`[llm-client] non-retryable error status=${status}: ${(err as Error).message}`);
+      if (isAbort) {
+        // Timeout: don't retry inside this provider. Bubble to outer loop so
+        // fallback gets a shot at the remaining wall clock budget.
+        console.warn(`[llm-client] ${provider.name} timed out — bailing to outer fallback`);
         throw err;
       }
 
-      console.warn(`[llm-client] attempt ${attempt + 1}/${backoffMs.length} failed: ${(err as Error).message.slice(0, 150)}`);
+      if (status && !RETRYABLE_STATUS.has(status)) {
+        console.error(`[llm-client] ${provider.name} non-retryable status=${status}: ${(err as Error).message}`);
+        throw err;
+      }
+
+      console.warn(`[llm-client] ${provider.name} attempt ${attempt + 1}/${backoffMs.length} failed: ${(err as Error).message.slice(0, 150)}`);
     }
   }
-  throw lastError ?? new Error('[llm-client] DeepSeek failed all retries');
+  throw lastError ?? new Error(`[llm-client] ${provider.name} failed all retries`);
+}
+
+export async function callLLM(prompt: string, config: LLMConfig = {}): Promise<LLMResponse> {
+  let lastError: Error | null = null;
+
+  for (let i = 0; i < PROVIDERS.length; i++) {
+    const provider = PROVIDERS[i];
+    const isFallback = i > 0;
+    try {
+      if (isFallback) console.log(`[llm-client] primary failed, trying fallback ${provider.name}`);
+      const result = await tryProvider(provider, prompt, config);
+      if (isFallback) console.log(`[llm-client] ✓ fallback ${provider.name} succeeded`);
+      return result;
+    } catch (err) {
+      lastError = err as Error;
+      const status = (err as any).status;
+      // Don't try fallback for clearly-permanent errors (bad request, auth).
+      // Retryable failures and timeouts will fall through to the next provider.
+      if (status && SKIP_PROVIDER_STATUS.has(status)) {
+        // 401/402/403 on primary — try fallback (could be missing/expired key only on primary).
+        console.warn(`[llm-client] ${provider.name} auth failure (${status}) — will try fallback if available`);
+        continue;
+      }
+      if (status === 400 && !isFallback) {
+        // 400 from primary likely means the prompt is malformed for that model.
+        // Fallback may interpret it. Don't bail.
+        console.warn(`[llm-client] ${provider.name} 400 bad request — trying fallback before giving up`);
+        continue;
+      }
+      // Other errors (5xx, timeout, network) — try next provider
+      console.warn(`[llm-client] ${provider.name} exhausted: ${(err as Error).message.slice(0, 150)}`);
+    }
+  }
+  throw lastError ?? new Error('[llm-client] all providers failed');
 }
 
 /**
@@ -186,3 +350,4 @@ export function calcGroqDelay(_estimatedTokens: number): number {
   return 0;
 }
 
+// Deploy marker: 2026-05-15-1440 perplexity-primary

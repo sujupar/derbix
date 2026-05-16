@@ -155,7 +155,10 @@ Devuelve JSON único.`;
         jsonMode: true,
         temperature: 0,
         maxTokens: 9000,
+        // 110s — v4-flash typically completes in ~47s. 110s gives 3x headroom
+        // and leaves 35s of the 145s pipeline budget for post-processing.
         timeoutMs: 110000,
+        stage: 'mega',
       });
       return r.text;
     },

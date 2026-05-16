@@ -9,7 +9,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { runPipeline, type ETLRawData } from "../_shared/agents/orchestrator.ts";
 import type { MatchContext } from "../_shared/agents/types.ts";
 import { OPPORTUNITIES_THRESHOLD_PERCENT } from "../_shared/constants.ts";
-import { findOddInOrganized } from "../_shared/odds-selector.ts";
+import { findOddInOrganized, checkProbOddsCoherence } from "../_shared/odds-selector.ts";
 
 const ENGINE_VERSION = 'V9-HYBRID-2026-05-05';
 const PIPELINE_TIMEOUT_MS = 145000; // 145s safety cap. Worker has ~150s wall clock total.
@@ -95,10 +95,25 @@ serve(async (req) => {
             return p;
           }
         });
-        // Filter out picks whose REAL odds fell out of acceptable range after verification
-        const finalPicks = verifiedPicks.filter((p) => p.odds >= 1.20 && p.odds <= 4.50);
-        const droppedCount = verifiedPicks.length - finalPicks.length;
-        if (droppedCount > 0) console.log(`[V9-WORKER] Dropped ${droppedCount} picks after odds verification (out of [1.20, 4.50] range)`);
+        // SANITY GATE 1: reject picks whose claimed probability and post-verification
+        // odds are mathematically incoherent (e.g. 88% prob @ 2.02 odds implies 78%
+        // edge — impossible). Catches model hallucinations + catalog-driven mismatches
+        // (e.g. m_id=63 phantom Under 4.5 @ 2.02 when real bookmaker is 1.07).
+        const coherentPicks = verifiedPicks.filter((p) => {
+          const sanity = checkProbOddsCoherence(p.probability / 100, p.odds);
+          if (!sanity.coherent) {
+            console.warn(`[V9-WORKER] SANITY REJECT ${p.market}/${p.selection}: prob=${p.probability}% odds=${p.odds} reason=${sanity.reason}`);
+            return false;
+          }
+          return true;
+        });
+        const sanityRejected = verifiedPicks.length - coherentPicks.length;
+        if (sanityRejected > 0) console.log(`[V9-WORKER] Sanity gate rejected ${sanityRejected} prob/odds-incoherent picks`);
+
+        // SANITY GATE 2: keep only picks with odds in the publishable range.
+        const finalPicks = coherentPicks.filter((p) => p.odds >= 1.20 && p.odds <= 4.50);
+        const rangeRejected = coherentPicks.length - finalPicks.length;
+        if (rangeRejected > 0) console.log(`[V9-WORKER] Range gate rejected ${rangeRejected} picks (out of [1.20, 4.50])`);
         pipelineResult.validated_picks = finalPicks;
         pipelineResult.synthesizer.picks = pipelineResult.synthesizer.picks.map((sp) => {
           const replacement = finalPicks.find((vp) => vp.market === sp.market && vp.selection === sp.selection);
@@ -112,8 +127,13 @@ serve(async (req) => {
       const tactical = pipelineResult.specialists.tactical;
       const contextual = pipelineResult.specialists.contextual;
       const market = pipelineResult.specialists.market;
-      const verdict = synth.veredicto;
-      const topPick = synth.picks[0];
+      // 2026-05-15 FIX: coerce verdict to OBSERVAR/EVITAR when sanity+range gates
+      // dropped ALL picks. Previously, the LLM-emitted verdict (e.g. APOSTAR)
+      // was kept even if no picks survived, leading to a "OPORTUNIDAD CLARA"
+      // headline in the modal with no actual bet to make.
+      const llmVerdict = synth.veredicto;
+      const topPick = pipelineResult.validated_picks[0] || synth.picks[0];
+      const verdict = pipelineResult.validated_picks.length === 0 ? 'OBSERVAR' : llmVerdict;
       const decisionMap: Record<string, 'APOSTAR' | 'EVITAR' | 'OBSERVAR'> = {
         APOSTAR: 'APOSTAR', NO_BET: 'EVITAR', OBSERVAR: 'OBSERVAR',
       };
@@ -359,7 +379,10 @@ serve(async (req) => {
           risk_notes: p.reasoning,
           is_opportunity: p.probability >= 80,
           opportunity_date: today,
-          opportunity_rank: idx + 1,
+          // 2026-05-15 FIX: don't stomp opportunity_rank with a per-fixture
+          // index. Global ranking is set by v2-generate-parlays Step 5.5.
+          // Until that runs, frontend orders by p_model DESC for determinism.
+          opportunity_rank: null,
           is_primary_pick: idx === 0,
           rank: idx + 1,
         }));

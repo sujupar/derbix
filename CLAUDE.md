@@ -54,6 +54,13 @@ v2-create-job-sportmonks (ETL) → v3-ai-analyzer (Gemini) → v2-generate-parla
 - Upsert DEBE usar `onConflict: 'api_fixture_id,match_date'` (ambos campos)
 - `daily_matches.league_id` tiene FK a `allowed_leagues(api_league_id)` — IDs de SportMonks difieren, usar NULL
 
+### Mercado Empate No Acción (Draw No Bet) — gotcha de cross-validation
+- **NO confundir**: "Draw No Bet" / "Empate No Acción" es un **mercado de apuestas a 2 vías** (gana el equipo, o se devuelve la stake si empatan). NO es una recomendación de "no apostar".
+- SportMonks lo expone con `m_id=6` y label **"Match Winner (no draw)"** (en inglés). En `_shared/sportmonks-normalizer.ts` se renombra a **"Empate No Acción"** para consistencia con el resto del catálogo en español.
+- El cross-validator en `_shared/odds-selector.ts` tiene un **short-circuit dedicado para DNB**: `isDrawNoBetPick()` detecta picks con "draw no bet" / "no bet" / "empate no" en market o selection y los enruta SOLO a entradas DNB del catálogo (rechaza match contra "Resultado 1X2: Empate" que tendría odds 5x+ y haría fallar el rango `[1.20, 4.50]`).
+- `buildSelectionTokens()` NO agrega tokens 'draw'/'empate' para selecciones DNB (eso causaba el matching cruzado).
+- `services/marketTranslator.ts` tiene un check `isDrawNoBetMarket()` ANTES de Doble Oportunidad/1X2 para mostrar "Empate No Acción — Manchester City (Local) (refund si empate)" en lugar de "Manchester City (Local) - Draw No Bet" crudo.
+
 ---
 
 ## Tablas Principales

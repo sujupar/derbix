@@ -156,9 +156,25 @@ function marketToCategories(market: string): OddsCategory[] {
     if (m.includes('resultado y total') || m.includes('dc y goles') || m.includes('& mas de') || m.includes('& menos de') || m.includes('ambos anotan y') || m.includes('combo')) return ['COMBOS'];
     if (m.includes('goles del local') || m.includes('goles del visitante') || m.includes('handicap') || m.includes('asian')) return ['TEAMS'];
     if (m.includes('ambos anotan') || m.includes('btts') || m.includes('mas de') || m.includes('menos de') || m.includes('over') || m.includes('under') || m.includes('total goles')) return ['GOALS'];
-    if (m.includes('resultado 1x2') || m.includes('doble oportunidad') || m.includes('1x2') || m.includes('draw no bet')) return ['MAIN'];
+    if (m.includes('resultado 1x2') || m.includes('doble oportunidad') || m.includes('1x2') || m.includes('draw no bet') || m.includes('empate no')) return ['MAIN'];
 
     return ['MAIN', 'GOALS', 'TEAMS', 'HALVES', 'CORNERS', 'COMBOS', 'OTHERS'];
+}
+
+// Returns true when the pick (market+selection) refers to the Draw-No-Bet market —
+// a 2-way "team wins or refund on draw" market that the catalog labels separately
+// (m_id=6 in SportMonks). Detecting it explicitly prevents the matcher from
+// confusing "Manchester City - Draw No Bet" with "Resultado 1X2: Empate" via
+// the shared 'draw'/'empate' token.
+function isDrawNoBetPick(market: string, selection: string): boolean {
+    const m = normalizeText(market);
+    const s = normalizeText(selection);
+    const combined = `${m} ${s}`;
+    return combined.includes('draw no bet')
+        || combined.includes('empate no accion')
+        || combined.includes('empate no acción')
+        || combined.includes('match winner (no draw)')
+        || combined.includes('no bet');
 }
 
 function buildSelectionTokens(selection: string, ctx: XValContext): string[] {
@@ -175,7 +191,13 @@ function buildSelectionTokens(selection: string, ctx: XValContext): string[] {
         tokens.add('away'); tokens.add('2'); tokens.add(away);
     }
 
-    if (raw.includes('empate') || raw === 'x' || raw.includes('draw')) {
+    // Skip 'draw'/'empate' tokens for Draw-No-Bet picks. The token 'empate' would
+    // collide with the regular "Resultado 1X2: Empate" catalog entry (often 5x+
+    // odds for heavy favorites) instead of the correct "Match Winner (no draw)"
+    // entry for the picked team. isDrawNoBetPick covers both market and selection
+    // strings since LLMs sometimes encode "Draw No Bet" in the selection alone.
+    const looksLikeDnb = raw.includes('draw no bet') || raw.includes('no bet') || raw.includes('empate no');
+    if (!looksLikeDnb && (raw.includes('empate') || raw === 'x' || raw.includes('draw'))) {
         tokens.add('draw'); tokens.add('x'); tokens.add('empate');
     }
 
@@ -245,6 +267,34 @@ export function findOddInOrganized(
 
     if (!organized || typeof organized !== 'object' || organized.info === 'No odds available' || !organized._meta?.bookmaker) {
         return { match: null, category: null, searchedCategories: [], reason: 'no_coverage', normalizedLabel };
+    }
+
+    // DRAW NO BET SHORT-CIRCUIT: route DNB picks directly to "Match Winner (no draw)"
+    // / "Empate No Acción" entries in MAIN. The generic scorer can't distinguish
+    // these from regular 1X2 entries — the catalog has both with identical team
+    // names, and the regular Empate slot has odds 5x+ that fail downstream
+    // [1.20, 4.50] filters even though the DNB selection's odds (~1.85) is valid.
+    if (isDrawNoBetPick(market || '', selection || '')) {
+        const mainItems: OrganizedOddItem[] = Array.isArray(organized.MAIN) ? organized.MAIN : [];
+        const home = normalizeText(ctx.homeTeam);
+        const away = normalizeText(ctx.awayTeam);
+        const targetIsHome = !!home && targetSelection.includes(home);
+        const targetIsAway = !!away && targetSelection.includes(away);
+        for (const it of mainItems) {
+            const lbl = normalizeText(it.lbl || '');
+            const isDnbCatalogEntry = lbl.includes('match winner (no draw)')
+                || lbl.includes('empate no accion')
+                || lbl.includes('empate no acción')
+                || lbl.includes('no draw');
+            if (!isDnbCatalogEntry) continue;
+            if (targetIsHome && home && lbl.includes(home)) {
+                return { match: it, category: 'MAIN', searchedCategories: ['MAIN'], reason: 'exact', normalizedLabel };
+            }
+            if (targetIsAway && away && lbl.includes(away)) {
+                return { match: it, category: 'MAIN', searchedCategories: ['MAIN'], reason: 'exact', normalizedLabel };
+            }
+        }
+        return { match: null, category: null, searchedCategories: ['MAIN'], reason: 'not_found', normalizedLabel };
     }
 
     const categories = marketToCategories(market || '');
@@ -375,13 +425,27 @@ export function oddsWithinTolerance(llmOdds: number | null, realOdds: number, to
 // ═══════════════════════════════════════════════════════════════
 
 // Conservative ceiling on odds for a given probability band, allowing for
-// bookmaker margin (~5-8%) plus modest value-bet allowance.
+// bookmaker margin (~5-8%) + a 25-30% value-bet allowance.
 // Format: [min_probability_inclusive, max_allowed_odds]
+//
+// 2026-05-15 — tightened after the inflated-odds incident: previous table
+// allowed up to 83% implied edge for prob 0.83 (max odds 2.20). This let
+// catalog-polluted picks (m_id=63 "Under 4.5 @ 2.02" with prob 88%) pass
+// the sanity check. New table caps implied edge to ~25-30% across the board,
+// and adds an 0.80 band so 80-82% picks are no longer unconstrained.
+//
+// Implied edge cap per band (where edge = (prob - 1/odds) / (1/odds)):
+//   prob 0.95, odds 1.25 → edge 19%
+//   prob 0.90, odds 1.35 → edge 22%
+//   prob 0.85, odds 1.50 → edge 28%
+//   prob 0.83, odds 1.55 → edge 29%
+//   prob 0.80, odds 1.60 → edge 28%
 const PROB_ODDS_SANITY_TABLE: Array<[number, number]> = [
-    [0.95, 1.20],
-    [0.90, 1.40],
-    [0.85, 1.70],
-    [0.83, 2.20],
+    [0.95, 1.25],
+    [0.90, 1.35],
+    [0.85, 1.50],
+    [0.83, 1.55],
+    [0.80, 1.60],
 ];
 
 export interface ProbOddsCoherenceResult {
@@ -414,6 +478,6 @@ export function checkProbOddsCoherence(prob: number, odds: number | null): ProbO
             };
         }
     }
-    // Below 83%: no upper bound enforced (Oportunidades threshold is 80-83%).
+    // Below 80%: not in opportunities band — no constraint applied.
     return { coherent: true, reason: null, probBand: null, maxAllowedOdds: null };
 }

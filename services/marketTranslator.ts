@@ -57,6 +57,18 @@ function isHandicapMarket(m: string): boolean {
   return x.includes('handicap') || x.includes('handikap') || x.includes('asian');
 }
 
+// Draw No Bet (a.k.a. "Empate No Acción", "Match Winner (no draw)") is a 2-way
+// market where the stake is refunded if the match ends in a draw. Detected via
+// market OR selection text since the LLM occasionally encodes it in either.
+function isDrawNoBetMarket(market: string, selection: string): boolean {
+  const x = lower(market) + ' ' + lower(selection);
+  return x.includes('draw no bet')
+    || x.includes('no bet')
+    || x.includes('empate no')
+    || x.includes('match winner (no draw)')
+    || x.includes('no draw');
+}
+
 function isHalvesMarket(m: string, s: string): boolean {
   const x = lower(m) + ' ' + lower(s);
   return x.includes('1er tiempo') || x.includes('2do tiempo') || x.includes('primer tiempo') ||
@@ -150,6 +162,30 @@ export function translatePick(market: string, selection: string): TranslatedPick
       shortLabel: `BTTS ${sel}`,
       longLabel: `Ambos equipos anotan — ${sel}`,
       category: 'BTTS',
+    };
+  }
+
+  // EMPATE NO ACCIÓN (Draw No Bet)
+  // Check BEFORE Doble Oportunidad and 1X2 because the selection may also
+  // contain team names that those checks would match. Strip the DNB markers
+  // from the RAW selection first so translateSelection() doesn't rewrite
+  // "Draw No Bet" → "Empate No Bet" (\bdraw\b → Empate is generic).
+  if (isDrawNoBetMarket(m, s)) {
+    const strippedSel = (s || '')
+      .replace(/\s*[-—]?\s*draw\s+no\s+bet\s*/gi, '')
+      .replace(/\s*[-—]?\s*no\s+bet\s*/gi, '')
+      .replace(/\s*[-—]?\s*empate\s+no\s+acci[óo]n\s*/gi, '')
+      .replace(/\s*[-—]?\s*no\s+draw\s*/gi, '')
+      .replace(/\s*\(\s*no\s+draw\s*\)\s*/gi, '')
+      .replace(/\s*\(\s*\)\s*/g, '')
+      .trim();
+    const cleanedSel = translateSelection(strippedSel || s);
+    return {
+      marketEs: 'Empate No Acción',
+      selectionEs: cleanedSel,
+      shortLabel: `${cleanedSel} (refund si empate)`,
+      longLabel: `Empate No Acción — ${cleanedSel} (gana el partido o la apuesta se devuelve si empatan)`,
+      category: 'RESULTADO',
     };
   }
 
