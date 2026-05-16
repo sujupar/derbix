@@ -84,6 +84,21 @@ export interface MegaOutput {
   overall_confidence: number;
 }
 
+// 2026-05-15 FIX: surrogate-safe truncation. Plain `.substring(N)` operates
+// on UTF-16 code units and can split surrogate pairs (emojis, some CJK chars),
+// producing strings that JSON.stringify serializes with an orphan `\uD8XX`
+// escape. DeepSeek (and other strict parsers) then fail to parse the body
+// with "unexpected end of hex escape at line 1 column XXXX". Affected
+// fixtures so far: Wuhan vs Liaoning, Union Berlin vs Augsburg, Viking vs
+// Start — descriptions had emoji or surrogate-pair characters that fell at
+// the substring boundary.
+function safeTruncate(s: string, maxChars: number): string {
+  if (!s || s.length <= maxChars) return s || '';
+  // Iterate by code points (Array.from respects surrogate pairs as ONE element)
+  const codePoints = Array.from(s);
+  return codePoints.slice(0, maxChars).join('');
+}
+
 export async function runMegaStage(
   df: DataFoundationOutput,
   context: MatchContext,
@@ -123,9 +138,9 @@ export async function runMegaStage(
       formatCat('COMBINADOS', organizedOdds.COMBOS || []),
       formatCat('OTROS (incluye tarjetas)', (organizedOdds.OTHERS || []).slice(0, 30)),
     ].filter(Boolean).join('\n');
-    oddsCatalog = catalogLines || (context.odds || '').substring(0, 2500);
+    oddsCatalog = catalogLines || safeTruncate(context.odds || '', 2500);
   } else {
-    oddsCatalog = (context.odds || '').substring(0, 2500);
+    oddsCatalog = safeTruncate(context.odds || '', 2500);
   }
 
   const prompt = `Datos del partido: ${JSON.stringify(dfCompact)}
@@ -133,10 +148,10 @@ export async function runMegaStage(
 CATÁLOGO DE CUOTAS REALES (Bet365/Pinnacle):
 ${oddsCatalog}
 
-H2H: ${(context.h2h || '').substring(0, 800)}
-Hist L: ${(context.homeHistory || '').substring(0, 900)}
-Hist V: ${(context.awayHistory || '').substring(0, 900)}
-Externo (lesiones/contexto): ${(context.external_context || '').substring(0, 1200)}
+H2H: ${safeTruncate(context.h2h || '', 800)}
+Hist L: ${safeTruncate(context.homeHistory || '', 900)}
+Hist V: ${safeTruncate(context.awayHistory || '', 900)}
+Externo (lesiones/contexto): ${safeTruncate(context.external_context || '', 1200)}
 Lineups: ${context.lineups?.home.formation || '?'} vs ${context.lineups?.away.formation || '?'}, lesiones=${df.injuries_impact.home_key_missing.join('/') || '-'} | ${df.injuries_impact.away_key_missing.join('/') || '-'}
 
 INSTRUCCIONES:
