@@ -361,7 +361,15 @@ serve(async (req) => {
       }
 
       if (pipelineResult.validated_picks.length > 0) {
-        const today = match_date || new Date().toISOString().slice(0, 10);
+        // 2026-05-20 FIX: fallback to Bogotá date (not UTC) so opportunity_date
+        // matches daily_matches.match_date. Without this, fallback would assign
+        // today's UTC date — wrong for night matches in Bogotá (19:00+ local
+        // = next day UTC). v3-ai-analyzer now passes Bogotá date explicitly,
+        // but this fallback exists for safety.
+        const today = match_date || new Date().toLocaleString('en-CA', {
+          timeZone: 'America/Bogota',
+          year: 'numeric', month: '2-digit', day: '2-digit'
+        });
         const confidenceToInt = (c: string): number =>
           c === 'ALTA' ? 90 : c === 'MEDIA' ? 70 : 50;
         const valuePicksRows = pipelineResult.validated_picks.map((p, idx) => ({

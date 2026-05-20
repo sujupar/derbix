@@ -1181,12 +1181,25 @@ serve(async (req) => {
             const homeFatigue = computeFatigueIndex(combinedHomeHistory, matchDateIso);
             const awayFatigue = computeFatigueIndex(combinedAwayHistory, matchDateIso);
 
+            // 2026-05-20 FIX: matchContext.date must be the Bogotá-local date so it
+            // aligns with daily_matches.match_date (which is also Bogotá). Before, we
+            // used `matchDateIso.split('T')[0]` which is the UTC date — for night
+            // matches in Bogotá (19:00+) the UTC date is the NEXT day, causing picks
+            // to show in Oportunidades for the wrong calendar day (visible to user
+            // 2026-05-20 as "tomorrow's matches" when they actually played 2026-05-19
+            // Bogotá night). Affected especially: Libertadores, Sudamericana, Liga
+            // Argentina — all play late local time.
+            const bogotaDate = new Date(matchDateIso).toLocaleString('en-CA', {
+                timeZone: 'America/Bogota',
+                year: 'numeric', month: '2-digit', day: '2-digit'
+            }); // 'en-CA' format is YYYY-MM-DD
+
             // Step 3: Build MatchContext for the agents
             const matchContext: MatchContext = {
                 homeTeam,
                 awayTeam,
                 league: leagueName,
-                date: matchDateIso.split('T')[0],
+                date: bogotaDate,
                 math: mathResult,
                 homeHistory: deepHome,
                 awayHistory: deepAway,
