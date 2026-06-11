@@ -30,17 +30,23 @@ ON CONFLICT (key) DO NOTHING;
 -- PASO 2: Configurar nuevos cron jobs
 -- =====================================================
 
--- 1. ANALIZADOR AUTOMÁTICO - START - 12:30 AM Colombia (5:30 AM UTC)
--- Inicia el batch de análisis para los partidos de HOY
+-- 1. ANALIZADOR AUTOMÁTICO - START - 5:00 AM Colombia (10:00 AM UTC)
+-- Inicia el batch de análisis para los partidos del DÍA SIGUIENTE (getTomorrowBogota)
 -- Popula daily_matches, filtra amistosos, procesa secuencialmente
+-- IMPORTANTE: el header X-Internal-Secret es OBLIGATORIO desde el hardening de
+-- seguridad (2026-05-11): daily-analysis-generator usa requireAdminOrService().
+-- Sin este header el cron recibe 401 y el batch nunca arranca.
+-- Reemplaza los dos placeholders con valores REALES (actuales) al ejecutar:
+--   <Bearer>            → SUPABASE_ANON_KEY o SERVICE_ROLE_KEY vigente (pasa el gateway)
+--   X-Internal-Secret   → valor de INTERNAL_FUNCTION_SECRET (pasa el guard interno)
 SELECT cron.schedule(
     'daily-analysis-generator',
-    '30 5 * * *',  -- 5:30 AM UTC = 12:30 AM Colombia
+    '0 10 * * *',  -- 10:00 AM UTC = 5:00 AM Colombia
     $$
     SELECT
       net.http_post(
           url:='https://nokejmhlpsaoerhddcyc.supabase.co/functions/v1/daily-analysis-generator',
-          headers:='{"Content-Type": "application/json", "Authorization": "Bearer __ROTATED_KEY_LOAD_FROM_ENV__"}'::jsonb,
+          headers:='{"Content-Type": "application/json", "Authorization": "Bearer __ROTATED_KEY_LOAD_FROM_ENV__", "X-Internal-Secret": "__INTERNAL_FUNCTION_SECRET_LOAD_FROM_ENV__"}'::jsonb,
           body:='{"action":"start","auto":true}'::jsonb
       ) as request_id;
     $$
@@ -49,6 +55,7 @@ SELECT cron.schedule(
 -- 2. HEARTBEAT - Cada 5 minutos (24/7)
 -- Detecta batches estancados (>10 min sin update) y reinicia la cadena
 -- Si no hay batch activo, sale inmediatamente (< 1s de ejecución)
+-- Mismo requisito de auth que el START: X-Internal-Secret OBLIGATORIO.
 SELECT cron.schedule(
     'daily-analysis-heartbeat',
     '*/5 * * * *',  -- Cada 5 minutos
@@ -56,7 +63,7 @@ SELECT cron.schedule(
     SELECT
       net.http_post(
           url:='https://nokejmhlpsaoerhddcyc.supabase.co/functions/v1/daily-analysis-generator',
-          headers:='{"Content-Type": "application/json", "Authorization": "Bearer __ROTATED_KEY_LOAD_FROM_ENV__"}'::jsonb,
+          headers:='{"Content-Type": "application/json", "Authorization": "Bearer __ROTATED_KEY_LOAD_FROM_ENV__", "X-Internal-Secret": "__INTERNAL_FUNCTION_SECRET_LOAD_FROM_ENV__"}'::jsonb,
           body:='{"action":"heartbeat"}'::jsonb
       ) as request_id;
     $$
@@ -125,10 +132,10 @@ ORDER BY jobname;
 -- =====================================================
 -- RESUMEN DEL FLUJO DIARIO V2:
 -- =====================================================
--- 12:30 AM → daily-analysis-generator START: Popula daily_matches para hoy,
---            filtra amistosos, inicia batch secuencial (1 partido a la vez)
---            Cada partido: ETL → Analyzer → siguiente
--- ~2:30 AM → Batch típicamente completado (~30 partidos × 4 min/partido)
+-- 5:00 AM  → daily-analysis-generator START: Popula daily_matches para el DÍA
+--            SIGUIENTE (getTomorrowBogota), filtra amistosos, inicia batch
+--            secuencial (1 partido a la vez). Cada partido: ETL → Analyzer → siguiente
+-- ~7:00 AM → Batch típicamente completado (~30 partidos × 4 min/partido)
 -- */5 min  → Heartbeat: detecta batches estancados y reinicia la cadena
 -- Cada hora → hourly-results-verifier verifica resultados de partidos finalizados
 -- =====================================================
