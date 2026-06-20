@@ -3,7 +3,7 @@
 @theme {
   /* Fonts */
   --font-sans: 'Inter', sans-serif;
-  --font-display: 'Outfit', sans-serif;
+  --font-display: 'Space Grotesk', sans-serif;
 
   /* Custom Colors */
   --color-slate-850: #151e2e;
@@ -13,12 +13,37 @@
   --color-dark-card: rgba(30, 41, 59, 0.7);
   --color-dark-border: rgba(148, 163, 184, 0.1);
 
-  --color-brand: #10b981;
-  --color-brand-hover: #059669;
-  --color-brand-glow: rgba(16, 185, 129, 0.5);
+  /* Brand = verde Derbix (acento único). Reapuntado al verde nuevo del
+     sistema para que TODOS los usos existentes de `brand` lo adopten. */
+  --color-brand: #1DE782;
+  --color-brand-hover: #0BA35A;
+  --color-brand-glow: rgba(29, 231, 130, 0.5);
 
   --color-accent-blue: #3b82f6;
   --color-accent-purple: #8b5cf6;
+
+  /* ── Sistema reforma visual (tokens --dx-*) ─────────────────────── */
+  /* Fondo y superficies */
+  --color-dx-bg: #000000;
+  --color-dx-surface: #0C1310;
+  --color-dx-surface-2: #121E18;
+  /* Bordes */
+  --color-dx-border: rgba(255, 255, 255, 0.07);
+  --color-dx-border-active: rgba(29, 231, 130, 0.30);
+  /* Verde (acento único, 3 intensidades) */
+  --color-dx-green: #1DE782;
+  --color-dx-green-bright: #5BFFAC;
+  --color-dx-green-deep: #0BA35A;
+  --color-dx-green-glow: rgba(29, 231, 130, 0.20);
+  /* Texto (blanco en 3 opacidades) */
+  --color-dx-text: #FFFFFF;
+  --color-dx-text-soft: rgba(255, 255, 255, 0.58);
+  --color-dx-text-mute: rgba(255, 255, 255, 0.36);
+  /* Funcionales */
+  --color-dx-loss: #F4584E;
+  --color-dx-live: #FF3B30;
+  --color-dx-gold: #E7B84F;       /* Premium */
+  --color-dx-platinum: #C7CCD1;   /* Pro */
 
   /* Backdrop Blur */
   --backdrop-blur-xs: 2px;
@@ -176,7 +201,7 @@
   }
 
   .text-glow {
-    text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+    text-shadow: 0 0 10px rgba(29, 231, 130, 0.3);
   }
 
   .animate-gradient-x {
@@ -220,10 +245,52 @@
   }
 }
 
+/* ── Componentes del sistema visual (reforma) ──────────────────────── */
+/* Aditivos: no afectan a ninguna pantalla hasta que se usan. */
+.dx-num { font-variant-numeric: tabular-nums; }
+
+/* Toggle segmentado con pill verde deslizante */
+.dx-seg { position: relative; display: flex; background: var(--color-dx-surface);
+  border: 1px solid var(--color-dx-border); border-radius: 14px; padding: 5px; }
+.dx-seg-ind { position: absolute; top: 5px; bottom: 5px; border-radius: 10px;
+  background: linear-gradient(180deg, var(--color-dx-green-bright), var(--color-dx-green));
+  box-shadow: 0 8px 20px -8px var(--color-dx-green-glow); z-index: 1;
+  transition: transform .26s cubic-bezier(.4,1.2,.4,1), width .26s cubic-bezier(.4,1.2,.4,1); }
+.dx-seg button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
+  background: none; border: none; font-weight: 600; font-size: 13.5px;
+  color: var(--color-dx-text-soft); z-index: 2; cursor: pointer; transition: color .2s; }
+.dx-seg button.on { color: #04140C; }
+
+/* Botón primario */
+.dx-btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  background: linear-gradient(180deg, var(--color-dx-green-bright), var(--color-dx-green));
+  color: #04140C; border: none; border-radius: 13px; padding: 15px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 12px 28px -12px var(--color-dx-green-glow); transition: transform .14s; }
+.dx-btn:hover { transform: translateY(-2px); }
+.dx-btn:active { transform: scale(.98); }
+
+/* Botón secundario / ghost */
+.dx-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  background: transparent; color: var(--color-dx-text); border: 1px solid var(--color-dx-border);
+  border-radius: 13px; padding: 15px; font-weight: 600; cursor: pointer;
+  transition: border-color .16s, transform .14s; }
+.dx-btn-ghost:hover { border-color: var(--color-dx-border-active); }
+
+/* Input con acento verde */
+.dx-input { background: var(--color-dx-surface); border: 1px solid var(--color-dx-border);
+  border-radius: 12px; padding: 14px 16px; color: var(--color-dx-text);
+  caret-color: var(--color-dx-green); outline: none; transition: border-color .18s, box-shadow .18s; }
+.dx-input::placeholder { color: var(--color-dx-text-mute); }
+.dx-input:focus { border-color: var(--color-dx-green); box-shadow: 0 0 0 3px rgba(29, 231, 130, 0.15); }
+
+/* Tarjeta */
+.dx-card { background: var(--color-dx-surface); border: 1px solid var(--color-dx-border);
+  border-radius: 16px; transition: transform .16s, border-color .16s; }
+.dx-card:hover { transform: translateY(-2px); border-color: var(--color-dx-border-active); }
+
 /* Global Reset & Scrollbar */
 body {
-  @apply bg-slate-950 text-slate-200 antialiased;
-  /* Using standard CSS for selection to be safe, or utility if valid */
+  @apply bg-dx-bg text-dx-text-soft antialiased;
 }
 
 ::selection {
