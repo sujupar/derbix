@@ -111,10 +111,10 @@ Título `font-display` + subtítulo `text-dx-text-soft`.
 - Toggle: verde lleno + texto adentro (ver §7). Cada opción conserva su handler.
 - ⏳ PENDIENTE: replicar este patrón de barra de controles en otras pantallas con filtros (Resultados).
 
-### 5.4 Panel de contenido — ⏳ PENDIENTE
-- Tarjeta con cabecera (ícono verde + título + subtítulo + meta a la derecha **solo si el dato existe**).
-- **Filas de pick limpias** (`.dx-prow`): izquierda probabilidad grande en verde + barra de confianza; centro equipos + chip de mercado (verde) + liga/hora; derecha **cuota en dorado** + chevron. Resultado/dinero en `--dx-green` (ganado) / `--dx-loss` (perdido).
-- Archivos objetivo: `components/ai/HighProbPicks.tsx`, `components/ai/TopPicks.tsx`, `components/ai/AnalysisReportModal.tsx`.
+### 5.4 Panel de contenido — ✅ HECHO (Oportunidades)
+- Cabecera con ícono verde + título + subtítulo + meta "N hoy" (dato real; el "actualizado 5:00 AM" del mockup se omite por no existir el dato).
+- **Filas de pick limpias** en `HighProbPicks.tsx`: izquierda probabilidad grande en verde + barra de confianza; centro equipos + chip de mercado (verde) + liga; derecha **cuota en dorado** + chevron. Resultado en `--dx-green` (ganada) / `--dx-loss` (perdida). Admin conserva override/stake/SEO en sub-fila.
+- ⏳ PENDIENTE: `components/ai/TopPicks.tsx`, `components/ai/AnalysisReportModal.tsx`.
   - ⚠️ `AnalysisReportModal.tsx` tiene el espejo de `isProbOddsCoherent()` (banner ámbar "Cuota incoherente"): **no tocar esa lógica**, solo su estilo.
 
 ---
@@ -180,8 +180,11 @@ El acento puede cambiar según el plan (verde estándar, **dorado** premium, pla
 | `ac213bc` | Jornadas neon premium: header + toggle pastilla verde→cian |
 | `c8c1ed6` | Fix toggle: seleccionado 100% verde + sin overflow de texto |
 | `722e311` | Sidebar con secciones + pie con plan limpio (sin agency_admin) + barra de controles (toggle izq · fecha der) |
+| `8eecc63` | Filas de pick limpias (Composición 1) + pie con tarjeta de plan "Plan Agencia / Acceso total" + menú de cuenta (kebab, conserva WhatsApp) + ícono de refresco en la barra |
 
-**PRÓXIMO checkpoint sugerido:** filas de pick limpias (`HighProbPicks.tsx`) — §5.4.
+**Elementos del mockup que son FEATURE (no estética) y NO se inventaron:** ítem "En vivo" en sidebar (hoy es toggle dentro de Partidos), ítem "Configuración" (fue eliminado), badge "12" en Jornadas y "3" en En vivo (no hay conteo cableado al sidebar), línea "actualizado 5:00 AM". Requieren decisión del usuario para añadirse como features reales.
+
+**PRÓXIMO checkpoint sugerido:** Resultados (`ResultadosPage.tsx`) — pills + métricas en español — §6.
 
 ---
 
