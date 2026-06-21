@@ -316,7 +316,7 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
         <div className="space-y-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                    <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/20">
+                    <div className="p-3 bg-gradient-to-br from-dx-green-deep to-dx-green rounded-xl shadow-lg shadow-brand/20">
                         <ChartBarIcon className="w-6 h-6 text-white" />
                     </div>
                     <div>

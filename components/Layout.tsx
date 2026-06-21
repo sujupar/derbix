@@ -54,10 +54,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
   });
 
   return (
-    <div className="flex h-screen overflow-hidden text-slate-200 font-sans selection:bg-brand selection:text-white bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div className="flex h-screen overflow-hidden text-slate-200 font-sans selection:bg-brand selection:text-white bg-dx-bg">
 
       {/* --- DESKTOP SIDEBAR --- */}
-      <aside className="hidden md:flex flex-col w-64 h-full glass backdrop-blur-xl border-r border-white/5 fixed left-0 top-0 z-30 transition-transform duration-300">
+      <aside className="hidden md:flex flex-col w-64 h-full bg-dx-surface backdrop-blur-xl border-r border-[color:var(--color-dx-border)] fixed left-0 top-0 z-30 transition-transform duration-300">
         <div className="p-5 flex items-center justify-center border-b border-white/5">
           <img src="/derbix-logo.png" alt="Derbix" className="h-12 object-contain" />
         </div>
@@ -75,7 +75,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
                 onClick={() => setCurrentPage(item.id as Page)}
                 data-onboarding={item.id === 'results' ? 'results' : undefined}
                 className={`w-full flex items-center px-4 py-3 rounded-xl transition-all duration-300 ease-out group active:scale-[0.98] ${isActive
-                  ? 'bg-gradient-to-r from-brand/20 to-transparent text-brand border-l-2 border-brand shadow-[0_0_15px_rgba(16,185,129,0.1)]'
+                  ? 'bg-gradient-to-r from-brand/20 to-transparent text-brand border-l-2 border-brand shadow-[0_0_15px_rgba(29,231,130,0.15)]'
                   : 'text-slate-400 hover:bg-white/5 hover:text-slate-100 hover:pl-5 active:bg-white/10'
                   }`}
               >
@@ -84,7 +84,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
                 </div>
                 <span className="font-medium tracking-wide text-sm">{item.label}</span>
                 {isActive && (
-                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-brand animate-pulse shadow-[0_0_8px_#10b981]"></div>
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-brand animate-pulse shadow-[0_0_8px_#1DE782]"></div>
                 )}
               </button>
             );
@@ -100,9 +100,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
           />
         )}
 
-        <div className="p-4 border-t border-white/5 bg-slate-900/40">
+        <div className="p-4 border-t border-white/5 bg-dx-surface-2/40">
           <div className="flex items-center space-x-3 mb-4 px-2">
-            <div className={`w-8 h-8 rounded-full bg-gradient-to-tr from-brand to-blue-500 flex items-center justify-center text-xs font-bold text-white shadow-lg ${getAvatarRingClass(plan.plan_name)}`}>
+            <div className={`w-8 h-8 rounded-full bg-gradient-to-tr from-brand to-dx-green-deep flex items-center justify-center text-xs font-bold text-white shadow-lg ${getAvatarRingClass(plan.plan_name)}`}>
               {profile?.full_name?.charAt(0) || 'U'}
             </div>
             <div className="flex-1 overflow-hidden">
