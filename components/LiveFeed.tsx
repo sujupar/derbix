@@ -803,7 +803,7 @@ export const FixturesFeed: React.FC = () => {
                 <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
                     <div>
                         <h2 className="text-2xl sm:text-3xl font-display font-bold text-white tracking-tight">Jornadas Deportivas</h2>
-                        <p className="text-slate-400 mt-1">Explora los encuentros y potencia tus decisiones con IA.</p>
+                        <p className="text-dx-text-soft mt-1">Explora los encuentros y potencia tus decisiones con IA.</p>
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
@@ -812,45 +812,49 @@ export const FixturesFeed: React.FC = () => {
                                 type="date"
                                 value={selectedDate}
                                 onChange={(e) => setSelectedDate(e.target.value)}
-                                className="w-full bg-slate-800 border-none text-white text-sm rounded-xl px-4 py-3 focus:ring-2 focus:ring-brand shadow-lg outline-none"
+                                className="w-full bg-dx-surface border border-dx-border text-white text-sm rounded-xl px-4 py-3 pr-10 outline-none transition-all focus:border-dx-green focus:ring-2 focus:ring-dx-green/30 [color-scheme:dark]"
                             />
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-dx-green">
                                 <CalendarDaysIcon className="w-5 h-5" />
                             </div>
                         </div>
 
-                        <div className="bg-slate-800 p-1 rounded-xl flex gap-1 w-full sm:w-auto">
+                        {/* Toggle Oportunidades/Partidos — pastilla verde→cian deslizante */}
+                        <div className="relative flex w-full sm:w-auto sm:min-w-[280px] bg-dx-surface border border-dx-border rounded-xl p-1">
+                            <span
+                                aria-hidden
+                                className="absolute top-1 bottom-1 left-1 rounded-lg bg-gradient-to-r from-dx-green to-dx-cyan shadow-[0_0_18px_rgba(29,231,130,0.45)] transition-transform duration-300 ease-out"
+                                style={{ width: 'calc(50% - 4px)', transform: viewMode === 'fixtures' ? 'translateX(100%)' : 'translateX(0)' }}
+                            />
                             <button
                                 onClick={() => setViewMode('top-picks')}
                                 data-onboarding="tab-opportunities"
-                                className={`flex-1 sm:flex-none flex items-center justify-center px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${viewMode === 'top-picks' ? 'bg-gradient-to-r from-brand to-emerald-600 text-white shadow-lg shadow-brand/20' : 'text-slate-400 hover:text-white'
-                                    }`}
+                                className={`relative z-10 flex-1 flex items-center justify-center px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${viewMode === 'top-picks' ? 'text-[#04140C]' : 'text-dx-text-soft hover:text-white'}`}
                             >
                                 <TrophyIcon className="w-5 h-5 sm:mr-2" /> <span className="hidden sm:inline">Oportunidades</span>
                             </button>
                             <button
                                 onClick={() => setViewMode('fixtures')}
-                                className={`flex-1 sm:flex-none flex items-center justify-center px-4 py-2 rounded-lg text-sm font-bold transition-all ${viewMode === 'fixtures' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                                    }`}
+                                className={`relative z-10 flex-1 flex items-center justify-center px-4 py-2 rounded-lg text-sm font-bold transition-colors ${viewMode === 'fixtures' ? 'text-[#04140C]' : 'text-dx-text-soft hover:text-white'}`}
                             >
                                 <ListBulletIcon className="w-5 h-5 sm:mr-2" /> <span className="hidden sm:inline">Partidos</span>
                             </button>
-                            {viewMode === 'fixtures' && (
-                                <button
-                                    onClick={() => setShowLiveOnly(!showLiveOnly)}
-                                    className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${showLiveOnly ? 'bg-red-500/20 text-red-400 ring-1 ring-red-500/50' : 'text-slate-500 hover:text-red-400 hover:bg-red-500/10'}`}
-                                >
-                                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                                    EN VIVO
-                                </button>
-                            )}
-                            {/* Resultados tab moved to standalone sidebar section */}
                         </div>
+
+                        {viewMode === 'fixtures' && (
+                            <button
+                                onClick={() => setShowLiveOnly(!showLiveOnly)}
+                                className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all border ${showLiveOnly ? 'bg-dx-live/15 text-dx-live border-dx-live/50' : 'text-dx-text-mute hover:text-dx-live border-dx-border hover:border-dx-live/40'}`}
+                            >
+                                <span className="w-2 h-2 rounded-full bg-dx-live animate-pulse" />
+                                EN VIVO
+                            </button>
+                        )}
                     </div>
                 </div>
 
                 {viewMode === 'top-picks' ? (
-                    <div className="glass rounded-2xl p-3 sm:p-4 md:p-6 min-h-[500px] animate-fade-in border border-white/5">
+                    <div className="bg-dx-surface rounded-2xl p-3 sm:p-4 md:p-6 min-h-[500px] animate-fade-in border border-dx-border">
                         <HighProbPicks
                             date={selectedDate}
                             onViewReport={handleViewReport}

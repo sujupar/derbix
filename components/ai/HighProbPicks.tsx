@@ -356,7 +356,7 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                         </div>
                     )}
 
-                    <button onClick={() => loadPicks(true)} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Actualizar Oportunidades">
+                    <button onClick={() => loadPicks(true)} className="p-2 text-dx-text-soft hover:text-dx-green hover:bg-white/5 rounded-lg transition-colors" title="Actualizar Oportunidades">
                         <ArrowPathIcon className="w-5 h-5" />
                     </button>
                 </div>
@@ -512,17 +512,17 @@ const EmptyState: React.FC<{ onRetry: () => void; message?: string | null; inPro
         <h3 className="text-xl font-bold text-white mb-2">
             {inProgress && inProgress > 0 ? 'Análisis en Progreso...' : 'Sin Oportunidades Claras'}
         </h3>
-        <p className="text-slate-400 max-w-md mb-6 leading-relaxed">
+        <p className="text-dx-text-soft max-w-md mb-6 leading-relaxed">
             {message || (
                 <>
                     No encontramos picks con <span className="text-amber-400 font-bold">Probabilidad {'\u2265'} {OPPORTUNITIES_THRESHOLD_PERCENT}%</span> y cuota real del mercado para esta fecha.
-                    <span className="block mt-2 text-xs text-slate-500">
+                    <span className="block mt-2 text-xs text-dx-text-mute">
                         Las oportunidades se publican solo cuando los bookmakers han emitido cuotas — si aún no están disponibles, vuelve en unos minutos.
                     </span>
                 </>
             )}
         </p>
-        <button onClick={onRetry} className="flex items-center gap-2 px-5 py-2.5 bg-brand text-white font-bold rounded-xl hover:bg-brand/80 transition-all shadow-lg hover:shadow-brand/20">
+        <button onClick={onRetry} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-[#04140C] bg-gradient-to-r from-dx-green to-dx-cyan shadow-[0_8px_22px_-10px_rgba(29,231,130,0.6)] hover:shadow-[0_10px_28px_-8px_rgba(34,229,192,0.6)] hover:-translate-y-0.5 transition-all">
             <ArrowPathIcon className="w-4 h-4" /> {inProgress && inProgress > 0 ? 'Verificar de Nuevo' : 'Actualizar'}
         </button>
     </div>

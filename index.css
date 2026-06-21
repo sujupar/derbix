@@ -35,6 +35,7 @@
   --color-dx-green-bright: #5BFFAC;
   --color-dx-green-deep: #0BA35A;
   --color-dx-green-glow: rgba(29, 231, 130, 0.20);
+  --color-dx-cyan: #22E5C0;        /* segundo stop del degradado verde→cian */
   /* Texto (blanco en 3 opacidades) */
   --color-dx-text: #FFFFFF;
   --color-dx-text-soft: rgba(255, 255, 255, 0.58);
@@ -253,20 +254,22 @@
 .dx-seg { position: relative; display: flex; background: var(--color-dx-surface);
   border: 1px solid var(--color-dx-border); border-radius: 14px; padding: 5px; }
 .dx-seg-ind { position: absolute; top: 5px; bottom: 5px; border-radius: 10px;
-  background: linear-gradient(180deg, var(--color-dx-green-bright), var(--color-dx-green));
-  box-shadow: 0 8px 20px -8px var(--color-dx-green-glow); z-index: 1;
+  background: linear-gradient(135deg, var(--color-dx-green), var(--color-dx-cyan));
+  box-shadow: 0 0 18px rgba(29,231,130,0.40); z-index: 1;
   transition: transform .26s cubic-bezier(.4,1.2,.4,1), width .26s cubic-bezier(.4,1.2,.4,1); }
 .dx-seg button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
   background: none; border: none; font-weight: 600; font-size: 13.5px;
   color: var(--color-dx-text-soft); z-index: 2; cursor: pointer; transition: color .2s; }
 .dx-seg button.on { color: #04140C; }
 
-/* Botón primario */
+/* Botón primario — Neón Premium (degradado verde→cian, glow que crece en hover) */
 .dx-btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px;
-  background: linear-gradient(180deg, var(--color-dx-green-bright), var(--color-dx-green));
+  background: linear-gradient(135deg, var(--color-dx-green), var(--color-dx-cyan));
   color: #04140C; border: none; border-radius: 13px; padding: 15px; font-weight: 700; cursor: pointer;
-  box-shadow: 0 12px 28px -12px var(--color-dx-green-glow); transition: transform .14s; }
-.dx-btn:hover { transform: translateY(-2px); }
+  box-shadow: 0 10px 26px -12px var(--color-dx-green-glow);
+  transition: box-shadow .25s ease, transform .16s ease; }
+.dx-btn:hover { transform: translateY(-2px);
+  box-shadow: 0 12px 30px -10px rgba(29,231,130,0.5), 0 0 22px rgba(34,229,192,0.4); }
 .dx-btn:active { transform: scale(.98); }
 
 /* Botón secundario / ghost */
@@ -274,7 +277,8 @@
   background: transparent; color: var(--color-dx-text); border: 1px solid var(--color-dx-border);
   border-radius: 13px; padding: 15px; font-weight: 600; cursor: pointer;
   transition: border-color .16s, transform .14s; }
-.dx-btn-ghost:hover { border-color: var(--color-dx-border-active); }
+.dx-btn-ghost:hover { border-color: var(--color-dx-green);
+  box-shadow: 0 0 16px rgba(29,231,130,0.22); color: var(--color-dx-green); }
 
 /* Input con acento verde */
 .dx-input { background: var(--color-dx-surface); border: 1px solid var(--color-dx-border);
