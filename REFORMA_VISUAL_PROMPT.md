@@ -181,8 +181,13 @@ El acento puede cambiar según el plan (verde estándar, **dorado** premium, pla
 | `c8c1ed6` | Fix toggle: seleccionado 100% verde + sin overflow de texto |
 | `722e311` | Sidebar con secciones + pie con plan limpio (sin agency_admin) + barra de controles (toggle izq · fecha der) |
 | `8eecc63` | Filas de pick limpias (Composición 1) + pie con tarjeta de plan "Plan Agencia / Acceso total" + menú de cuenta (kebab, conserva WhatsApp) + ícono de refresco en la barra |
+| `9e459b6` | Features del mockup (autorizadas): badge de oportunidades en Jornadas + ítem "En vivo" (Page `live-now`) con conteo real + ítem "Configuración" (Page `settings`, nueva `SettingsPage`) |
 
-**Elementos del mockup que son FEATURE (no estética) y NO se inventaron:** ítem "En vivo" en sidebar (hoy es toggle dentro de Partidos), ítem "Configuración" (fue eliminado), badge "12" en Jornadas y "3" en En vivo (no hay conteo cableado al sidebar), línea "actualizado 5:00 AM". Requieren decisión del usuario para añadirse como features reales.
+**Features del mockup ya implementadas (datos reales, no inventados):**
+- Badge "N" en Jornadas = conteo de `value_picks_v2` (is_opportunity, opportunity_date=hoy Bogotá), refresco 120s.
+- "En vivo" en sidebar → `Page 'live-now'` monta `FixturesFeed initialLive` (Partidos + filtro en vivo). Badge rojo = conteo `fetchLiveFixtures`, refresco 90s.
+- "Configuración" → `Page 'settings'` + `components/settings/SettingsPage.tsx` (cuenta + plan + WhatsApp). Para todos los usuarios.
+- (La línea "actualizado 5:00 AM" se omite: no existe ese dato.)
 
 **PRÓXIMO checkpoint sugerido:** Resultados (`ResultadosPage.tsx`) — pills + métricas en español — §6.
 
