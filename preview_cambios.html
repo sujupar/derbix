@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Derbix — Vista previa de cambios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --dx-bg:#000; --dx-surface:#0C1310; --dx-surface-2:#121E18;
+    --dx-border:rgba(255,255,255,.07); --dx-border-active:rgba(29,231,130,.30);
+    --dx-green:#1DE782; --dx-green-bright:#5BFFAC; --dx-green-deep:#0BA35A; --dx-cyan:#22E5C0;
+    --dx-text:#fff; --dx-text-soft:rgba(255,255,255,.58); --dx-text-mute:rgba(255,255,255,.36);
+    --dx-gold:#E7B84F; --dx-loss:#F4584E; --dx-live:#FF3B30;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#050505;color:var(--dx-text);font-family:Inter,system-ui,sans-serif;padding:28px;line-height:1.4}
+  .num{font-variant-numeric:tabular-nums}
+  .disp{font-family:'Space Grotesk',sans-serif}
+  .tag{max-width:1180px;margin:0 auto 14px;color:var(--dx-text-mute);font-size:12px;letter-spacing:.04em;text-transform:uppercase;font-weight:700}
+  .shell{max-width:1180px;margin:0 auto 40px;display:flex;background:var(--dx-bg);border:1px solid var(--dx-border);border-radius:22px;overflow:hidden;min-height:640px}
+  /* SIDEBAR */
+  .side{width:264px;flex-shrink:0;background:var(--dx-surface);border-right:1px solid var(--dx-border);display:flex;flex-direction:column}
+  .logo{display:flex;align-items:center;gap:9px;padding:20px;border-bottom:1px solid rgba(255,255,255,.05);font-family:'Space Grotesk';font-weight:700;letter-spacing:.14em;font-size:18px}
+  .logo svg{color:var(--dx-green)}
+  .acct{margin:16px 12px 0;display:flex;align-items:center;gap:10px;background:var(--dx-surface);border:1px solid var(--dx-border);border-radius:12px;padding:11px}
+  .acct:hover{border-color:var(--dx-border-active)}
+  .acct .ini{width:36px;height:36px;border-radius:9px;background:var(--dx-surface-2);border:1px solid var(--dx-border-active);color:var(--dx-green);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+  .acct .nm{font-weight:700;font-size:14px}
+  .acct .sb{font-size:12px;color:var(--dx-text-soft)}
+  .chev{margin-left:auto;color:var(--dx-text-mute)}
+  nav{flex:1;padding:14px 12px;display:flex;flex-direction:column;gap:18px}
+  .sec-label{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--dx-text-mute);padding:0 12px;margin-bottom:8px}
+  .nav-item{position:relative;display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:11px;color:var(--dx-text-soft);font-weight:600;font-size:14px;cursor:pointer}
+  .nav-item:hover{background:var(--dx-surface-2);color:var(--dx-text)}
+  .nav-item.on{background:var(--dx-surface-2);color:var(--dx-green)}
+  .nav-item.on::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:2px;background:var(--dx-green);box-shadow:0 0 10px rgba(29,231,130,.35)}
+  .badge-green{margin-left:auto;font-family:'Space Grotesk';font-variant-numeric:tabular-nums;font-size:11px;font-weight:700;color:var(--dx-green);background:rgba(29,231,130,.15);border-radius:6px;padding:1px 8px}
+  .badge-live{margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--dx-live);font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+  .badge-live .dot{width:6px;height:6px;border-radius:50%;background:var(--dx-live)}
+  .foot{padding:16px;border-top:1px solid rgba(255,255,255,.05);display:flex;flex-direction:column;gap:12px}
+  .plan{display:flex;align-items:center;gap:12px;background:var(--dx-surface);border:1px solid color-mix(in srgb,var(--dx-gold) 26%,var(--dx-border));border-radius:13px;padding:12px}
+  .plan .sh{width:36px;height:36px;border-radius:9px;background:rgba(231,184,79,.10);border:1px solid rgba(231,184,79,.30);display:flex;align-items:center;justify-content:center;color:var(--dx-gold)}
+  .plan .t{font-size:14px;font-weight:700}
+  .plan .s{font-size:12px;color:var(--dx-gold)}
+  .urow{display:flex;align-items:center;gap:11px;padding:0 4px}
+  .urow .av{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--dx-green-bright),var(--dx-green));color:#04140C;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
+  .urow .nm{font-size:14px;font-weight:500}
+  .urow .rl{font-size:12px;color:var(--dx-text-mute)}
+  .kebab{margin-left:auto;color:var(--dx-text-mute);cursor:pointer;padding:6px;border-radius:8px}
+  .kebab:hover{background:var(--dx-surface-2);color:var(--dx-text)}
+  /* MAIN */
+  .main{flex:1;padding:34px 38px}
+  h1{font-family:'Space Grotesk';font-size:30px;font-weight:700;letter-spacing:-.01em}
+  .sub{color:var(--dx-text-soft);margin-top:4px;font-size:15px}
+  .ctrl{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:22px;flex-wrap:wrap}
+  .seg{display:inline-flex;gap:4px;background:var(--dx-surface);border:1px solid var(--dx-border);border-radius:13px;padding:5px}
+  .seg button{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;padding:10px 18px;border:none;background:transparent;color:var(--dx-text-soft);font-weight:700;font-size:13.5px;border-radius:9px;cursor:pointer;font-family:inherit}
+  .seg button.on{background:linear-gradient(135deg,var(--dx-green),var(--dx-cyan));color:#04140C;box-shadow:0 8px 22px -8px rgba(29,231,130,.5)}
+  .rgt{display:flex;align-items:center;gap:12px}
+  .date{display:inline-flex;align-items:center;gap:10px;background:var(--dx-surface);border:1px solid var(--dx-border);border-radius:12px;padding:11px 15px;font-family:'Space Grotesk';font-variant-numeric:tabular-nums;font-size:14px;color:#fff}
+  .date svg{color:var(--dx-green)}
+  .iconbtn{width:44px;height:44px;border-radius:12px;border:1px solid var(--dx-border);background:var(--dx-surface);display:flex;align-items:center;justify-content:center;color:var(--dx-text-soft);cursor:pointer}
+  .iconbtn:hover{color:var(--dx-green);border-color:var(--dx-border-active)}
+  .panel{margin-top:22px;background:var(--dx-surface);border:1px solid var(--dx-border);border-radius:18px;padding:24px}
+  .phead{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-bottom:20px;border-bottom:1px solid var(--dx-border)}
+  .phead .ic{width:48px;height:48px;border-radius:13px;background:linear-gradient(135deg,var(--dx-green-deep),var(--dx-green));display:flex;align-items:center;justify-content:center;color:#04140C}
+  .phead h3{font-family:'Space Grotesk';font-size:23px;font-weight:700}
+  .phead .ps{color:var(--dx-text-soft);font-size:14px;margin-top:2px}
+  .meta{font-family:'Space Grotesk';font-weight:700;color:var(--dx-green);font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap}
+  /* PICK ROW */
+  .prow{display:flex;align-items:center;gap:18px;padding:18px 4px;border-bottom:1px solid var(--dx-border)}
+  .prow:last-child{border-bottom:none}
+  .prow:hover{background:rgba(255,255,255,.02)}
+  .pp{width:80px;flex-shrink:0;text-align:center}
+  .pp .v{font-family:'Space Grotesk';font-weight:800;font-size:26px;color:var(--dx-green);font-variant-numeric:tabular-nums;line-height:1}
+  .pp .l{font-size:9px;letter-spacing:.15em;color:var(--dx-text-mute);font-weight:700;margin-top:3px}
+  .pp .bar{margin-top:7px;height:4px;border-radius:3px;background:var(--dx-surface-2);overflow:hidden}
+  .pp .bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--dx-green),var(--dx-cyan))}
+  .pmid{flex:1;min-width:0}
+  .pmid h4{font-weight:700;font-size:16px}
+  .pmid h4 span{color:var(--dx-text-mute);font-weight:500}
+  .pmid .row2{display:flex;align-items:center;gap:10px;margin-top:7px}
+  .mk{font-size:11.5px;font-weight:500;color:var(--dx-green);background:rgba(29,231,130,.10);border:1px solid var(--dx-border-active);padding:2px 9px;border-radius:7px}
+  .lg{font-size:13px;color:var(--dx-text-mute)}
+  .po{flex-shrink:0;display:flex;align-items:center;gap:12px}
+  .po b{font-family:'Space Grotesk';font-weight:800;font-size:20px;color:var(--dx-gold);font-variant-numeric:tabular-nums}
+  .po .cv{color:var(--dx-text-mute)}
+  /* Settings preview */
+  .scard{background:var(--dx-surface);border:1px solid var(--dx-border);border-radius:16px;padding:22px;margin-top:16px}
+  .scard h3{font-family:'Space Grotesk';font-size:18px;font-weight:700;margin-bottom:10px}
+  .inforow{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--dx-border);font-size:14px}
+  .inforow:last-child{border-bottom:none}
+  .inforow .k{color:var(--dx-text-soft)}
+  .dx-btn{background:linear-gradient(135deg,var(--dx-green),var(--dx-cyan));color:#04140C;border:none;border-radius:12px;padding:13px 20px;font-weight:700;font-family:inherit;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="tag">1 · Jornadas — sidebar nuevo + barra de controles + filas de pick (Composición 1)</div>
+<div class="shell">
+  <!-- SIDEBAR -->
+  <aside class="side">
+    <div class="logo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg>
+      DERBIX
+    </div>
+    <div class="acct">
+      <div class="ini">J</div>
+      <div><div class="nm">Julian Parra</div><div class="sb">Mi cuenta</div></div>
+      <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+    </div>
+    <nav>
+      <div>
+        <div class="sec-label">Menú</div>
+        <div class="nav-item on">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          Jornadas <span class="badge-green num">12</span>
+        </div>
+        <div class="nav-item">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+          Resultados
+        </div>
+        <div class="nav-item">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          En vivo <span class="badge-live num"><span class="dot"></span>3</span>
+        </div>
+      </div>
+      <div>
+        <div class="sec-label">Gestión</div>
+        <div class="nav-item">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/></svg>
+          Admin
+        </div>
+        <div class="nav-item">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+          Configuración
+        </div>
+      </div>
+    </nav>
+    <div class="foot">
+      <div class="plan">
+        <div class="sh"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/></svg></div>
+        <div><div class="t">Plan Agencia</div><div class="s">Acceso total</div></div>
+      </div>
+      <div class="urow">
+        <div class="av">JG</div>
+        <div><div class="nm">Johann Gonzalez</div><div class="rl">Agencia</div></div>
+        <div class="kebab"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <h1>Jornadas Deportivas</h1>
+    <div class="sub">Explora los encuentros y potencia tus decisiones con IA.</div>
+
+    <div class="ctrl">
+      <div class="seg">
+        <button class="on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>Oportunidades</button>
+        <button><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Partidos</button>
+      </div>
+      <div class="rgt">
+        <div class="date">21/06/2026
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        </div>
+        <div class="iconbtn"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M3 21v-5h5"/></svg></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="phead">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg></div>
+          <div><h3>Oportunidades de Valor</h3><div class="ps">Pronósticos individuales · Prob ≥ 80%</div></div>
+        </div>
+        <div class="meta num">2 hoy</div>
+      </div>
+
+      <div class="prow">
+        <div class="pp"><div class="v num">88%</div><div class="l">PROB</div><div class="bar"><i style="width:88%"></i></div></div>
+        <div class="pmid">
+          <h4>Real Madrid <span>vs</span> Getafe</h4>
+          <div class="row2"><span class="mk">Más de 2.5 goles</span><span class="lg">LaLiga</span></div>
+        </div>
+        <div class="po"><b class="num">@1.55</b><svg class="cv" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg></div>
+      </div>
+
+      <div class="prow">
+        <div class="pp"><div class="v num">84%</div><div class="l">PROB</div><div class="bar"><i style="width:84%"></i></div></div>
+        <div class="pmid">
+          <h4>Man City <span>vs</span> Brentford</h4>
+          <div class="row2"><span class="mk">Gana City + Más 1.5</span><span class="lg">Premier League</span></div>
+        </div>
+        <div class="po"><b class="num">@1.62</b><svg class="cv" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="tag">2 · Configuración (nueva pantalla — ítem “Configuración” del menú)</div>
+<div class="shell" style="min-height:auto">
+  <main class="main" style="width:100%">
+    <h1>Configuración</h1>
+    <div class="sub">Gestiona tu cuenta y tus notificaciones.</div>
+
+    <div class="scard">
+      <h3>Cuenta</h3>
+      <div class="inforow"><span class="k">Nombre</span><span>Johann Gonzalez</span></div>
+      <div class="inforow"><span class="k">Correo</span><span>johann@derbix.co</span></div>
+      <div class="inforow"><span class="k">Rol</span><span>Agencia</span></div>
+    </div>
+
+    <div class="scard" style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="sh" style="width:40px;height:40px;border-radius:10px;background:rgba(231,184,79,.10);border:1px solid rgba(231,184,79,.30);display:flex;align-items:center;justify-content:center;color:var(--dx-gold)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/></svg></div>
+        <div><div style="color:var(--dx-text-soft);font-size:14px">Tu plan</div><div style="font-weight:700">Acceso Total</div></div>
+      </div>
+      <button class="dx-btn">Ver planes</button>
+    </div>
+
+    <div class="scard">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+        <div style="width:40px;height:40px;border-radius:10px;background:rgba(34,229,192,.10);display:flex;align-items:center;justify-content:center;color:var(--dx-cyan)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></div>
+        <div><h3 style="margin:0">Notificaciones WhatsApp</h3><div style="color:var(--dx-text-soft);font-size:13px">Recibe alertas directamente en tu WhatsApp</div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>
