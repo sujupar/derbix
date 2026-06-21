@@ -819,25 +819,20 @@ export const FixturesFeed: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Toggle Oportunidades/Partidos — pastilla verde→cian deslizante */}
-                        <div className="relative flex w-full sm:w-auto sm:min-w-[280px] bg-dx-surface border border-dx-border rounded-xl p-1">
-                            <span
-                                aria-hidden
-                                className="absolute top-1 bottom-1 left-1 rounded-lg bg-gradient-to-r from-dx-green to-dx-cyan shadow-[0_0_18px_rgba(29,231,130,0.45)] transition-transform duration-300 ease-out"
-                                style={{ width: 'calc(50% - 4px)', transform: viewMode === 'fixtures' ? 'translateX(100%)' : 'translateX(0)' }}
-                            />
+                        {/* Toggle Oportunidades/Partidos — el seleccionado se ve totalmente verde */}
+                        <div className="inline-flex w-full sm:w-auto bg-dx-surface border border-dx-border rounded-xl p-1 gap-1">
                             <button
                                 onClick={() => setViewMode('top-picks')}
                                 data-onboarding="tab-opportunities"
-                                className={`relative z-10 flex-1 flex items-center justify-center px-4 py-2 rounded-lg text-sm font-bold transition-colors whitespace-nowrap ${viewMode === 'top-picks' ? 'text-[#04140C]' : 'text-dx-text-soft hover:text-white'}`}
+                                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${viewMode === 'top-picks' ? 'text-[#04140C] bg-gradient-to-r from-dx-green to-dx-cyan shadow-[0_0_18px_rgba(29,231,130,0.40)]' : 'text-dx-text-soft hover:text-white hover:bg-white/5'}`}
                             >
-                                <TrophyIcon className="w-5 h-5 sm:mr-2" /> <span className="hidden sm:inline">Oportunidades</span>
+                                <TrophyIcon className="w-5 h-5" /> <span className="hidden sm:inline">Oportunidades</span>
                             </button>
                             <button
                                 onClick={() => setViewMode('fixtures')}
-                                className={`relative z-10 flex-1 flex items-center justify-center px-4 py-2 rounded-lg text-sm font-bold transition-colors ${viewMode === 'fixtures' ? 'text-[#04140C]' : 'text-dx-text-soft hover:text-white'}`}
+                                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${viewMode === 'fixtures' ? 'text-[#04140C] bg-gradient-to-r from-dx-green to-dx-cyan shadow-[0_0_18px_rgba(29,231,130,0.40)]' : 'text-dx-text-soft hover:text-white hover:bg-white/5'}`}
                             >
-                                <ListBulletIcon className="w-5 h-5 sm:mr-2" /> <span className="hidden sm:inline">Partidos</span>
+                                <ListBulletIcon className="w-5 h-5" /> <span className="hidden sm:inline">Partidos</span>
                             </button>
                         </div>
 
