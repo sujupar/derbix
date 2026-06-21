@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { CalendarDaysIcon, UsersIcon, ArrowLeftOnRectangleIcon, CreditCardIcon, TrophyIcon, PaperAirplaneIcon, XMarkIcon } from './icons/Icons';
+import { CalendarDaysIcon, UsersIcon, ArrowLeftOnRectangleIcon, CreditCardIcon, TrophyIcon, PaperAirplaneIcon, XMarkIcon, ShieldCheckIcon } from './icons/Icons';
+import { cleanPlanLabel } from '../utils/planDisplay';
 import { useAuth } from '../hooks/useAuth';
 import { OrganizationSwitcher } from './OrganizationSwitcher';
 import { Page } from '../App';
@@ -9,7 +10,7 @@ import { useOrganization } from '../contexts/OrganizationContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { RecapBadge } from './recap/RecapBadge';
 import { NotificationPreferences } from './settings/NotificationPreferences';
-import { PremiumBadge, getAvatarRingClass, getPlanBadgeClass, getPlanNameColor } from './premium/PremiumBadge';
+import { PremiumBadge, getAvatarRingClass, getPlanNameColor } from './premium/PremiumBadge';
 import { SupportWidget } from './support/SupportWidget';
 
 interface LayoutProps {
@@ -35,14 +36,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
   const isAccountAdmin = profile?.role === 'org_owner';
   const isUser = !isAgencySuperadmin && !isAccountAdmin;
 
-  // Opciones del sidebar simplificadas
+  // Opciones del sidebar simplificadas (agrupadas por sección — Composición 1)
   const navItems = [
     // Opciones para TODOS los usuarios
-    { id: 'live', label: 'Jornadas', icon: <CalendarDaysIcon className="w-5 h-5" />, forAgency: true, forAccount: true, forUser: true },
-    { id: 'results', label: 'Resultados', icon: <TrophyIcon className="w-5 h-5" />, forAgency: true, forAccount: true, forUser: true },
+    { id: 'live', label: 'Jornadas', section: 'Menú', icon: <CalendarDaysIcon className="w-5 h-5" />, forAgency: true, forAccount: true, forUser: true },
+    { id: 'results', label: 'Resultados', section: 'Menú', icon: <TrophyIcon className="w-5 h-5" />, forAgency: true, forAccount: true, forUser: true },
 
     // Opciones SOLO para SUPERADMIN de AGENCIA (platform_owner, agency_admin)
-    { id: 'admin', label: 'Admin', icon: <UsersIcon className="w-5 h-5" />, forAgency: true, forAccount: false, forUser: false },
+    { id: 'admin', label: 'Admin', section: 'Gestión', icon: <UsersIcon className="w-5 h-5" />, forAgency: true, forAccount: false, forUser: false },
   ];
 
   // Filtrar según el nivel del usuario
@@ -52,6 +53,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
     if (isUser) return item.forUser;
     return item.forUser; // Por defecto, permisos básicos
   });
+
+  // Agrupar los ítems visibles por sección, conservando el orden de aparición
+  const navSections = availableNavItems.reduce<{ label: string; items: typeof availableNavItems }[]>((acc, item) => {
+    const group = acc.find(g => g.label === item.section);
+    if (group) group.items.push(item);
+    else acc.push({ label: item.section, items: [item] });
+    return acc;
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden text-slate-200 font-sans selection:bg-brand selection:text-white bg-dx-bg">
@@ -66,29 +75,31 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
           <OrganizationSwitcher onCreateClick={() => setIsCreateModalOpen(true)} />
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-2 px-3 space-y-1">
-          {availableNavItems.map((item) => {
-            const isActive = currentPage === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setCurrentPage(item.id as Page)}
-                data-onboarding={item.id === 'results' ? 'results' : undefined}
-                className={`w-full flex items-center px-4 py-3 rounded-xl transition-all duration-300 ease-out group active:scale-[0.98] ${isActive
-                  ? 'bg-gradient-to-r from-brand/20 to-transparent text-brand border-l-2 border-brand shadow-[0_0_15px_rgba(29,231,130,0.15)]'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-slate-100 hover:pl-5 active:bg-white/10'
-                  }`}
-              >
-                <div className={`mr-3 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
-                  {item.icon}
-                </div>
-                <span className="font-medium tracking-wide text-sm">{item.label}</span>
-                {isActive && (
-                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-brand animate-pulse shadow-[0_0_8px_#1DE782]"></div>
-                )}
-              </button>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-5">
+          {navSections.map((group) => (
+            <div key={group.label} className="space-y-1">
+              <p className="dx-sidelabel mb-2">{group.label}</p>
+              {group.items.map((item) => {
+                const isActive = currentPage === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setCurrentPage(item.id as Page)}
+                    data-onboarding={item.id === 'results' ? 'results' : undefined}
+                    className={`dx-nav-item group active:scale-[0.98] ${isActive ? 'on' : ''}`}
+                  >
+                    <span className={`transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
+                      {item.icon}
+                    </span>
+                    <span className="tracking-wide">{item.label}</span>
+                    {isActive && (
+                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-dx-green animate-pulse shadow-[0_0_8px_#1DE782]"></span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {recapBadge && (
@@ -100,49 +111,53 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
           />
         )}
 
-        <div className="p-4 border-t border-white/5 bg-dx-surface-2/40">
-          <div className="flex items-center space-x-3 mb-4 px-2">
-            <div className={`w-8 h-8 rounded-full bg-gradient-to-tr from-brand to-dx-green-deep flex items-center justify-center text-xs font-bold text-white shadow-lg ${getAvatarRingClass(plan.plan_name)}`}>
+        <div className="p-4 border-t border-white/5">
+          {/* Tarjeta de plan — borde dorado tenue + nombre limpio (sin etiquetas internas) */}
+          <button
+            onClick={() => setCurrentPage('pricing')}
+            data-onboarding="plan-badge"
+            className="dx-plan w-full flex items-center justify-between p-3 mb-3 transition-all hover:border-dx-gold/50 group"
+          >
+            <span className="flex items-center gap-2 text-dx-text-soft group-hover:text-dx-text text-xs font-medium">
+              <ShieldCheckIcon className="w-4 h-4 text-dx-gold" />
+              Mi Plan
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className={`text-xs font-bold ${getPlanNameColor(plan.plan_name)}`}>{cleanPlanLabel(plan.display_name)}</span>
+              <PremiumBadge planName={plan.plan_name} />
+            </span>
+          </button>
+
+          {/* Fila de cuenta */}
+          <div className="flex items-center gap-3 mb-3 px-1">
+            <div className={`w-8 h-8 rounded-full bg-gradient-to-tr from-brand to-dx-green-deep flex items-center justify-center text-xs font-bold text-white shadow-lg shrink-0 ${getAvatarRingClass(plan.plan_name)}`}>
               {profile?.full_name?.charAt(0) || 'U'}
             </div>
             <div className="flex-1 overflow-hidden">
-              <div className="flex items-center gap-1.5">
-                <p className="text-sm font-medium text-white truncate">{profile?.full_name || 'Usuario'}</p>
-                <PremiumBadge planName={plan.plan_name} />
-              </div>
-              <p className="text-xs text-slate-400 truncate">
+              <p className="text-sm font-medium text-white truncate">{profile?.full_name || 'Usuario'}</p>
+              <p className="text-xs text-dx-text-mute truncate">
                 {profile?.role === 'platform_owner' ? 'Owner' :
                  profile?.role === 'agency_admin' ? 'Agencia' :
                  profile?.role === 'org_owner' ? 'Admin' : 'Usuario'}
               </p>
             </div>
           </div>
-          <button
-            onClick={() => setCurrentPage('pricing')}
-            data-onboarding="plan-badge"
-            className={`w-full flex items-center justify-between p-2 rounded-lg text-slate-400 transition-all text-xs font-medium border mb-2 ${getPlanBadgeClass(plan.plan_name)}`}
-          >
-            <span className="flex items-center gap-1.5">
-              <CreditCardIcon className="w-3.5 h-3.5" />
-              Mi Plan
-            </span>
-            <span className={`font-bold ${getPlanNameColor(plan.plan_name)}`}>{plan.display_name || 'Free'}</span>
-          </button>
+
           <button
             onClick={() => setIsNotifPrefsOpen(true)}
-            className="w-full flex items-center justify-between p-2 rounded-lg text-slate-400 hover:bg-teal-500/10 hover:text-teal-400 transition-all text-xs font-medium border border-white/5 mb-2"
+            className="w-full flex items-center justify-between p-2.5 rounded-lg text-dx-text-soft hover:bg-dx-surface-2 hover:text-dx-green transition-all text-xs font-medium border border-dx-border mb-2"
           >
             <span className="flex items-center gap-1.5">
               <PaperAirplaneIcon className="w-3.5 h-3.5" />
               WhatsApp
             </span>
-            <span className={`font-bold ${profile?.phone_number ? 'text-teal-400' : 'text-slate-500'}`}>
+            <span className={`font-bold ${profile?.phone_number ? 'text-dx-green' : 'text-dx-text-mute'}`}>
               {profile?.phone_number ? 'Activo' : 'Configurar'}
             </span>
           </button>
           <button
             onClick={signOut}
-            className="w-full flex items-center justify-center space-x-2 p-2 rounded-lg bg-slate-800 hover:bg-red-500/10 hover:text-red-400 text-slate-400 transition-colors text-xs font-medium border border-white/5"
+            className="w-full flex items-center justify-center space-x-2 p-2.5 rounded-lg bg-dx-surface-2 hover:bg-dx-loss/10 hover:text-dx-loss text-dx-text-soft transition-colors text-xs font-medium border border-dx-border"
           >
             <ArrowLeftOnRectangleIcon className="w-4 h-4" />
             <span>Cerrar Sesión</span>

@@ -292,6 +292,29 @@
   border-radius: 16px; transition: transform .16s, border-color .16s; }
 .dx-card:hover { transform: translateY(-2px); border-color: var(--color-dx-border-active); }
 
+/* ── Sidebar (Composición 1) ──────────────────────────────────────── */
+/* Etiqueta de sección ("Menú", "Gestión") */
+.dx-sidelabel { font-size: 10.5px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--color-dx-text-mute); padding: 0 12px; }
+
+/* Ítem de navegación */
+.dx-nav-item { position: relative; display: flex; align-items: center; gap: 11px;
+  width: 100%; padding: 11px 13px; border-radius: 11px; color: var(--color-dx-text-soft);
+  font-weight: 600; font-size: 14px; cursor: pointer; background: transparent; border: none;
+  transition: background .16s, color .16s; }
+.dx-nav-item:hover { background: var(--color-dx-surface-2); color: var(--color-dx-text); }
+.dx-nav-item.on { background: var(--color-dx-surface-2); color: var(--color-dx-green); }
+.dx-nav-item.on::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px;
+  width: 3px; border-radius: 2px; background: var(--color-dx-green);
+  box-shadow: 0 0 10px var(--color-dx-green-glow); }
+.dx-nav-item .badge { margin-left: auto; font-family: var(--font-display);
+  font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 700;
+  color: var(--color-dx-green); background: rgba(29,231,130,0.14); border-radius: 6px; padding: 1px 7px; }
+
+/* Tarjeta de plan (pie del sidebar) — borde dorado tenue */
+.dx-plan { background: var(--color-dx-surface); border: 1px solid color-mix(in srgb, var(--color-dx-gold) 26%, var(--color-dx-border));
+  border-radius: 13px; }
+
 /* Global Reset & Scrollbar */
 body {
   @apply bg-dx-bg text-dx-text-soft antialiased;

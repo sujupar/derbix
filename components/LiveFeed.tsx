@@ -799,47 +799,49 @@ export const FixturesFeed: React.FC = () => {
     return (
         <div className="space-y-8 pb-24">
             <div className="flex flex-col space-y-6">
-                {/* Header & Date Picker */}
-                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-                    <div>
-                        <h2 className="text-2xl sm:text-3xl font-display font-bold text-white tracking-tight">Jornadas Deportivas</h2>
-                        <p className="text-dx-text-soft mt-1">Explora los encuentros y potencia tus decisiones con IA.</p>
+                {/* Header */}
+                <div>
+                    <h2 className="text-2xl sm:text-3xl font-display font-bold text-white tracking-tight">Jornadas Deportivas</h2>
+                    <p className="text-dx-text-soft mt-1">Explora los encuentros y potencia tus decisiones con IA.</p>
+                </div>
+
+                {/* Barra de controles — toggle a la izquierda · fecha (+ En vivo) a la derecha (Composición 1) */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    {/* Toggle Oportunidades/Partidos — el seleccionado se ve totalmente verde */}
+                    <div className="inline-flex w-full sm:w-auto bg-dx-surface border border-dx-border rounded-xl p-1 gap-1">
+                        <button
+                            onClick={() => setViewMode('top-picks')}
+                            data-onboarding="tab-opportunities"
+                            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${viewMode === 'top-picks' ? 'text-[#04140C] bg-gradient-to-r from-dx-green to-dx-cyan shadow-[0_0_18px_rgba(29,231,130,0.40)]' : 'text-dx-text-soft hover:text-white hover:bg-white/5'}`}
+                        >
+                            <TrophyIcon className="w-5 h-5" /> <span className="hidden sm:inline">Oportunidades</span>
+                        </button>
+                        <button
+                            onClick={() => setViewMode('fixtures')}
+                            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${viewMode === 'fixtures' ? 'text-[#04140C] bg-gradient-to-r from-dx-green to-dx-cyan shadow-[0_0_18px_rgba(29,231,130,0.40)]' : 'text-dx-text-soft hover:text-white hover:bg-white/5'}`}
+                        >
+                            <ListBulletIcon className="w-5 h-5" /> <span className="hidden sm:inline">Partidos</span>
+                        </button>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
-                        <div className="relative w-full sm:w-auto">
+                    {/* Fecha + En vivo */}
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                        <div className="relative flex-1 sm:flex-none">
                             <input
                                 type="date"
                                 value={selectedDate}
                                 onChange={(e) => setSelectedDate(e.target.value)}
-                                className="w-full bg-dx-surface border border-dx-border text-white text-sm rounded-xl px-4 py-3 pr-10 outline-none transition-all focus:border-dx-green focus:ring-2 focus:ring-dx-green/30 [color-scheme:dark]"
+                                className="w-full bg-dx-surface border border-dx-border text-white text-sm rounded-xl px-4 py-3 pr-10 outline-none transition-all focus:border-dx-green focus:ring-2 focus:ring-dx-green/30 [color-scheme:dark] dx-num"
                             />
                             <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-dx-green">
                                 <CalendarDaysIcon className="w-5 h-5" />
                             </div>
                         </div>
 
-                        {/* Toggle Oportunidades/Partidos — el seleccionado se ve totalmente verde */}
-                        <div className="inline-flex w-full sm:w-auto bg-dx-surface border border-dx-border rounded-xl p-1 gap-1">
-                            <button
-                                onClick={() => setViewMode('top-picks')}
-                                data-onboarding="tab-opportunities"
-                                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${viewMode === 'top-picks' ? 'text-[#04140C] bg-gradient-to-r from-dx-green to-dx-cyan shadow-[0_0_18px_rgba(29,231,130,0.40)]' : 'text-dx-text-soft hover:text-white hover:bg-white/5'}`}
-                            >
-                                <TrophyIcon className="w-5 h-5" /> <span className="hidden sm:inline">Oportunidades</span>
-                            </button>
-                            <button
-                                onClick={() => setViewMode('fixtures')}
-                                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${viewMode === 'fixtures' ? 'text-[#04140C] bg-gradient-to-r from-dx-green to-dx-cyan shadow-[0_0_18px_rgba(29,231,130,0.40)]' : 'text-dx-text-soft hover:text-white hover:bg-white/5'}`}
-                            >
-                                <ListBulletIcon className="w-5 h-5" /> <span className="hidden sm:inline">Partidos</span>
-                            </button>
-                        </div>
-
                         {viewMode === 'fixtures' && (
                             <button
                                 onClick={() => setShowLiveOnly(!showLiveOnly)}
-                                className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all border ${showLiveOnly ? 'bg-dx-live/15 text-dx-live border-dx-live/50' : 'text-dx-text-mute hover:text-dx-live border-dx-border hover:border-dx-live/40'}`}
+                                className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all border shrink-0 ${showLiveOnly ? 'bg-dx-live/15 text-dx-live border-dx-live/50' : 'text-dx-text-mute hover:text-dx-live border-dx-border hover:border-dx-live/40'}`}
                             >
                                 <span className="w-2 h-2 rounded-full bg-dx-live animate-pulse" />
                                 EN VIVO
