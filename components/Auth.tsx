@@ -76,13 +76,13 @@ export const AuthPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-900">
-            <div className="w-full max-w-md p-8 space-y-8 bg-gray-800 rounded-lg shadow-lg">
+        <div className="min-h-screen flex items-center justify-center bg-dx-bg px-4">
+            <div className="w-full max-w-md p-8 space-y-8 dx-card shadow-2xl">
                 <div>
-                    <h1 className="text-3xl font-bold text-center text-white">
-                        <span className="text-white">Der</span><span className="text-brand">bix</span>
+                    <h1 className="text-3xl font-bold text-center text-white font-display">
+                        <span className="text-white">Der</span><span className="text-dx-green">bix</span>
                     </h1>
-                    <p className="mt-2 text-center text-sm text-gray-400">
+                    <p className="mt-2 text-center text-sm text-dx-text-soft">
                         {isForgotPassword
                             ? 'Ingresa tu correo para restablecer tu contraseña'
                             : isLogin
@@ -92,8 +92,8 @@ export const AuthPage: React.FC = () => {
                 </div>
 
                 {paymentSuccess && (
-                    <div className="p-4 bg-brand/10 border border-brand/30 rounded-lg">
-                        <p className="text-brand text-sm font-medium text-center">
+                    <div className="p-4 bg-dx-surface-2 rounded-lg border border-[color:var(--color-dx-border-active)]">
+                        <p className="text-dx-green text-sm font-medium text-center">
                             Pago exitoso! Si aun no confirmas tu correo, revisa tu bandeja de entrada para activar tu cuenta.
                         </p>
                     </div>
@@ -111,7 +111,7 @@ export const AuthPage: React.FC = () => {
                                     type="email"
                                     autoComplete="email"
                                     required
-                                    className="w-full px-3 py-2 border border-gray-600 placeholder-gray-500 text-white bg-gray-700 rounded-md focus:outline-none focus:ring-green-accent focus:border-green-accent"
+                                    className="dx-input w-full"
                                     placeholder="Correo electrónico"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
@@ -122,16 +122,16 @@ export const AuthPage: React.FC = () => {
                                 <button
                                     type="submit"
                                     disabled={loading || resetEmailSent}
-                                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-accent hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-600"
+                                    className="dx-btn w-full disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {loading ? 'Enviando...' : resetEmailSent ? 'Correo Enviado' : 'Enviar Enlace de Restablecimiento'}
                                 </button>
                             </div>
                         </form>
-                        {error && <p className="mt-2 text-center text-sm text-red-accent">{error}</p>}
-                        {message && <p className="mt-2 text-center text-sm text-green-accent">{message}</p>}
-                        <p className="mt-2 text-center text-sm text-gray-400">
-                            <button onClick={exitForgotPassword} className="font-medium text-green-accent hover:text-green-500">
+                        {error && <p className="mt-2 text-center text-sm text-dx-loss">{error}</p>}
+                        {message && <p className="mt-2 text-center text-sm text-dx-green">{message}</p>}
+                        <p className="mt-2 text-center text-sm text-dx-text-soft">
+                            <button onClick={exitForgotPassword} className="font-medium text-dx-green hover:text-dx-green-bright">
                                 &larr; Volver al inicio de sesión
                             </button>
                         </p>
@@ -148,7 +148,7 @@ export const AuthPage: React.FC = () => {
                                         name="full-name"
                                         type="text"
                                         required
-                                        className="w-full px-3 py-2 border border-gray-600 placeholder-gray-500 text-white bg-gray-700 rounded-md focus:outline-none focus:ring-green-accent focus:border-green-accent"
+                                        className="dx-input w-full"
                                         placeholder="Nombre Completo"
                                         value={fullName}
                                         onChange={(e) => setFullName(e.target.value)}
@@ -163,7 +163,7 @@ export const AuthPage: React.FC = () => {
                                     type="email"
                                     autoComplete="email"
                                     required
-                                    className="w-full px-3 py-2 border border-gray-600 placeholder-gray-500 text-white bg-gray-700 rounded-md focus:outline-none focus:ring-green-accent focus:border-green-accent"
+                                    className="dx-input w-full"
                                     placeholder="Correo electrónico"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
@@ -177,7 +177,7 @@ export const AuthPage: React.FC = () => {
                                     type="password"
                                     autoComplete="current-password"
                                     required
-                                    className="w-full px-3 py-2 border border-gray-600 placeholder-gray-500 text-white bg-gray-700 rounded-md focus:outline-none focus:ring-green-accent focus:border-green-accent"
+                                    className="dx-input w-full"
                                     placeholder="Contraseña"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
@@ -188,7 +188,7 @@ export const AuthPage: React.FC = () => {
                                     <button
                                         type="button"
                                         onClick={() => { setIsForgotPassword(true); setError(''); setMessage(''); }}
-                                        className="text-xs text-green-accent hover:text-green-500"
+                                        className="text-xs text-dx-text-mute hover:text-dx-green"
                                     >
                                         ¿Olvidaste tu contraseña?
                                     </button>
@@ -198,17 +198,17 @@ export const AuthPage: React.FC = () => {
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-accent hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-600"
+                                    className="dx-btn w-full disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {loading ? 'Cargando...' : (isLogin ? 'Iniciar Sesión' : 'Registrarse')}
                                 </button>
                             </div>
                         </form>
-                        {error && <p className="mt-2 text-center text-sm text-red-accent">{error}</p>}
-                        {message && <p className="mt-2 text-center text-sm text-green-accent">{message}</p>}
-                        <p className="mt-2 text-center text-sm text-gray-400">
+                        {error && <p className="mt-2 text-center text-sm text-dx-loss">{error}</p>}
+                        {message && <p className="mt-2 text-center text-sm text-dx-green">{message}</p>}
+                        <p className="mt-2 text-center text-sm text-dx-text-soft">
                             ¿No tienes una cuenta?
-                            <button onClick={() => navigate('/signup')} className="ml-1 font-medium text-green-accent hover:text-green-500">
+                            <button onClick={() => navigate('/signup')} className="ml-1 font-medium text-dx-green hover:text-dx-green-bright">
                                 Regístrate
                             </button>
                         </p>
