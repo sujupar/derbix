@@ -11,6 +11,7 @@ import { translatePick } from '../../services/marketTranslator';
 import { useAuth } from '../../hooks/useAuth';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { isHistoricalDate, getAllowedPickCount } from '../../utils/planAccessUtils';
+import { cleanPlanLabel } from '../../utils/planDisplay';
 import { TrophyIcon, ChartBarIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, LockClosedIcon } from '../icons/Icons';
 import { usePresentationMode } from '../../hooks/usePresentationMode';
 import { isAgencyRole } from '../../utils/roles';
@@ -41,9 +42,10 @@ interface HighProbPicksProps {
     onViewReport?: (jobId: string, fixtureId: number) => void;
     onPickOverridden?: () => void;
     onAccessibleFixturesChange?: (fixtureIds: Set<number>) => void;
+    refreshSignal?: number;
 }
 
-const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPickOverridden, onAccessibleFixturesChange }) => {
+const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPickOverridden, onAccessibleFixturesChange, refreshSignal }) => {
     const { profile } = useAuth();
     const { plan, isAdmin: isSubAdmin, trackUsage } = useSubscription();
     const { presentationMode } = usePresentationMode();
@@ -228,6 +230,12 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
         loadPicks(false);
     }, [date]);
 
+    // Refresco manual desde la barra de controles (mismo handler, reubicado)
+    useEffect(() => {
+        if (refreshSignal) loadPicks(true);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [refreshSignal]);
+
     // Load analysis health stats for the date (permanent failures + pending retries)
     useEffect(() => {
         let cancelled = false;
@@ -313,26 +321,27 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
     if (error) return <ErrorState error={error} onRetry={() => loadPicks(true)} />;
 
     return (
-        <div className="space-y-8">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="space-y-6">
+            {/* Cabecera del panel \u2014 icono verde + titulo + subtitulo + meta (dato real) */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-dx-border">
                 <div className="flex items-center gap-3">
-                    <div className="p-3 bg-gradient-to-br from-dx-green-deep to-dx-green rounded-xl shadow-lg shadow-brand/20">
-                        <ChartBarIcon className="w-6 h-6 text-white" />
+                    <div className="p-3 bg-gradient-to-br from-dx-green-deep to-dx-green rounded-xl shadow-lg shadow-dx-green-glow">
+                        <ChartBarIcon className="w-6 h-6 text-[#04140C]" />
                     </div>
                     <div>
-                        <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Oportunidades de Valor</h3>
-                        <p className="text-sm text-slate-400">Picks Individuales (Prob {'\u2265'} {OPPORTUNITIES_THRESHOLD_PERCENT}%)</p>
+                        <h3 className="text-xl sm:text-2xl font-display font-bold text-white tracking-tight">Oportunidades de Valor</h3>
+                        <p className="text-sm text-dx-text-soft">Pron\u00f3sticos individuales \u00b7 Prob {'\u2265'} {OPPORTUNITIES_THRESHOLD_PERCENT}%</p>
                     </div>
                 </div>
-                
-                <div className="flex items-center gap-2">
-                    {/* Admin verification filter */}
+
+                <div className="flex items-center gap-3">
+                    {/* Admin verification filter (pills) */}
                     {isAdmin && allMainPicks.length > 0 && (
-                        <div className="flex items-center bg-slate-800/50 rounded-lg border border-white/5 p-0.5">
+                        <div className="flex items-center bg-dx-surface-2 rounded-lg border border-dx-border p-0.5">
                             <button
                                 onClick={() => setVerificationFilter('all')}
                                 className={`px-3 py-2 sm:px-2.5 sm:py-1.5 rounded-md text-xs min-h-[44px] sm:min-h-0 font-bold transition-all ${
-                                    verificationFilter === 'all' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
+                                    verificationFilter === 'all' ? 'bg-dx-green/15 text-dx-green' : 'text-dx-text-soft hover:text-white'
                                 }`}
                             >
                                 Todos ({allMainPicks.length})
@@ -340,7 +349,7 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                             <button
                                 onClick={() => setVerificationFilter('pending')}
                                 className={`px-3 py-2 sm:px-2.5 sm:py-1.5 rounded-md text-xs min-h-[44px] sm:min-h-0 font-bold transition-all ${
-                                    verificationFilter === 'pending' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'text-slate-400 hover:text-white'
+                                    verificationFilter === 'pending' ? 'bg-dx-gold/20 text-dx-gold border border-dx-gold/30' : 'text-dx-text-soft hover:text-white'
                                 }`}
                             >
                                 Pendientes ({pendingCount})
@@ -348,7 +357,7 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                             <button
                                 onClick={() => setVerificationFilter('verified')}
                                 className={`px-3 py-2 sm:px-2.5 sm:py-1.5 rounded-md text-xs min-h-[44px] sm:min-h-0 font-bold transition-all ${
-                                    verificationFilter === 'verified' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'text-slate-400 hover:text-white'
+                                    verificationFilter === 'verified' ? 'bg-dx-green/15 text-dx-green border border-dx-green/30' : 'text-dx-text-soft hover:text-white'
                                 }`}
                             >
                                 Verificados ({verifiedCount})
@@ -356,9 +365,10 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                         </div>
                     )}
 
-                    <button onClick={() => loadPicks(true)} className="p-2 text-dx-text-soft hover:text-dx-green hover:bg-white/5 rounded-lg transition-colors" title="Actualizar Oportunidades">
-                        <ArrowPathIcon className="w-5 h-5" />
-                    </button>
+                    {/* Meta de contexto \u2014 solo si el dato existe */}
+                    {mainPicks.length > 0 && (
+                        <p className="text-sm font-display font-bold text-dx-green dx-num whitespace-nowrap">{mainPicks.length} hoy</p>
+                    )}
                 </div>
             </div>
 
@@ -386,17 +396,17 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
 
             {/* Plan info banner for non-historical dates */}
             {!isHistorical && !isAdmin && mainPicks.length > 0 && (
-                <div className="flex items-center justify-between bg-slate-800/50 rounded-lg px-4 py-2 border border-white/5">
-                    <span className="text-sm text-slate-400">
-                        Mostrando <span className="text-white font-bold">{visiblePicks.length}</span> de <span className="text-white font-bold">{mainPicks.length}</span> oportunidades
+                <div className="flex items-center justify-between bg-dx-surface-2 rounded-lg px-4 py-2 border border-dx-border">
+                    <span className="text-sm text-dx-text-soft">
+                        Mostrando <span className="text-white font-bold dx-num">{visiblePicks.length}</span> de <span className="text-white font-bold dx-num">{mainPicks.length}</span> oportunidades
                         {plan.plan_name !== 'free' && (
-                            <span className="text-slate-500"> ({plan.predictions_percentage}% de tu plan {plan.display_name})</span>
+                            <span className="text-dx-text-mute"> ({plan.predictions_percentage}% de tu plan {cleanPlanLabel(plan.display_name)})</span>
                         )}
                     </span>
                     {hasLockedPicks && (
                         <button
                             onClick={() => setShowUpgradePrompt(true)}
-                            className="text-xs text-brand hover:text-brand/80 font-bold transition-colors"
+                            className="text-xs text-dx-green hover:text-dx-green-bright font-bold transition-colors"
                         >
                             Desbloquear todas
                         </button>
@@ -405,7 +415,7 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
             )}
 
             {visiblePicks.length > 0 || hasLockedPicks ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="flex flex-col">
                     {/* Picks visibles */}
                     {visiblePicks.map((pick) => (
                         <SinglePickCard
@@ -528,23 +538,29 @@ const EmptyState: React.FC<{ onRetry: () => void; message?: string | null; inPro
     </div>
 );
 
+// Chevron derecho (mockup Composición 1)
+const ChevronRight: React.FC<{ className?: string }> = ({ className }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m9 18 6-6-6-6" /></svg>
+);
+
+// Pill de resultado en línea (verde/rojo/neutro) con tokens dx
 const ResultBadge: React.FC<{ result?: string; actualScore?: string; hidden?: boolean }> = ({ result, actualScore, hidden }) => {
     if (!result || result === 'PENDING' || hidden) return null;
 
     const config: Record<string, { bg: string; text: string; label: string; border: string }> = {
-        WON: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', label: 'GANADA', border: 'border-emerald-500/50' },
-        LOST: { bg: 'bg-red-500/20', text: 'text-red-400', label: 'PERDIDA', border: 'border-red-500/50' },
-        VOID: { bg: 'bg-slate-500/20', text: 'text-slate-400', label: 'NULA', border: 'border-slate-500/50' },
-        PUSH: { bg: 'bg-slate-500/20', text: 'text-slate-400', label: 'PUSH', border: 'border-slate-500/50' },
+        WON: { bg: 'bg-dx-green/15', text: 'text-dx-green', label: 'GANADA', border: 'border-dx-green/40' },
+        LOST: { bg: 'bg-dx-loss/15', text: 'text-dx-loss', label: 'PERDIDA', border: 'border-dx-loss/40' },
+        VOID: { bg: 'bg-white/5', text: 'text-dx-text-mute', label: 'NULA', border: 'border-dx-border' },
+        PUSH: { bg: 'bg-white/5', text: 'text-dx-text-mute', label: 'PUSH', border: 'border-dx-border' },
     };
 
     const c = config[result] || config.VOID;
 
     return (
-        <div className={`absolute top-0 left-0 p-1.5 px-2.5 ${c.bg} rounded-br-xl border-b border-r ${c.border} z-10`}>
+        <span className={`inline-flex items-center gap-1 ${c.bg} border ${c.border} rounded-md px-2 py-0.5`}>
             <span className={`${c.text} font-black text-[10px] tracking-wider`}>{c.label}</span>
-            {actualScore && <span className={`${c.text} text-[9px] ml-1 opacity-70`}>({actualScore})</span>}
-        </div>
+            {actualScore && <span className={`${c.text} text-[9px] opacity-70 dx-num`}>({actualScore})</span>}
+        </span>
     );
 };
 
@@ -552,36 +568,33 @@ const LockedPickCard: React.FC<{
     pick: HighProbPick;
     translateMarket: (m: string) => string;
     onUpgrade: () => void;
-}> = ({ pick, translateMarket, onUpgrade }) => (
+}> = ({ pick, onUpgrade }) => (
     <div
-        className="bg-slate-900/60 border border-white/5 rounded-xl p-4 relative overflow-hidden cursor-pointer group"
         onClick={onUpgrade}
+        className="flex items-center gap-3 sm:gap-4 py-4 px-1 border-b border-dx-border last:border-0 cursor-pointer group"
     >
-        {/* Blur overlay */}
-        <div className="absolute inset-0 backdrop-blur-md bg-slate-900/40 z-10 flex flex-col items-center justify-center">
-            <div className="p-3 bg-slate-800/80 rounded-full mb-2 border border-white/10">
-                <LockClosedIcon className="w-5 h-5 text-slate-400" />
-            </div>
-            <p className="text-white font-bold text-sm">Oportunidad Premium</p>
-            <p className="text-brand text-xs font-bold mt-1 group-hover:underline">Desbloquear</p>
+        {/* Probabilidad oculta */}
+        <div className="w-14 sm:w-20 shrink-0 text-center select-none">
+            <p className="font-display font-extrabold text-xl sm:text-2xl text-dx-text-mute leading-none">••%</p>
+            <p className="text-[9px] tracking-[0.15em] text-dx-text-mute font-bold mt-0.5">PROB</p>
         </div>
 
-        {/* Contenido difuminado (parcialmente visible para generar interes) */}
-        <div className="opacity-30">
-            <div className="flex items-center gap-3 mb-4">
-                <div className="flex -space-x-2">
-                    <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700" />
-                    <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700" />
-                </div>
-                <div>
-                    <h4 className="text-white font-bold text-sm">{pick.home_team}</h4>
-                    <span className="text-xs text-slate-400">vs {pick.away_team}</span>
-                </div>
+        {/* Equipos visibles + tease */}
+        <div className="flex-1 min-w-0">
+            <h4 className="text-white/80 font-bold text-sm sm:text-base leading-tight truncate">
+                {pick.home_team} <span className="text-dx-text-mute font-medium">vs</span> {pick.away_team}
+            </h4>
+            <div className="flex items-center gap-2 mt-1.5">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-dx-gold bg-dx-gold/10 border border-dx-gold/30 rounded-md px-2 py-0.5">
+                    <LockClosedIcon className="w-3 h-3" /> Oportunidad Premium
+                </span>
             </div>
-            <div className="bg-black/40 rounded-lg p-3 border border-white/5">
-                <p className="text-[10px] uppercase text-slate-500">{translateMarket(pick.market)}</p>
-                <p className="text-white font-bold text-sm">***</p>
-            </div>
+        </div>
+
+        {/* Desbloquear */}
+        <div className="shrink-0 flex items-center gap-2">
+            <span className="text-xs font-bold text-dx-gold group-hover:underline">Desbloquear</span>
+            <ChevronRight className="w-4 h-4 text-dx-text-mute group-hover:text-dx-gold transition-colors" />
         </div>
     </div>
 );
@@ -594,17 +607,20 @@ const SinglePickCard: React.FC<{
     presentationMode?: boolean;
     matchScore?: string;
     onOverride: (result: 'WON' | 'LOST' | 'VOID') => Promise<void>;
-}> = ({ pick, translateMarket, onView, isAdmin, presentationMode, matchScore, onOverride }) => {
+}> = ({ pick, onView, isAdmin, presentationMode, matchScore, onOverride }) => {
     const [overriding, setOverriding] = useState(false);
     const isVerified = pick.result && pick.result !== 'PENDING';
     const isLost = !presentationMode && pick.result === 'LOST';
-    const isWon = !presentationMode && pick.result === 'WON';
     const canOverride = isAdmin; // Admin siempre puede corregir resultados
 
     // Stake / risk management
     const stakeUnits = getStakeUnits(DEFAULT_STAKING_CONFIG, 'single', pick.p_model);
     const stakePercent = getStakePercent(stakeUnits, DEFAULT_STAKING_CONFIG);
     const potentialProfit = pick.odds ? (stakePercent * (pick.odds - 1)).toFixed(1) : null;
+
+    const tr = translatePick(pick.market || '', pick.selection || '');
+    const probPct = Math.round(pick.p_model * 100);
+    const validOdds = pick.odds != null && pick.odds >= 1.01 && pick.odds <= 15.0;
 
     const handleOverride = async (e: React.MouseEvent, result: 'WON' | 'LOST' | 'VOID') => {
         e.stopPropagation();
@@ -618,111 +634,81 @@ const SinglePickCard: React.FC<{
     };
 
     return (
-        <div
-            className={`bg-slate-900 border rounded-xl p-4 hover:bg-slate-800 transition-all cursor-pointer group relative overflow-hidden ${
-                isWon ? 'border-emerald-500/30 shadow-lg shadow-emerald-500/5' :
-                isLost ? 'border-red-500/20 opacity-60' :
-                'border-white/10'
-            }`}
-            onClick={onView}
-        >
-            <ResultBadge result={pick.result} actualScore={pick.actual_score} hidden={presentationMode} />
-
-            <div className="absolute top-0 right-0 p-2 bg-blue-600/20 rounded-bl-xl border-b border-l border-blue-500/20">
-                <span className="text-blue-400 font-bold text-xs">{Math.round(pick.p_model * 100)}% Prob</span>
-            </div>
-
-            <div className={`flex items-center gap-3 mb-4 ${isVerified ? 'mt-2' : ''}`}>
-                <div className="flex -space-x-2">
-                    <img src={pick.logo_home || ''} className="w-9 h-9 sm:w-8 sm:h-8 rounded-full bg-slate-800 border border-slate-700 object-contain p-1" />
-                    <img src={pick.logo_away || ''} className="w-9 h-9 sm:w-8 sm:h-8 rounded-full bg-slate-800 border border-slate-700 object-contain p-1" />
+        <div className={`border-b border-dx-border last:border-0 ${isLost ? 'opacity-60' : ''}`}>
+            {/* Fila principal — Composición 1: prob | equipos+mercado | cuota+chevron */}
+            <div
+                onClick={onView}
+                className="flex items-center gap-3 sm:gap-4 py-4 px-1 cursor-pointer hover:bg-white/[0.02] transition-colors group rounded-lg"
+            >
+                {/* Probabilidad + barra de confianza */}
+                <div className="w-14 sm:w-20 shrink-0 text-center">
+                    <p className={`font-display font-extrabold text-xl sm:text-2xl dx-num leading-none ${isLost ? 'text-dx-loss' : 'text-dx-green'}`}>{probPct}%</p>
+                    <p className="text-[9px] tracking-[0.15em] text-dx-text-mute font-bold mt-0.5">PROB</p>
+                    <div className="mt-1.5 h-1 rounded-full bg-dx-surface-2 overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-dx-green to-dx-cyan" style={{ width: `${Math.min(100, probPct)}%` }} />
+                    </div>
                 </div>
-                <div className="flex-1">
-                    <h4 className="text-white font-bold text-sm leading-tight">{pick.home_team}</h4>
-                    <span className="text-xs text-slate-400">vs {pick.away_team}</span>
+
+                {/* Equipos + chip de mercado + liga */}
+                <div className="flex-1 min-w-0">
+                    <h4 className="text-white font-bold text-sm sm:text-base leading-tight truncate">
+                        {pick.home_team} <span className="text-dx-text-mute font-medium">vs</span> {pick.away_team}
+                    </h4>
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        <span className="text-[11px] font-medium text-dx-green bg-dx-green/10 border border-dx-border-active rounded-md px-2 py-0.5">{tr.selectionEs}</span>
+                        {pick.league && <span className="text-xs text-dx-text-mute truncate">{pick.league}</span>}
+                    </div>
                 </div>
-                {/* Show match score for admin verification (PENDING picks with finished match) */}
+
+                {/* Marcador (ayuda de verificación admin) */}
                 {isAdmin && matchScore && (!pick.result || pick.result === 'PENDING') && (
-                    <div className="flex-shrink-0 bg-slate-800 border border-white/10 rounded-lg px-2.5 py-1.5 text-center">
-                        <span className="text-[9px] uppercase text-slate-500 block leading-none mb-0.5">Score</span>
-                        <span className="text-white font-black text-sm">{matchScore}</span>
+                    <div className="hidden md:block shrink-0 bg-dx-surface-2 border border-dx-border rounded-lg px-2.5 py-1 text-center">
+                        <span className="text-[9px] uppercase text-dx-text-mute block leading-none mb-0.5">Score</span>
+                        <span className="text-white font-black text-sm dx-num">{matchScore}</span>
                     </div>
                 )}
-            </div>
 
-            <div className="bg-black/40 rounded-lg p-3 border border-white/5 flex justify-between items-center mb-3">
-                <div>
-                    {(() => {
-                        const tr = translatePick(pick.market || '', pick.selection || '');
-                        return (
-                            <>
-                                <p className="text-[11px] sm:text-[10px] uppercase text-slate-500">{tr.marketEs}</p>
-                                <p className="text-white font-bold text-sm">{tr.selectionEs}</p>
-                            </>
-                        );
-                    })()}
-                </div>
-                <div className="text-right">
-                    {(() => {
-                        const validOdds = pick.odds != null && pick.odds >= 1.01 && pick.odds <= 15.0;
-                        return (
-                            <>
-                                <span className={`block text-lg sm:text-xl font-black ${validOdds ? 'text-amber-400' : 'text-slate-500'}`}>
-                                    {validOdds ? `@${pick.odds!.toFixed(2)}` : 'Sin cuota'}
-                                </span>
-                                <span className="text-[10px] text-slate-500 uppercase">{validOdds ? 'Cuota' : 'Sin datos'}</span>
-                            </>
-                        );
-                    })()}
+                {/* Cuota (dorada) + resultado + chevron */}
+                <div className="shrink-0 flex items-center gap-2 sm:gap-3">
+                    {isVerified && !presentationMode && <ResultBadge result={pick.result} actualScore={pick.actual_score} />}
+                    <span className={`font-display font-extrabold text-base sm:text-xl dx-num ${validOdds ? 'text-dx-gold' : 'text-dx-text-mute'}`}>
+                        {validOdds ? `@${pick.odds!.toFixed(2)}` : 'Sin cuota'}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-dx-text-mute group-hover:text-dx-green transition-colors" />
                 </div>
             </div>
 
-            {/* Stake / Risk Management Badge */}
-            <div className="flex items-center justify-between px-3 py-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20 mb-3">
-                <div>
-                    <span className="text-[9px] uppercase text-emerald-500/60 font-bold block">Stake Sugerido</span>
-                    <span className="text-emerald-400 font-black text-lg">{stakePercent}%</span>
-                    <span className="text-emerald-500/50 text-[10px] ml-1">({stakeUnits}u)</span>
-                </div>
-                {potentialProfit && (
-                    <div className="text-right">
-                        <span className="text-[9px] uppercase text-slate-500 block">Ganancia Potencial</span>
-                        <span className="text-amber-400 font-bold text-sm">+{potentialProfit}%</span>
-                    </div>
-                )}
-            </div>
-
-            {canOverride ? (
-                <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
+            {/* Sub-fila admin: stake + override + SEO (conserva toda la funcionalidad) */}
+            {canOverride && (
+                <div className="flex flex-wrap items-center gap-2 pb-3 px-1 sm:pl-24">
+                    <span className="text-[10px] text-dx-text-mute mr-1">
+                        Stake <b className="text-dx-green dx-num">{stakePercent}%</b> <span className="opacity-70">({stakeUnits}u)</span>
+                        {potentialProfit && <> · <span className="text-dx-gold">+{potentialProfit}%</span></>}
+                    </span>
+                    <div className="flex items-center gap-1.5 ml-auto">
                         <button
                             onClick={(e) => handleOverride(e, 'WON')}
                             disabled={overriding}
-                            className="flex-1 py-2.5 sm:py-1.5 rounded-lg text-sm sm:text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all disabled:opacity-50"
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-dx-green/15 text-dx-green border border-dx-green/30 hover:bg-dx-green/25 transition-all disabled:opacity-50"
                         >
                             {overriding ? '...' : 'GANADA'}
                         </button>
                         <button
                             onClick={(e) => handleOverride(e, 'LOST')}
                             disabled={overriding}
-                            className="flex-1 py-2.5 sm:py-1.5 rounded-lg text-sm sm:text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all disabled:opacity-50"
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-dx-loss/15 text-dx-loss border border-dx-loss/30 hover:bg-dx-loss/25 transition-all disabled:opacity-50"
                         >
                             {overriding ? '...' : 'PERDIDA'}
                         </button>
                         <button
                             onClick={(e) => handleOverride(e, 'VOID')}
                             disabled={overriding}
-                            className="py-2.5 sm:py-1.5 px-3 rounded-lg text-sm sm:text-xs font-bold bg-slate-500/20 text-slate-400 border border-slate-500/30 hover:bg-slate-500/30 transition-all disabled:opacity-50"
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white/5 text-dx-text-soft border border-dx-border hover:bg-white/10 transition-all disabled:opacity-50"
                         >
                             {overriding ? '...' : 'NULA'}
                         </button>
                     </div>
-                    <SeoPageLink fixtureId={pick.fixture_id} />
-                </div>
-            ) : (
-                <div className="w-full py-1.5 flex items-center justify-center gap-2 text-xs font-bold text-slate-500 group-hover:text-white transition-colors">
-                    <ArrowTopRightOnSquareIcon className="w-3 h-3" />
-                    Ver Análisis Completo
+                    <div className="w-full"><SeoPageLink fixtureId={pick.fixture_id} /></div>
                 </div>
             )}
         </div>

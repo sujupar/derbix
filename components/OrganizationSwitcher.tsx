@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useOrganization } from '../contexts/OrganizationContext';
 import { useAuth } from '../hooks/useAuth';
-import { ChevronDownIcon, CheckIcon, PlusIcon, BuildingOfficeIcon, MagnifyingGlassIcon } from './icons/Icons';
+import { ChevronDownIcon, CheckIcon, PlusIcon, MagnifyingGlassIcon } from './icons/Icons';
 import { isAgencyRole } from '../utils/roles';
 import { organizationService } from '../services/organizationService';
 import { Organization } from '../types';
@@ -89,11 +89,11 @@ export const OrganizationSwitcher: React.FC<OrganizationSwitcherProps> = ({ onCr
             <div className="relative mb-6" ref={dropdownRef}>
                 <button
                     onClick={() => setIsOpen(!isOpen)}
-                    className="w-full flex items-center justify-between p-3 rounded-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 hover:border-brand/50 transition-all duration-300 group"
+                    className="w-full flex items-center justify-between p-3 rounded-xl bg-dx-surface border border-dx-border hover:border-dx-border-active transition-all duration-300 group"
                 >
                     <div className="flex items-center gap-3 overflow-hidden">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isImpersonating ? 'bg-amber-500/20 text-amber-400' : 'bg-brand/20 text-brand'}`}>
-                            <BuildingOfficeIcon className="w-5 h-5" />
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 text-sm font-extrabold border ${isImpersonating ? 'bg-dx-gold/15 text-dx-gold border-dx-gold/30' : 'bg-dx-surface-2 text-dx-green border-dx-border-active'}`}>
+                            {currentOrg.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="text-left truncate">
                             <div className={`text-sm font-bold truncate transition-colors ${isImpersonating ? 'text-amber-400 group-hover:text-amber-300' : 'text-white group-hover:text-brand'}`}>
@@ -202,11 +202,11 @@ export const OrganizationSwitcher: React.FC<OrganizationSwitcherProps> = ({ onCr
         <div className="relative mb-6" ref={dropdownRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex items-center justify-between p-3 rounded-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 hover:border-brand/50 transition-all duration-300 group"
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-dx-surface border border-dx-border hover:border-dx-border-active transition-all duration-300 group"
             >
                 <div className="flex items-center gap-3 overflow-hidden">
-                    <div className="w-8 h-8 rounded-lg bg-brand/20 flex items-center justify-center text-brand shrink-0">
-                        <BuildingOfficeIcon className="w-5 h-5" />
+                    <div className="w-9 h-9 rounded-lg bg-dx-surface-2 border border-dx-border-active flex items-center justify-center text-dx-green text-sm font-extrabold shrink-0">
+                        {currentOrg.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="text-left truncate">
                         <div className="text-sm font-bold text-white truncate group-hover:text-brand transition-colors">

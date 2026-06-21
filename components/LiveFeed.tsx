@@ -152,6 +152,9 @@ export const FixturesFeed: React.FC = () => {
     const [selectedDate, setSelectedDate] = useState(getCurrentDateInBogota());
     const [viewMode, setViewMode] = useState<'fixtures' | 'top-picks'>('top-picks');
     const [resultsRefreshKey, setResultsRefreshKey] = useState(0);
+    // Señal de refresco para Oportunidades — reubica el "Actualizar" del panel
+    // al ícono de la barra de controles, reusando el mismo handler de HighProbPicks.
+    const [refreshSignal, setRefreshSignal] = useState(0);
     const handlePickOverridden = useCallback(() => setResultsRefreshKey(k => k + 1), []);
     const [showLiveOnly, setShowLiveOnly] = useState(false);
     const [detailGame, setDetailGame] = useState<Game | null>(null);
@@ -847,6 +850,17 @@ export const FixturesFeed: React.FC = () => {
                                 EN VIVO
                             </button>
                         )}
+
+                        {/* Actualizar Oportunidades (mismo handler, reubicado a la barra) */}
+                        {viewMode === 'top-picks' && (
+                            <button
+                                onClick={() => setRefreshSignal(s => s + 1)}
+                                title="Actualizar oportunidades"
+                                className="flex items-center justify-center w-11 h-11 rounded-xl border border-dx-border bg-dx-surface text-dx-text-soft hover:text-dx-green hover:border-dx-border-active transition-all shrink-0"
+                            >
+                                <ArrowPathIcon className="w-5 h-5" />
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -857,6 +871,7 @@ export const FixturesFeed: React.FC = () => {
                             onViewReport={handleViewReport}
                             onPickOverridden={handlePickOverridden}
                             onAccessibleFixturesChange={setPickBasedAccessibleIds}
+                            refreshSignal={refreshSignal}
                         />
                     </div>
                 ) : (

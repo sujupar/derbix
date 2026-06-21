@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { CalendarDaysIcon, UsersIcon, ArrowLeftOnRectangleIcon, CreditCardIcon, TrophyIcon, PaperAirplaneIcon, XMarkIcon, ShieldCheckIcon } from './icons/Icons';
+import React, { useState, useRef, useEffect } from 'react';
+import { CalendarDaysIcon, UsersIcon, ArrowLeftOnRectangleIcon, TrophyIcon, PaperAirplaneIcon, ShieldCheckIcon, EllipsisVerticalIcon } from './icons/Icons';
 import { cleanPlanLabel } from '../utils/planDisplay';
 import { useAuth } from '../hooks/useAuth';
 import { OrganizationSwitcher } from './OrganizationSwitcher';
@@ -10,7 +10,7 @@ import { useOrganization } from '../contexts/OrganizationContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { RecapBadge } from './recap/RecapBadge';
 import { NotificationPreferences } from './settings/NotificationPreferences';
-import { PremiumBadge, getAvatarRingClass, getPlanNameColor } from './premium/PremiumBadge';
+import { getAvatarRingClass } from './premium/PremiumBadge';
 import { SupportWidget } from './support/SupportWidget';
 
 interface LayoutProps {
@@ -30,6 +30,27 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
   const { plan } = useSubscription();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isNotifPrefsOpen, setIsNotifPrefsOpen] = useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+
+  // Cerrar el menú de cuenta (⋮) al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target as Node)) {
+        setIsAccountMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Presentación del plan en el pie (sin etiquetas internas)
+  const planTitle = isAgencyRole(profile?.role) ? 'Plan Agencia' : `Plan ${cleanPlanLabel(plan.display_name)}`;
+  const planSubtitle = isAgencyRole(profile?.role)
+    ? 'Acceso total'
+    : plan.plan_name === 'free' ? 'Mejora tu plan' : 'Plan activo';
+  const accountInitials = (profile?.full_name || 'U')
+    .split(' ').map(w => w.charAt(0)).slice(0, 2).join('').toUpperCase();
 
   // Roles: agency (full access) vs client (view only per plan)
   const isAgencySuperadmin = isAgencyRole(profile?.role);
@@ -111,27 +132,26 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
           />
         )}
 
-        <div className="p-4 border-t border-white/5">
-          {/* Tarjeta de plan — borde dorado tenue + nombre limpio (sin etiquetas internas) */}
+        <div className="p-4 border-t border-white/5 space-y-3">
+          {/* Tarjeta de plan — escudo dorado + nombre limpio (sin etiquetas internas) */}
           <button
             onClick={() => setCurrentPage('pricing')}
             data-onboarding="plan-badge"
-            className="dx-plan w-full flex items-center justify-between p-3 mb-3 transition-all hover:border-dx-gold/50 group"
+            className="dx-plan w-full flex items-center gap-3 p-3 transition-all hover:border-dx-gold/50 text-left"
           >
-            <span className="flex items-center gap-2 text-dx-text-soft group-hover:text-dx-text text-xs font-medium">
+            <span className="w-9 h-9 rounded-lg bg-dx-gold/10 border border-dx-gold/30 flex items-center justify-center shrink-0">
               <ShieldCheckIcon className="w-4 h-4 text-dx-gold" />
-              Mi Plan
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className={`text-xs font-bold ${getPlanNameColor(plan.plan_name)}`}>{cleanPlanLabel(plan.display_name)}</span>
-              <PremiumBadge planName={plan.plan_name} />
+            <span className="leading-tight overflow-hidden">
+              <span className="block text-sm font-bold text-white truncate">{planTitle}</span>
+              <span className="block text-xs text-dx-gold truncate">{planSubtitle}</span>
             </span>
           </button>
 
-          {/* Fila de cuenta */}
-          <div className="flex items-center gap-3 mb-3 px-1">
-            <div className={`w-8 h-8 rounded-full bg-gradient-to-tr from-brand to-dx-green-deep flex items-center justify-center text-xs font-bold text-white shadow-lg shrink-0 ${getAvatarRingClass(plan.plan_name)}`}>
-              {profile?.full_name?.charAt(0) || 'U'}
+          {/* Fila de cuenta + menú (⋮) con acciones (WhatsApp / Cerrar sesión) */}
+          <div className="relative flex items-center gap-3 px-1" ref={accountMenuRef}>
+            <div className={`w-9 h-9 rounded-full bg-gradient-to-tr from-dx-green-bright to-dx-green flex items-center justify-center text-xs font-extrabold text-[#04140C] shadow-lg shrink-0 ${getAvatarRingClass(plan.plan_name)}`}>
+              {accountInitials}
             </div>
             <div className="flex-1 overflow-hidden">
               <p className="text-sm font-medium text-white truncate">{profile?.full_name || 'Usuario'}</p>
@@ -141,27 +161,38 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
                  profile?.role === 'org_owner' ? 'Admin' : 'Usuario'}
               </p>
             </div>
-          </div>
+            <button
+              onClick={() => setIsAccountMenuOpen(o => !o)}
+              className="p-1.5 rounded-lg text-dx-text-mute hover:text-dx-text hover:bg-dx-surface-2 transition-colors shrink-0"
+              aria-label="Opciones de cuenta"
+            >
+              <EllipsisVerticalIcon className="w-5 h-5" />
+            </button>
 
-          <button
-            onClick={() => setIsNotifPrefsOpen(true)}
-            className="w-full flex items-center justify-between p-2.5 rounded-lg text-dx-text-soft hover:bg-dx-surface-2 hover:text-dx-green transition-all text-xs font-medium border border-dx-border mb-2"
-          >
-            <span className="flex items-center gap-1.5">
-              <PaperAirplaneIcon className="w-3.5 h-3.5" />
-              WhatsApp
-            </span>
-            <span className={`font-bold ${profile?.phone_number ? 'text-dx-green' : 'text-dx-text-mute'}`}>
-              {profile?.phone_number ? 'Activo' : 'Configurar'}
-            </span>
-          </button>
-          <button
-            onClick={signOut}
-            className="w-full flex items-center justify-center space-x-2 p-2.5 rounded-lg bg-dx-surface-2 hover:bg-dx-loss/10 hover:text-dx-loss text-dx-text-soft transition-colors text-xs font-medium border border-dx-border"
-          >
-            <ArrowLeftOnRectangleIcon className="w-4 h-4" />
-            <span>Cerrar Sesión</span>
-          </button>
+            {isAccountMenuOpen && (
+              <div className="absolute bottom-full right-0 mb-2 w-56 bg-dx-surface border border-dx-border rounded-xl shadow-2xl overflow-hidden z-50 animate-scale-in origin-bottom-right">
+                <button
+                  onClick={() => { setIsNotifPrefsOpen(true); setIsAccountMenuOpen(false); }}
+                  className="w-full flex items-center justify-between px-4 py-3 text-sm text-dx-text-soft hover:bg-dx-surface-2 hover:text-dx-green transition-colors"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <PaperAirplaneIcon className="w-4 h-4" />
+                    WhatsApp
+                  </span>
+                  <span className={`text-xs font-bold ${profile?.phone_number ? 'text-dx-green' : 'text-dx-text-mute'}`}>
+                    {profile?.phone_number ? 'Activo' : 'Configurar'}
+                  </span>
+                </button>
+                <button
+                  onClick={() => { setIsAccountMenuOpen(false); signOut(); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-dx-text-soft hover:bg-dx-loss/10 hover:text-dx-loss transition-colors border-t border-dx-border"
+                >
+                  <ArrowLeftOnRectangleIcon className="w-4 h-4" />
+                  Cerrar Sesión
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </aside>
 
