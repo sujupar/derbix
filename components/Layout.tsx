@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CalendarDaysIcon, UsersIcon, ArrowLeftOnRectangleIcon, TrophyIcon, PaperAirplaneIcon, ShieldCheckIcon, EllipsisVerticalIcon } from './icons/Icons';
+import { CalendarDaysIcon, UsersIcon, ArrowLeftOnRectangleIcon, TrophyIcon, PaperAirplaneIcon, ShieldCheckIcon, EllipsisVerticalIcon, ClockIcon, CogIcon } from './icons/Icons';
 import { cleanPlanLabel } from '../utils/planDisplay';
+import { supabase } from '../services/supabaseService';
+import { getCurrentDateInBogota } from '../utils/dateUtils';
+import { fetchLiveFixtures } from '../services/liveDataService';
 import { useAuth } from '../hooks/useAuth';
 import { OrganizationSwitcher } from './OrganizationSwitcher';
 import { Page } from '../App';
@@ -32,6 +35,42 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
   const [isNotifPrefsOpen, setIsNotifPrefsOpen] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  // Conteos para los badges del sidebar (oportunidades de hoy + partidos en vivo)
+  const [oppCount, setOppCount] = useState(0);
+  const [liveCount, setLiveCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadOpp = async () => {
+      try {
+        const today = getCurrentDateInBogota();
+        const { count } = await supabase
+          .from('value_picks_v2')
+          .select('id', { count: 'exact', head: true })
+          .eq('is_opportunity', true)
+          .eq('opportunity_date', today);
+        if (!cancelled) setOppCount(count || 0);
+      } catch { /* silencioso — el badge es informativo */ }
+    };
+    loadOpp();
+    const t = setInterval(loadOpp, 120000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadLive = async () => {
+      try {
+        const data = await fetchLiveFixtures();
+        const n = [...data.importantLeagues, ...data.countryLeagues.flatMap(c => c.leagues)]
+          .reduce((acc, l) => acc + l.games.length, 0);
+        if (!cancelled) setLiveCount(n);
+      } catch { /* silencioso */ }
+    };
+    loadLive();
+    const t = setInterval(loadLive, 90000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, []);
 
   // Cerrar el menú de cuenta (⋮) al hacer clic fuera
   useEffect(() => {
@@ -62,9 +101,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
     // Opciones para TODOS los usuarios
     { id: 'live', label: 'Jornadas', section: 'Menú', icon: <CalendarDaysIcon className="w-5 h-5" />, forAgency: true, forAccount: true, forUser: true },
     { id: 'results', label: 'Resultados', section: 'Menú', icon: <TrophyIcon className="w-5 h-5" />, forAgency: true, forAccount: true, forUser: true },
+    { id: 'live-now', label: 'En vivo', section: 'Menú', icon: <ClockIcon className="w-5 h-5" />, forAgency: true, forAccount: true, forUser: true },
 
     // Opciones SOLO para SUPERADMIN de AGENCIA (platform_owner, agency_admin)
     { id: 'admin', label: 'Admin', section: 'Gestión', icon: <UsersIcon className="w-5 h-5" />, forAgency: true, forAccount: false, forUser: false },
+    { id: 'settings', label: 'Configuración', section: 'Gestión', icon: <CogIcon className="w-5 h-5" />, forAgency: true, forAccount: true, forUser: true },
   ];
 
   // Filtrar según el nivel del usuario
@@ -113,9 +154,15 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
                       {item.icon}
                     </span>
                     <span className="tracking-wide">{item.label}</span>
-                    {isActive && (
+                    {item.id === 'live' && oppCount > 0 ? (
+                      <span className="ml-auto text-[11px] font-display font-bold text-dx-green bg-dx-green/15 rounded-md px-2 py-0.5 dx-num">{oppCount}</span>
+                    ) : item.id === 'live-now' && liveCount > 0 ? (
+                      <span className="ml-auto flex items-center gap-1.5 text-[11px] font-bold text-dx-live dx-num">
+                        <span className="w-1.5 h-1.5 rounded-full bg-dx-live animate-pulse" />{liveCount}
+                      </span>
+                    ) : isActive ? (
                       <span className="ml-auto w-1.5 h-1.5 rounded-full bg-dx-green animate-pulse shadow-[0_0_8px_#1DE782]"></span>
-                    )}
+                    ) : null}
                   </button>
                 );
               })}

@@ -143,20 +143,21 @@ const AnalysisGameCard: React.FC<{
 
 // --- LOGICA PRINCIPAL ---
 
-export const FixturesFeed: React.FC = () => {
+export const FixturesFeed: React.FC<{ initialLive?: boolean }> = ({ initialLive }) => {
     const { profile } = useAuth();
     const { presentationMode } = usePresentationMode();
     const [data, setData] = useState<DashboardData>({ importantLeagues: [], countryLeagues: [] });
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [selectedDate, setSelectedDate] = useState(getCurrentDateInBogota());
-    const [viewMode, setViewMode] = useState<'fixtures' | 'top-picks'>('top-picks');
+    // "En vivo" (sidebar) arranca en modo Partidos + filtro en vivo
+    const [viewMode, setViewMode] = useState<'fixtures' | 'top-picks'>(initialLive ? 'fixtures' : 'top-picks');
     const [resultsRefreshKey, setResultsRefreshKey] = useState(0);
     // Señal de refresco para Oportunidades — reubica el "Actualizar" del panel
     // al ícono de la barra de controles, reusando el mismo handler de HighProbPicks.
     const [refreshSignal, setRefreshSignal] = useState(0);
     const handlePickOverridden = useCallback(() => setResultsRefreshKey(k => k + 1), []);
-    const [showLiveOnly, setShowLiveOnly] = useState(false);
+    const [showLiveOnly, setShowLiveOnly] = useState(!!initialLive);
     const [detailGame, setDetailGame] = useState<Game | null>(null);
     const handleOpenDetail = useCallback((game: Game) => setDetailGame(game), []);
 

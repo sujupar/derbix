@@ -12,6 +12,7 @@ import { AdminPage } from './components/Admin';
 import { PricingPage } from './components/pricing/PricingPage';
 import { PublicPricingPage } from './components/pricing/PublicPricingPage';
 import ResultadosPage from './components/ResultadosPage';
+import { SettingsPage } from './components/settings/SettingsPage';
 import { SignUpFlow } from './components/auth/SignUpFlow';
 import { ResetPassword } from './components/auth/ResetPassword';
 import { TermsOfService } from './components/legal/TermsOfService';
@@ -35,7 +36,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { MilestoneBanner } from './components/premium/MilestoneBanner';
 import { useMilestones } from './hooks/useMilestones';
 
-export type Page = 'live' | 'results' | 'admin' | 'pricing';
+export type Page = 'live' | 'live-now' | 'results' | 'admin' | 'pricing' | 'settings';
 
 // --- PLATFORM (PROTECTED APP) ---
 const Platform: React.FC = () => {
@@ -81,19 +82,23 @@ const Platform: React.FC = () => {
   const renderContent = () => {
     switch (currentPage) {
       case 'live':
-        return <FixturesFeed />;
+        return <FixturesFeed key="live" />;
+      case 'live-now':
+        return <FixturesFeed key="live-now" initialLive />;
       case 'results':
         return <ResultadosPage />;
+      case 'settings':
+        return <SettingsPage onNavigate={setCurrentPage} />;
       case 'admin':
         if (isAgencyRole(profile.role)) {
           return <AdminPage />;
         }
         setCurrentPage('live');
-        return <FixturesFeed />;
+        return <FixturesFeed key="live" />;
       case 'pricing':
         return <PricingPage />;
       default:
-        return <FixturesFeed />;
+        return <FixturesFeed key="live" />;
     }
   };
 
