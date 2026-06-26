@@ -479,18 +479,15 @@ export const ArrowTopRightOnSquareIcon: React.FC<IconProps> = (props) => (
   </svg>
 );
 
-// Barras de estadística ascendentes + flecha de tendencia (motivo del logo Derbix)
+// Gráfica de área de crecimiento (línea de tendencia + relleno + flecha)
 export const ChartUpIcon: React.FC<IconProps> = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6" {...props}>
-    {/* Barras de estadística (sólidas, ascendentes) */}
-    <g fill="currentColor" stroke="none">
-      <rect x="2.5" y="16" width="4" height="5" rx="1.6" />
-      <rect x="10" y="14" width="4" height="7" rx="1.6" />
-      <rect x="17.5" y="11.5" width="4" height="9.5" rx="1.6" />
-    </g>
-    {/* Flecha de tendencia (separada, por encima de las barras) */}
-    <polyline points="3 8.5 9 4 13 7 21 2.5" />
-    <polyline points="15.5 2.5 21 2.5 21 8" />
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" className="w-6 h-6" {...props}>
+    {/* Relleno suave bajo la línea */}
+    <path d="M3 20 L3 14 L9 9 L13 12 L21 4.5 L21 20 Z" fill="currentColor" opacity={0.28} />
+    {/* Línea de tendencia */}
+    <polyline points="3 14 9 9 13 12 21 4.5" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+    {/* Flecha de crecimiento */}
+    <polyline points="16 4.5 21 4.5 21 9.5" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
