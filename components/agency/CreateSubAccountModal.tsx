@@ -83,15 +83,15 @@ export const CreateSubAccountModal: React.FC<CreateSubAccountModalProps> = ({ is
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in p-4">
-            <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl relative">
+            <div className="bg-dx-surface border border-dx-border rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl relative">
 
                 {/* Header */}
-                <div className="bg-slate-800/50 p-6 border-b border-white/5 flex justify-between items-center">
+                <div className="bg-dx-surface-2/50 p-6 border-b border-dx-border flex justify-between items-center">
                     <div>
                         <h2 className="text-xl font-display font-bold text-white">{t('modal.create_client')}</h2>
-                        <p className="text-sm text-slate-400 mt-1">{t('modal.subtitle')}</p>
+                        <p className="text-sm text-dx-text-soft mt-1">{t('modal.subtitle')}</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">
+                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-dx-text-soft hover:text-white transition-colors">
                         <XMarkIcon className="w-5 h-5" />
                     </button>
                 </div>
@@ -99,7 +99,7 @@ export const CreateSubAccountModal: React.FC<CreateSubAccountModalProps> = ({ is
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto max-h-[70vh]">
                     {error && (
-                        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-xs font-bold text-center flex items-center gap-2">
+                        <div className="bg-dx-loss/10 border border-dx-loss/20 text-dx-loss p-3 rounded-lg text-xs font-bold text-center flex items-center gap-2">
                             <span className="font-bold">Error:</span> {error}
                         </div>
                     )}
@@ -107,49 +107,49 @@ export const CreateSubAccountModal: React.FC<CreateSubAccountModalProps> = ({ is
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Business Details */}
                         <div className="col-span-2">
-                            <h3 className="text-xs uppercase font-bold text-brand tracking-wider mb-4 border-b border-white/5 pb-2">{t('modal.section.info')}</h3>
+                            <h3 className="text-xs uppercase font-bold text-brand tracking-wider mb-4 border-b border-dx-border pb-2">{t('modal.section.info')}</h3>
                         </div>
 
                         <div className="col-span-2">
-                            <label className="block text-xs font-bold text-slate-400 mb-1">{t('modal.label.name')}</label>
+                            <label className="block text-xs font-bold text-dx-text-soft mb-1">{t('modal.label.name')}</label>
                             <input
                                 required
                                 type="text"
                                 value={formData.businessName}
                                 onChange={e => setFormData({ ...formData, businessName: e.target.value })}
-                                className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none"
+                                className="w-full bg-dx-surface border border-dx-border rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none"
                                 placeholder={t('modal.ph.name')}
                             />
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-slate-400 mb-1">{t('modal.label.address')}</label>
+                            <label className="block text-xs font-bold text-dx-text-soft mb-1">{t('modal.label.address')}</label>
                             <input
                                 type="text"
                                 value={formData.address}
                                 onChange={e => setFormData({ ...formData, address: e.target.value })}
-                                className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none"
+                                className="w-full bg-dx-surface border border-dx-border rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none"
                                 placeholder="Calle 123"
                             />
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-slate-400 mb-1">{t('modal.label.city')}</label>
+                            <label className="block text-xs font-bold text-dx-text-soft mb-1">{t('modal.label.city')}</label>
                             <input
                                 type="text"
                                 value={formData.city}
                                 onChange={e => setFormData({ ...formData, city: e.target.value })}
-                                className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none"
+                                className="w-full bg-dx-surface border border-dx-border rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none"
                                 placeholder="Bogotá"
                             />
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-slate-400 mb-1">{t('modal.label.country')}</label>
+                            <label className="block text-xs font-bold text-dx-text-soft mb-1">{t('modal.label.country')}</label>
                             <select
                                 value={formData.country}
                                 onChange={e => setFormData({ ...formData, country: e.target.value })}
-                                className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none appearance-none"
+                                className="w-full bg-dx-surface border border-dx-border rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none appearance-none"
                             >
                                 <option value="">Seleccionar...</option>
                                 <option value="CO">Colombia</option>
@@ -161,11 +161,11 @@ export const CreateSubAccountModal: React.FC<CreateSubAccountModalProps> = ({ is
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-slate-400 mb-1">{t('modal.label.timezone')}</label>
+                            <label className="block text-xs font-bold text-dx-text-soft mb-1">{t('modal.label.timezone')}</label>
                             <select
                                 value={formData.timezone}
                                 onChange={e => setFormData({ ...formData, timezone: e.target.value })}
-                                className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none appearance-none"
+                                className="w-full bg-dx-surface border border-dx-border rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none appearance-none"
                             >
                                 <option value="America/Bogota">Bogotá (GMT-5)</option>
                                 <option value="America/Mexico_City">México (GMT-6)</option>
@@ -177,69 +177,69 @@ export const CreateSubAccountModal: React.FC<CreateSubAccountModalProps> = ({ is
 
                         {/* Owner Details */}
                         <div className="col-span-2 mt-4">
-                            <h3 className="text-xs uppercase font-bold text-blue-400 tracking-wider mb-4 border-b border-white/5 pb-2">{t('modal.section.admin')}</h3>
+                            <h3 className="text-xs uppercase font-bold text-dx-green tracking-wider mb-4 border-b border-dx-border pb-2">{t('modal.section.admin')}</h3>
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-slate-400 mb-1">{t('modal.label.firstname')}</label>
+                            <label className="block text-xs font-bold text-dx-text-soft mb-1">{t('modal.label.firstname')}</label>
                             <input
                                 required
                                 type="text"
                                 value={formData.firstName}
                                 onChange={e => setFormData({ ...formData, firstName: e.target.value })}
-                                className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none"
+                                className="w-full bg-dx-surface border border-dx-border rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none"
                                 placeholder="Juan"
                             />
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-slate-400 mb-1">{t('modal.label.lastname')}</label>
+                            <label className="block text-xs font-bold text-dx-text-soft mb-1">{t('modal.label.lastname')}</label>
                             <input
                                 required
                                 type="text"
                                 value={formData.lastName}
                                 onChange={e => setFormData({ ...formData, lastName: e.target.value })}
-                                className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none"
+                                className="w-full bg-dx-surface border border-dx-border rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none"
                                 placeholder="Pérez"
                             />
                         </div>
 
                         <div className="col-span-2">
-                            <label className="block text-xs font-bold text-slate-400 mb-1">{t('modal.label.email')} (Login)</label>
+                            <label className="block text-xs font-bold text-dx-text-soft mb-1">{t('modal.label.email')} (Login)</label>
                             <input
                                 required
                                 type="email"
                                 value={formData.email}
                                 onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none"
+                                className="w-full bg-dx-surface border border-dx-border rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none"
                                 placeholder="cliente@empresa.com"
                             />
                         </div>
 
                         <div className="col-span-2">
-                            <label className="block text-xs font-bold text-slate-400 mb-1">{t('modal.label.phone')}</label>
+                            <label className="block text-xs font-bold text-dx-text-soft mb-1">{t('modal.label.phone')}</label>
                             <input
                                 type="tel"
                                 value={formData.phone}
                                 onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none"
+                                className="w-full bg-dx-surface border border-dx-border rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-brand outline-none"
                                 placeholder="+57 300 123 4567"
                             />
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-6 border-t border-white/5">
+                    <div className="flex justify-end gap-3 pt-6 border-t border-dx-border">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 text-slate-400 hover:text-white font-bold text-sm transition-colors"
+                            className="px-4 py-2 text-dx-text-soft hover:text-white font-bold text-sm transition-colors"
                         >
                             {t('modal.btn.cancel')}
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="px-6 py-2 bg-brand hover:bg-emerald-500 text-white font-bold text-sm rounded-lg shadow-lg shadow-brand/20 transition-all flex items-center gap-2"
+                            className="px-6 py-2 bg-brand hover:bg-dx-green text-white font-bold text-sm rounded-lg shadow-lg shadow-brand/20 transition-all flex items-center gap-2"
                         >
                             {loading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
                             {t('modal.btn.create')}

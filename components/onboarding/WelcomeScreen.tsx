@@ -12,7 +12,7 @@ interface WelcomeScreenProps {
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ userName, planName, onStart, onSkip }) => {
   return createPortal(
     <motion.div
-      className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/95 backdrop-blur-xl"
+      className="fixed inset-0 z-[90] flex items-center justify-center bg-dx-bg/95 backdrop-blur-xl"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -21,7 +21,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ userName, planName
       {/* Background glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-brand/5 blur-[120px]" />
-        <div className="absolute top-1/3 left-1/3 w-[300px] h-[300px] rounded-full bg-purple-500/5 blur-[100px]" />
+        <div className="absolute top-1/3 left-1/3 w-[300px] h-[300px] rounded-full bg-dx-green/5 blur-[100px]" />
       </div>
 
       <div className="relative flex flex-col items-center text-center px-6 max-w-md">
@@ -46,7 +46,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ userName, planName
         </motion.h1>
 
         <motion.p
-          className="text-slate-400 text-lg mb-2"
+          className="text-dx-text-soft text-lg mb-2"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.7, duration: 0.5 }}
@@ -74,13 +74,13 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ userName, planName
         >
           <button
             onClick={onStart}
-            className="px-8 py-3 rounded-xl bg-gradient-to-r from-brand to-emerald-600 text-white font-bold text-base shadow-lg shadow-brand/20 hover:shadow-brand/40 transition-all hover:scale-105 active:scale-95"
+            className="px-8 py-3 rounded-xl bg-gradient-to-r from-brand to-dx-cyan text-white font-bold text-base shadow-lg shadow-brand/20 hover:shadow-brand/40 transition-all hover:scale-105 active:scale-95"
           >
             Conocer la plataforma
           </button>
           <button
             onClick={onSkip}
-            className="text-slate-500 text-sm hover:text-slate-300 transition-colors"
+            className="text-dx-text-mute text-sm hover:text-dx-text-soft transition-colors"
           >
             Ya la conozco, saltar
           </button>

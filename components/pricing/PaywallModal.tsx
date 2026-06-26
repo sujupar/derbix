@@ -44,10 +44,10 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
                 onClick={onClose}
             />
 
-            <div className="relative bg-slate-900 rounded-2xl border border-white/10 max-w-md w-full mx-4 overflow-hidden shadow-2xl">
-                <div className="bg-gradient-to-br from-red-500/20 to-orange-500/20 p-6 border-b border-white/5">
-                    <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <LockClosedIcon className="w-8 h-8 text-red-400" />
+            <div className="relative bg-dx-surface rounded-2xl border border-dx-border max-w-md w-full mx-4 overflow-hidden shadow-2xl">
+                <div className="bg-gradient-to-br from-dx-loss/20 to-dx-gold/20 p-6 border-b border-dx-border">
+                    <div className="w-16 h-16 bg-dx-loss/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <LockClosedIcon className="w-8 h-8 text-dx-loss" />
                     </div>
                     <h2 className="text-xl font-bold text-white text-center">
                         Límite Alcanzado
@@ -55,36 +55,36 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
                 </div>
 
                 <div className="p-6 space-y-4">
-                    <p className="text-gray-300 text-center">
+                    <p className="text-dx-text-soft text-center">
                         Has alcanzado el límite de <span className="text-white font-semibold">{featureNames[feature] || feature}</span> en tu plan <span className="text-brand font-semibold">{planName}</span>.
                     </p>
-                    <p className="text-emerald-400 text-center text-sm font-medium mt-2">
+                    <p className="text-dx-green text-center text-sm font-medium mt-2">
                         Desbloquea hasta $682/mes en herramientas de inteligencia deportiva.
                     </p>
 
                     {currentUsage !== undefined && limit !== undefined && (
-                        <div className="bg-slate-800 rounded-xl p-4">
+                        <div className="bg-dx-surface-2 rounded-xl p-4">
                             <div className="flex justify-between text-sm mb-2">
-                                <span className="text-gray-400">Uso del mes</span>
+                                <span className="text-dx-text-soft">Uso del mes</span>
                                 <span className="text-white font-mono">{currentUsage} / {limit}</span>
                             </div>
-                            <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                            <div className="h-2 bg-dx-surface-2 rounded-full overflow-hidden">
                                 <div
-                                    className="h-full bg-gradient-to-r from-red-500 to-orange-500 rounded-full transition-all"
+                                    className="h-full bg-gradient-to-r from-dx-loss to-dx-gold rounded-full transition-all"
                                     style={{ width: '100%' }}
                                 />
                             </div>
                         </div>
                     )}
 
-                    <div className="bg-gradient-to-br from-brand/10 to-emerald-500/10 rounded-xl p-4 border border-brand/20">
+                    <div className="bg-gradient-to-br from-brand/10 to-dx-cyan/10 rounded-xl p-4 border border-brand/20">
                         <div className="flex items-start gap-3">
                             <SparklesIcon className="w-5 h-5 text-brand shrink-0 mt-0.5" />
                             <div>
                                 <p className="text-white font-medium">
                                     {upgradePlanName ? `Actualiza a ${upgradePlanName}` : 'Actualiza tu plan'}
                                 </p>
-                                <p className="text-sm text-gray-400 mt-1">
+                                <p className="text-sm text-dx-text-soft mt-1">
                                     {upgradeDescription || 'Obtén acceso a más funcionalidades y límites más amplios.'}
                                 </p>
                             </div>
@@ -92,16 +92,16 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-white/5 flex gap-3">
+                <div className="p-6 border-t border-dx-border flex gap-3">
                     <button
                         onClick={onClose}
-                        className="flex-1 py-3 px-4 rounded-xl font-medium text-gray-400 bg-slate-800 hover:bg-slate-700 transition-colors"
+                        className="flex-1 py-3 px-4 rounded-xl font-medium text-dx-text-soft bg-dx-surface-2 hover:bg-dx-surface-2 transition-colors"
                     >
                         Cancelar
                     </button>
                     <button
                         onClick={onUpgrade}
-                        className="flex-1 py-3 px-4 rounded-xl font-bold bg-gradient-to-r from-brand to-emerald-400 text-slate-900 hover:shadow-lg hover:shadow-brand/30 transition-all flex items-center justify-center gap-2"
+                        className="flex-1 py-3 px-4 rounded-xl font-bold bg-gradient-to-r from-brand to-dx-cyan text-[#04140C] hover:shadow-lg hover:shadow-brand/30 transition-all flex items-center justify-center gap-2"
                     >
                         Ver Planes
                         <ArrowRightIcon className="w-4 h-4" />

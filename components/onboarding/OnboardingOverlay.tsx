@@ -165,7 +165,7 @@ export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.25 }}
         >
-          <div className="bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-2xl">
+          <div className="bg-dx-surface/95 backdrop-blur-xl border border-dx-border rounded-2xl p-5 shadow-2xl">
             {/* Icon + Title */}
             <div className="flex items-center gap-3 mb-2">
               <span className="text-2xl">{step?.icon}</span>
@@ -173,7 +173,7 @@ export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
             </div>
 
             {/* Subtitle */}
-            <p className="text-slate-400 text-sm mb-5 pl-10">{step?.subtitle}</p>
+            <p className="text-dx-text-soft text-sm mb-5 pl-10">{step?.subtitle}</p>
 
             {/* Navigation */}
             <div className="flex items-center justify-between">
@@ -187,7 +187,7 @@ export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
                         ? 'bg-brand w-5'
                         : i < currentStep
                         ? 'bg-brand/40'
-                        : 'bg-slate-600'
+                        : 'bg-dx-surface-2'
                     }`}
                   />
                 ))}
@@ -198,7 +198,7 @@ export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
                 {currentStep > 0 && (
                   <button
                     onClick={onPrev}
-                    className="px-3 py-1.5 text-sm text-slate-400 hover:text-white transition-colors"
+                    className="px-3 py-1.5 text-sm text-dx-text-soft hover:text-white transition-colors"
                   >
                     Atr\u00E1s
                   </button>
@@ -206,7 +206,7 @@ export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
                 {isLastStep ? (
                   <button
                     onClick={onComplete}
-                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-brand to-emerald-600 text-white text-sm font-bold shadow-lg shadow-brand/20 hover:shadow-brand/40 transition-all hover:scale-105 active:scale-95"
+                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-brand to-dx-cyan text-white text-sm font-bold shadow-lg shadow-brand/20 hover:shadow-brand/40 transition-all hover:scale-105 active:scale-95"
                   >
                     \u00A1Empezar!
                   </button>
@@ -225,7 +225,7 @@ export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({
             <div className="text-center mt-3">
               <button
                 onClick={onSkip}
-                className="text-slate-600 text-xs hover:text-slate-400 transition-colors"
+                className="text-dx-text-mute text-xs hover:text-dx-text-soft transition-colors"
               >
                 Saltar gu\u00EDa
               </button>

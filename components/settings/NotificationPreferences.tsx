@@ -123,7 +123,7 @@ export const NotificationPreferences: React.FC<Props> = ({ onClose }) => {
     if (loading) {
         return (
             <div className="p-6 flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-2 border-dx-green border-t-transparent rounded-full animate-spin" />
             </div>
         );
     }
@@ -133,31 +133,31 @@ export const NotificationPreferences: React.FC<Props> = ({ onClose }) => {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-teal-500/10">
-                        <PaperAirplaneIcon className="w-6 h-6 text-teal-400" />
+                    <div className="p-2 rounded-lg bg-dx-green/10">
+                        <PaperAirplaneIcon className="w-6 h-6 text-dx-green" />
                     </div>
                     <div>
                         <h3 className="text-lg font-bold text-white">Notificaciones WhatsApp</h3>
-                        <p className="text-sm text-slate-400">Recibe alertas directamente en tu WhatsApp</p>
+                        <p className="text-sm text-dx-text-soft">Recibe alertas directamente en tu WhatsApp</p>
                     </div>
                 </div>
                 {onClose && (
-                    <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+                    <button onClick={onClose} className="text-dx-text-soft hover:text-white transition-colors">
                         <XCircleIcon className="w-6 h-6" />
                     </button>
                 )}
             </div>
 
             {/* Phone number */}
-            <div className="p-4 rounded-xl bg-slate-800/50 border border-white/5">
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+            <div className="p-4 rounded-xl bg-dx-surface-2/50 border border-dx-border">
+                <label className="block text-sm font-medium text-dx-text-soft mb-2">
                     Numero de WhatsApp
                 </label>
                 <div className="flex gap-2">
                     <select
                         value={countryCode}
                         onChange={(e) => setCountryCode(e.target.value)}
-                        className="w-28 px-3 py-2.5 bg-slate-900 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-teal-500 transition-colors"
+                        className="w-28 px-3 py-2.5 bg-dx-surface border border-dx-border rounded-lg text-white text-sm focus:outline-none focus:border-dx-green transition-colors"
                     >
                         {COUNTRY_CODES.map(c => (
                             <option key={c.code} value={c.code}>{c.label}</option>
@@ -167,7 +167,7 @@ export const NotificationPreferences: React.FC<Props> = ({ onClose }) => {
                         type="tel"
                         value={phoneNumber}
                         onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ''))}
-                        className="flex-1 px-4 py-2.5 bg-slate-900 border border-white/10 rounded-lg text-white focus:outline-none focus:border-teal-500 transition-colors"
+                        className="flex-1 px-4 py-2.5 bg-dx-surface border border-dx-border rounded-lg text-white focus:outline-none focus:border-dx-green transition-colors"
                         placeholder="300 123 4567"
                     />
                     <button
@@ -175,8 +175,8 @@ export const NotificationPreferences: React.FC<Props> = ({ onClose }) => {
                         disabled={saving || !phoneNumber}
                         className={`px-4 py-2.5 text-sm font-bold rounded-lg transition-all ${
                             phoneSaved
-                                ? 'bg-teal-500/20 text-teal-300 border border-teal-500/50'
-                                : 'bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50'
+                                ? 'bg-dx-green/20 text-dx-green border border-dx-green/50'
+                                : 'bg-dx-green text-white hover:bg-dx-green disabled:opacity-50'
                         }`}
                     >
                         {phoneSaved ? 'Guardado' : 'Guardar'}
@@ -187,10 +187,10 @@ export const NotificationPreferences: React.FC<Props> = ({ onClose }) => {
             {/* Notification toggles */}
             <div className="space-y-3">
                 {/* Predictions ready */}
-                <div className="p-4 rounded-xl bg-slate-800/50 border border-white/5 flex items-center justify-between">
+                <div className="p-4 rounded-xl bg-dx-surface-2/50 border border-dx-border flex items-center justify-between">
                     <div>
                         <h4 className="font-medium text-white">Pronosticos listos</h4>
-                        <p className="text-xs text-slate-400 mt-0.5">Recibe una alerta cuando los analisis del dia estan disponibles (~4:00 AM)</p>
+                        <p className="text-xs text-dx-text-soft mt-0.5">Recibe una alerta cuando los analisis del dia estan disponibles (~4:00 AM)</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                         <input
@@ -200,15 +200,15 @@ export const NotificationPreferences: React.FC<Props> = ({ onClose }) => {
                             onChange={() => handleToggle('predictions_ready')}
                             disabled={saving}
                         />
-                        <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-teal-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        <div className="w-11 h-6 bg-dx-surface-2 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-dx-green rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-dx-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-dx-green"></div>
                     </label>
                 </div>
 
                 {/* Daily results */}
-                <div className="p-4 rounded-xl bg-slate-800/50 border border-white/5 flex items-center justify-between">
+                <div className="p-4 rounded-xl bg-dx-surface-2/50 border border-dx-border flex items-center justify-between">
                     <div>
                         <h4 className="font-medium text-white">Resultados del dia</h4>
-                        <p className="text-xs text-slate-400 mt-0.5">Recibe un resumen del rendimiento cuando se verifican los resultados</p>
+                        <p className="text-xs text-dx-text-soft mt-0.5">Recibe un resumen del rendimiento cuando se verifican los resultados</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                         <input
@@ -218,23 +218,23 @@ export const NotificationPreferences: React.FC<Props> = ({ onClose }) => {
                             onChange={() => handleToggle('daily_results')}
                             disabled={saving}
                         />
-                        <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-teal-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                        <div className="w-11 h-6 bg-dx-surface-2 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-dx-green rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-dx-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-dx-green"></div>
                     </label>
                 </div>
             </div>
 
             {/* Test notification */}
             {phoneNumber && (
-                <div className="p-4 rounded-xl bg-slate-800/50 border border-white/5">
+                <div className="p-4 rounded-xl bg-dx-surface-2/50 border border-dx-border">
                     <div className="flex items-center justify-between">
                         <div>
                             <h4 className="font-medium text-white text-sm">Enviar mensaje de prueba</h4>
-                            <p className="text-xs text-slate-400">Verifica que tu WhatsApp recibe notificaciones</p>
+                            <p className="text-xs text-dx-text-soft">Verifica que tu WhatsApp recibe notificaciones</p>
                         </div>
                         <button
                             onClick={handleSendTest}
                             disabled={testSending}
-                            className="px-4 py-2 text-sm font-bold bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+                            className="px-4 py-2 text-sm font-bold bg-dx-surface-2 text-white rounded-lg hover:bg-dx-surface-2 transition-colors disabled:opacity-50 flex items-center gap-2"
                         >
                             {testSending ? (
                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -247,8 +247,8 @@ export const NotificationPreferences: React.FC<Props> = ({ onClose }) => {
                     {testResult && (
                         <div className={`mt-3 p-2 rounded-lg text-sm flex items-center gap-2 ${
                             testResult.success
-                                ? 'bg-teal-500/10 text-teal-300 border border-teal-500/30'
-                                : 'bg-red-500/10 text-red-300 border border-red-500/30'
+                                ? 'bg-dx-green/10 text-dx-green border border-dx-green/30'
+                                : 'bg-dx-loss/10 text-dx-loss border border-dx-loss/30'
                         }`}>
                             {testResult.success ? (
                                 <CheckCircleIcon className="w-4 h-4" />
