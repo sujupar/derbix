@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Derbix — propuesta perfil arriba-derecha</title>
+<title>Derbix — propuesta v2 perfil arriba-derecha</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
 <style>
   :root{--bg:#000;--surf:#0C1310;--surf2:#121E18;--bd:rgba(255,255,255,.08);--bda:rgba(29,231,130,.32);
@@ -8,120 +8,108 @@
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:#050505;color:#fff;font-family:Inter,system-ui,sans-serif;padding:30px}
   h2.t{font-size:20px;margin:0 0 4px;font-family:'Space Grotesk'}
-  p.s{color:var(--txm);font-size:13px;margin:0 0 24px;max-width:760px;line-height:1.5}
+  p.s{color:var(--txm);font-size:13px;margin:0 0 24px;max-width:780px;line-height:1.5}
   .tag{max-width:1080px;margin:0 auto 12px;color:var(--txm);font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
-  .shell{max-width:1080px;margin:0 auto 18px;display:flex;background:var(--bg);border:1px solid var(--bd);border-radius:20px;overflow:hidden;min-height:520px}
-  /* sidebar */
-  .side{width:230px;flex-shrink:0;background:var(--surf);border-right:1px solid var(--bd);display:flex;flex-direction:column}
+  .shell{max-width:1080px;margin:0 auto 18px;display:flex;background:var(--bg);border:1px solid var(--bd);border-radius:20px;overflow:visible;min-height:520px}
+  .side{width:234px;flex-shrink:0;background:var(--surf);border-right:1px solid var(--bd);display:flex;flex-direction:column;border-radius:20px 0 0 20px}
   .logo{display:flex;align-items:center;gap:8px;padding:18px;border-bottom:1px solid rgba(255,255,255,.05);font-family:'Space Grotesk';font-weight:700;letter-spacing:.13em;font-size:16px}
   .logo svg{color:var(--ac)}
-  .switch{margin:14px 11px 0;display:flex;align-items:center;gap:9px;background:var(--surf);border:1px solid var(--bd);border-radius:11px;padding:10px}
-  .switch .av{width:32px;height:32px;border-radius:8px;background:var(--surf2);border:1px solid var(--bda);color:var(--ac);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
-  .switch .nm{font-weight:700;font-size:13px}.switch .sb{font-size:11px;color:var(--txs)}
-  .switch .ch{margin-left:auto;color:var(--txm)}
-  .adminonly{position:relative}
-  .adminonly::after{content:"solo admin";position:absolute;top:-7px;right:8px;background:#1DE782;color:#04140C;font-size:8px;font-weight:800;padding:1px 6px;border-radius:6px;text-transform:uppercase}
-  nav{flex:1;padding:14px 11px;display:flex;flex-direction:column;gap:4px}
-  .lbl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--txm);padding:6px 11px 4px}
-  .it{position:relative;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;color:var(--txs);font-weight:600;font-size:13.5px}
+  nav{flex:1;padding:16px 12px;display:flex;flex-direction:column;gap:5px}
+  .lbl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--txm);padding:6px 12px 4px}
+  .it{position:relative;display:flex;align-items:center;gap:13px;padding:13px 13px;border-radius:11px;color:var(--txs);font-weight:600;font-size:15px}
+  .it svg{width:22px;height:22px}
   .it.on{background:var(--surf2);color:var(--ac)}
-  .it.on::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:2px;background:var(--ac)}
+  .it.on::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:2px;background:var(--ac)}
   .it.live{color:var(--live)}
-  .dotlive{margin-left:auto;width:6px;height:6px;border-radius:50%;background:var(--live)}
-  /* footer sidebar = cliente/cuenta */
+  .dotlive{margin-left:auto;width:7px;height:7px;border-radius:50%;background:var(--live)}
+  /* footer SOLO admin = ver como cliente */
   .foot{padding:13px;border-top:1px solid rgba(255,255,255,.05)}
-  .acct{display:flex;align-items:center;gap:10px;background:var(--surf);border:1px solid color-mix(in srgb,var(--ac) 30%,var(--bd));border-radius:12px;padding:11px}
-  .acct .av{width:34px;height:34px;border-radius:9px;background:color-mix(in srgb,var(--ac) 14%,transparent);border:1px solid color-mix(in srgb,var(--ac) 35%,transparent);color:var(--ac);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
-  .acct .nm{font-size:13px;font-weight:700;color:var(--ac)}
-  .acct .sb{font-size:11px;color:var(--txm)}
+  .adminbox{position:relative;display:flex;align-items:center;gap:10px;background:var(--surf2);border:1px dashed var(--bda);border-radius:12px;padding:11px;cursor:pointer}
+  .adminbox::after{content:"solo admin";position:absolute;top:-7px;right:9px;background:#1DE782;color:#04140C;font-size:8px;font-weight:800;padding:1px 6px;border-radius:6px;text-transform:uppercase}
+  .adminbox .ic{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;color:var(--txs)}
+  .adminbox .nm{font-size:12.5px;font-weight:700}.adminbox .sb{font-size:10.5px;color:var(--txm)}
+  .adminbox .ch{margin-left:auto;color:var(--txm)}
   /* main */
   .main{flex:1;display:flex;flex-direction:column}
   .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;border-bottom:1px solid var(--bd)}
   .topbar h3{font-family:'Space Grotesk';font-size:18px}
-  .right{display:flex;align-items:center;gap:12px;position:relative}
-  .planbadge{display:inline-flex;align-items:center;gap:7px;background:color-mix(in srgb,var(--ac) 14%,transparent);border:1px solid color-mix(in srgb,var(--ac) 40%,transparent);color:var(--ac);font-weight:800;font-size:12px;padding:7px 13px;border-radius:999px}
-  .planbadge .dot{width:8px;height:8px;border-radius:50%;background:var(--ac)}
-  .prof{display:inline-flex;align-items:center;gap:9px;background:var(--surf);border:1px solid var(--bd);border-radius:12px;padding:6px 10px 6px 6px;cursor:pointer}
+  .right{position:relative}
+  .prof{display:inline-flex;align-items:center;gap:10px;background:var(--surf);border:1px solid var(--bd);border-radius:12px;padding:7px 9px 7px 13px;cursor:pointer}
   .prof:hover{border-color:var(--bda)}
+  .prof .nm{font-size:14px;font-weight:700}
   .prof .av{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--ac2),var(--ac));color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
-  .prof .nm{font-size:13px;font-weight:700}.prof .ch{color:var(--txm)}
-  .menu{position:absolute;top:54px;right:0;width:240px;background:var(--surf);border:1px solid var(--bd);border-radius:14px;box-shadow:0 24px 60px -20px #000;overflow:hidden;z-index:5}
-  .menu .hd{display:flex;align-items:center;gap:11px;padding:14px;border-bottom:1px solid var(--bd)}
-  .menu .hd .av{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--ac2),var(--ac));color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:800}
-  .menu .hd .nm{font-size:14px;font-weight:700}.menu .hd .em{font-size:11px;color:var(--txm)}
-  .menu .mi{display:flex;align-items:center;gap:10px;padding:12px 14px;font-size:13px;color:var(--txs);cursor:pointer}
-  .menu .mi:hover{background:var(--surf2);color:#fff}
-  .menu .mi.out:hover{color:var(--live)}
-  .body{flex:1;padding:24px;color:var(--txm);font-size:13px}
+  .prof .ch{color:var(--txm)}
+  /* dropdown */
+  .menu{position:absolute;top:56px;right:0;width:256px;background:var(--surf);border:1px solid var(--bd);border-radius:15px;box-shadow:0 26px 64px -20px #000;overflow:hidden;z-index:5}
+  .planhead{display:flex;align-items:center;gap:11px;padding:15px;background:color-mix(in srgb,var(--ac) 13%,transparent);border-bottom:1px solid color-mix(in srgb,var(--ac) 26%,var(--bd))}
+  .planhead .sh{width:38px;height:38px;border-radius:10px;background:color-mix(in srgb,var(--ac) 18%,transparent);border:1px solid color-mix(in srgb,var(--ac) 40%,transparent);display:flex;align-items:center;justify-content:center;color:var(--ac)}
+  .planhead .pl{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--txm);font-weight:700}
+  .planhead .pn{font-size:15px;font-weight:800;color:var(--ac);font-family:'Space Grotesk'}
+  .mi{display:flex;align-items:center;gap:11px;padding:13px 15px;font-size:13.5px;color:var(--txs);cursor:pointer}
+  .mi svg{width:17px;height:17px}
+  .mi:hover{background:var(--surf2);color:#fff}
+  .mi.out{border-top:1px solid var(--bd)}.mi.out:hover{color:var(--live)}
+  .body{flex:1;padding:24px;color:var(--txm);font-size:13px;line-height:1.5}
   .note{max-width:1080px;margin:0 auto 30px;display:flex;gap:10px;flex-wrap:wrap}
   .chip{font-size:12px;color:var(--txs);background:var(--surf);border:1px solid var(--bd);border-radius:8px;padding:6px 11px}
   .chip b{color:#fff}
 </style></head>
 <body>
+<h2 class="t">Propuesta v2 · Perfil arriba-derecha (plan adentro) + abajo-izq solo admin</h2>
+<p class="s">Arriba-derecha: nombre + ícono de perfil. Al hacer clic, el menú abre con el PLAN primero, luego editar perfil / configuración, y abajo cerrar sesión. El cliente no ve nada abajo-izquierda; solo los admins ven ahí la opción de “ver como cliente”.</p>
 
-<h2 class="t">Propuesta · Perfil arriba-derecha + color por plan</h2>
-<p class="s">Dos vistas para evaluar. El acento (perfil arriba-derecha + acentos del sidebar) toma el color del plan. El selector de cuenta de arriba-izquierda solo lo ven los admins.</p>
-
-<!-- ===== VISTA CLIENTE (Platinum) ===== -->
-<div class="tag">1 · Vista del CLIENTE — plan Platinum (todo en platino). Sin selector de cuenta arriba.</div>
+<!-- VISTA CLIENTE -->
+<div class="tag">1 · Cliente (Platinum) — menú abierto. Abajo-izquierda VACÍO.</div>
 <div class="shell" style="--ac:#C2CDD8;--ac2:#E8EEF3;--ink:#0B0F14">
   <aside class="side">
     <div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg>DERBIX</div>
-    <!-- (sin switcher de cuenta para el cliente) -->
     <nav>
       <div class="lbl">Menú</div>
-      <div class="it on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Jornadas</div>
-      <div class="it"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Resultados</div>
-      <div class="it live"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"/></svg>En vivo <span class="dotlive"></span></div>
-      <div class="it"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>Configuración</div>
+      <div class="it on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Jornadas</div>
+      <div class="it"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Resultados</div>
+      <div class="it live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"/></svg>En vivo <span class="dotlive"></span></div>
+      <div class="it"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>Configuración</div>
     </nav>
-    <div class="foot">
-      <div class="acct">
-        <div class="av">CR</div>
-        <div><div class="nm">Carlos Ramírez</div><div class="sb">Plan Platinum · cuenta</div></div>
-      </div>
-    </div>
+    <!-- (cliente: nada abajo) -->
   </aside>
   <div class="main">
     <div class="topbar">
       <h3>Jornadas Deportivas</h3>
       <div class="right">
-        <span class="planbadge"><span class="dot"></span>Platinum</span>
-        <div class="prof"><span class="av">CR</span><span class="nm">Carlos Ramírez</span><svg class="ch" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></div>
-        <!-- menú abierto (ejemplo) -->
+        <div class="prof"><span class="nm">Carlos Ramírez</span><span class="av">CR</span><svg class="ch" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></div>
         <div class="menu">
-          <div class="hd"><span class="av">CR</span><div><div class="nm">Carlos Ramírez</div><div class="em">carlos@correo.com · Platinum</div></div></div>
-          <div class="mi"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>Mi perfil</div>
-          <div class="mi out"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>Cerrar sesión</div>
+          <div class="planhead">
+            <span class="sh"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/></svg></span>
+            <div><div class="pl">Tu plan</div><div class="pn">Platinum</div></div>
+          </div>
+          <div class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>Editar perfil</div>
+          <div class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82 2 2 0 1 1-2.83 2.83 1.65 1.65 0 0 0-2.82 1.17 2 2 0 1 1-4 0 1.65 1.65 0 0 0-2.82-1.17 2 2 0 1 1-2.83-2.83A1.65 1.65 0 0 0 4.6 15a2 2 0 1 1 0-4 1.65 1.65 0 0 0 1.05-2.82 2 2 0 1 1 2.83-2.83A1.65 1.65 0 0 0 11 4.6a2 2 0 1 1 4 0 1.65 1.65 0 0 0 2.82 1.05 2 2 0 1 1 2.83 2.83A1.65 1.65 0 0 0 19.4 11a2 2 0 1 1 0 4Z"/></svg>Configuración</div>
+          <div class="mi out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>Cerrar sesión</div>
         </div>
       </div>
     </div>
-    <div class="body">↑ El cliente NO ve el selector de cuenta. Su perfil está arriba-derecha (clic → menú con “Cerrar sesión” ⏻). Todo en color del plan (Platinum). Abajo-izquierda: su cuenta.</div>
+    <div class="body">El cliente solo ve su <b>nombre + perfil arriba-derecha</b>. Al abrir: <b>plan primero</b> → editar perfil → configuración → cerrar sesión. <b>Abajo-izquierda no hay nada</b> (no se repite el nombre). Acentos en color del plan (Platinum).</div>
   </div>
 </div>
 
-<!-- ===== VISTA ADMIN (Manager) ===== -->
-<div class="tag">2 · Vista ADMIN (Julián / Johan) — SÍ ve el selector de cuenta arriba para saltar entre clientes</div>
+<!-- VISTA ADMIN -->
+<div class="tag">2 · Admin (Julián / Johan) — abajo-izquierda aparece “ver como cliente” (solo admin)</div>
 <div class="shell" style="--ac:#1DE782;--ac2:#5BFFAC;--ink:#04140C">
   <aside class="side">
     <div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg>DERBIX</div>
-    <div class="switch adminonly">
-      <div class="av">C</div>
-      <div><div class="nm">Carlos Ramírez</div><div class="sb">Viendo cuenta del cliente</div></div>
-      <svg class="ch" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
-    </div>
     <nav>
       <div class="lbl">Menú</div>
-      <div class="it on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Jornadas</div>
-      <div class="it"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Resultados</div>
-      <div class="it live"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"/></svg>En vivo <span class="dotlive"></span></div>
+      <div class="it on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Jornadas</div>
+      <div class="it"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Resultados</div>
+      <div class="it live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"/></svg>En vivo <span class="dotlive"></span></div>
       <div class="lbl">Gestión</div>
-      <div class="it"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/></svg>Admin</div>
+      <div class="it"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/></svg>Admin</div>
     </nav>
     <div class="foot">
-      <div class="acct">
-        <div class="av">CR</div>
-        <div><div class="nm">Carlos Ramírez</div><div class="sb">Cliente · Platinum</div></div>
+      <div class="adminbox">
+        <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg></span>
+        <div><div class="nm">Ver como cliente</div><div class="sb">Carlos Ramírez · cambiar</div></div>
+        <svg class="ch" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
       </div>
     </div>
   </aside>
@@ -129,19 +117,18 @@
     <div class="topbar">
       <h3>Jornadas Deportivas</h3>
       <div class="right">
-        <span class="planbadge"><span class="dot"></span>Agencia</span>
-        <div class="prof"><span class="av">JP</span><span class="nm">Julián Parra</span><svg class="ch" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></div>
+        <div class="prof"><span class="nm">Julián Parra</span><span class="av">JP</span><svg class="ch" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></div>
       </div>
     </div>
-    <div class="body">↑ Tú (admin) SÍ ves el selector de cuenta arriba-izquierda (“solo admin”) para cambiar entre clientes. Arriba-derecha está TU perfil (Julián Parra). Abajo-izquierda: el cliente que estás viendo.</div>
+    <div class="body">Tú (admin) ves arriba-derecha <b>tu propio perfil</b> (Julián Parra). Y <b>abajo-izquierda</b> aparece <b>“Ver como cliente”</b> (solo admin) para visualizar/cambiar la cuenta del cliente. Los clientes NO ven esa caja.</div>
   </div>
 </div>
 
 <div class="note">
-  <span class="chip"><b>Perfil arriba-derecha:</b> avatar + nombre → clic → menú (perfil + ⏻ cerrar sesión)</span>
-  <span class="chip"><b>Plan arriba-derecha</b> y <b>acentos del sidebar</b> del mismo color del plan</span>
-  <span class="chip"><b>Selector de cuenta arriba-izq:</b> solo admins; los clientes no lo ven</span>
-  <span class="chip"><b>Abajo-izquierda:</b> nombre del cliente / cuenta</span>
+  <span class="chip"><b>Arriba-derecha:</b> nombre + ícono perfil → menú</span>
+  <span class="chip"><b>Menú abre con el PLAN primero</b> → editar perfil → configuración → cerrar sesión</span>
+  <span class="chip"><b>Cliente:</b> nada abajo-izquierda</span>
+  <span class="chip"><b>Admin:</b> abajo-izquierda “ver como cliente”</span>
+  <span class="chip"><b>Íconos del menú más grandes</b></span>
 </div>
-
 </body></html>
