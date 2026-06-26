@@ -127,10 +127,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
   }, []);
 
   return (
-    <div data-plan={planThemeAttr} className="flex h-screen overflow-hidden text-slate-200 font-sans selection:bg-brand selection:text-white bg-dx-bg">
+    <div className="flex h-screen overflow-hidden text-slate-200 font-sans selection:bg-brand selection:text-white bg-dx-bg">
 
       {/* --- DESKTOP SIDEBAR --- */}
-      <aside className="hidden md:flex flex-col w-64 h-full bg-dx-surface backdrop-blur-xl border-r border-[color:var(--color-dx-border)] fixed left-0 top-0 z-30 transition-transform duration-300">
+      <aside data-plan={planThemeAttr} className="dx-sidebar hidden md:flex flex-col w-64 h-full bg-dx-surface backdrop-blur-xl border-r border-[color:var(--color-dx-border)] fixed left-0 top-0 z-30 transition-transform duration-300">
         <div className="p-5 flex items-center justify-center border-b border-white/5">
           <img src="/derbix-logo.png" alt="Derbix" className="h-12 object-contain" />
         </div>
@@ -187,14 +187,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
           <button
             onClick={() => setCurrentPage('pricing')}
             data-onboarding="plan-badge"
-            className="dx-plan w-full flex items-center gap-3 p-3 transition-all hover:border-dx-gold/50 text-left"
+            className="dx-plan w-full flex items-center gap-3 p-3 transition-all hover:border-dx-green/50 text-left"
           >
-            <span className="w-9 h-9 rounded-lg bg-dx-gold/10 border border-dx-gold/30 flex items-center justify-center shrink-0">
-              <ShieldCheckIcon className="w-4 h-4 text-dx-gold" />
+            <span className="w-9 h-9 rounded-lg bg-dx-green/10 border border-dx-green/30 flex items-center justify-center shrink-0">
+              <ShieldCheckIcon className="w-4 h-4 text-dx-green" />
             </span>
             <span className="leading-tight overflow-hidden">
               <span className="block text-sm font-bold text-white truncate">{planTitle}</span>
-              <span className="block text-xs text-dx-gold truncate">{planSubtitle}</span>
+              <span className="block text-xs text-dx-green truncate">{planSubtitle}</span>
             </span>
           </button>
 
@@ -204,7 +204,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
               {accountInitials}
             </div>
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium text-white truncate">{profile?.full_name || 'Usuario'}</p>
+              <p className="text-sm font-bold text-dx-green truncate">{profile?.full_name || 'Usuario'}</p>
               <p className="text-xs text-dx-text-mute truncate">
                 {profile?.role === 'platform_owner' ? 'Owner' :
                  profile?.role === 'agency_admin' ? 'Agencia' :

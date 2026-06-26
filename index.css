@@ -325,14 +325,16 @@
   margin: 0; padding: 0; opacity: 0; cursor: pointer;
 }
 
-/* Tarjeta de plan (pie del sidebar) — borde dorado tenue */
-.dx-plan { background: var(--color-dx-surface); border: 1px solid color-mix(in srgb, var(--color-dx-gold) 26%, var(--color-dx-border));
+/* Tarjeta de plan (pie del sidebar) — borde en el acento (sigue el tema por plan) */
+.dx-plan { background: var(--color-dx-surface); border: 1px solid color-mix(in srgb, var(--color-dx-green) 30%, var(--color-dx-border));
   border-radius: 13px; }
 
-/* ── Tema por plan (§11) — reasigna el acento leyendo data-plan del usuario ──
+/* ── Tema por plan — SOLO dentro del sidebar (.dx-sidebar) ──────────────
+   El acento del panel lateral cambia con el plan del usuario, pero el cambio
+   queda CONTENIDO en el sidebar: el resto de la app conserva el verde de :root.
    Sin data-plan → verde (default). Premium → dorado. Élite → plata/platino.
-   El rojo (--dx-live) y las pérdidas (--dx-loss) NO cambian con el plan. */
-[data-plan="premium"] {
+   El rojo (--dx-live) NO cambia con el plan (En vivo siempre rojo). */
+.dx-sidebar[data-plan="premium"] {
   --color-dx-green: #E7B84F;
   --color-dx-green-bright: #F6D27A;
   --color-dx-green-deep: #B8902E;
@@ -340,7 +342,7 @@
   --color-dx-green-glow: rgba(231,184,79,0.24);
   --color-dx-border-active: rgba(231,184,79,0.32);
 }
-[data-plan="elite"] {
+.dx-sidebar[data-plan="elite"] {
   --color-dx-green: #C2CDD8;
   --color-dx-green-bright: #E8EEF3;
   --color-dx-green-deep: #8A97A4;
