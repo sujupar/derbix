@@ -334,7 +334,8 @@
    queda CONTENIDO en el sidebar: el resto de la app conserva el verde de :root.
    Sin data-plan → verde (default). Premium → dorado. Élite → plata/platino.
    El rojo (--dx-live) NO cambia con el plan (En vivo siempre rojo). */
-.dx-sidebar[data-plan="premium"] {
+/* .dx-planscope: regiones donde el acento sigue el plan (sidebar + perfil arriba-derecha) */
+.dx-planscope[data-plan="premium"] {
   --color-dx-green: #E7B84F;
   --color-dx-green-bright: #F6D27A;
   --color-dx-green-deep: #B8902E;
@@ -342,7 +343,7 @@
   --color-dx-green-glow: rgba(231,184,79,0.24);
   --color-dx-border-active: rgba(231,184,79,0.32);
 }
-.dx-sidebar[data-plan="elite"] {
+.dx-planscope[data-plan="elite"] {
   --color-dx-green: #C2CDD8;
   --color-dx-green-bright: #E8EEF3;
   --color-dx-green-deep: #8A97A4;

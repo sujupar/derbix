@@ -9,9 +9,10 @@ import { Organization } from '../types';
 
 interface OrganizationSwitcherProps {
     onCreateClick?: () => void;
+    openUpward?: boolean; // abre el desplegable hacia arriba (para el pie del sidebar)
 }
 
-export const OrganizationSwitcher: React.FC<OrganizationSwitcherProps> = ({ onCreateClick }) => {
+export const OrganizationSwitcher: React.FC<OrganizationSwitcherProps> = ({ onCreateClick, openUpward }) => {
     const { currentOrg, userOrganizations, switchOrganization, impersonateOrganization, stopImpersonation, isImpersonating, isLoading } = useOrganization();
     const { profile } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
@@ -108,7 +109,7 @@ export const OrganizationSwitcher: React.FC<OrganizationSwitcherProps> = ({ onCr
                 </button>
 
                 {isOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-dx-surface border border-dx-border rounded-xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl animate-scale-in origin-top">
+                    <div className={`absolute ${openUpward ? 'bottom-full mb-2 origin-bottom' : 'top-full mt-2 origin-top'} left-0 right-0 bg-dx-surface border border-dx-border rounded-xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl animate-scale-in`}>
                         {/* Buscador */}
                         <div className="p-2 border-b border-dx-border">
                             <div className="relative rounded-lg border border-dx-border focus-within:border-dx-green focus-within:shadow-[0_0_0_3px_rgba(29,231,130,0.14)] transition-all">
@@ -223,7 +224,7 @@ export const OrganizationSwitcher: React.FC<OrganizationSwitcherProps> = ({ onCr
             </button>
 
             {isOpen && userOrganizations.length > 1 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-dx-surface border border-dx-border rounded-xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl animate-scale-in origin-top">
+                <div className={`absolute ${openUpward ? 'bottom-full mb-2 origin-bottom' : 'top-full mt-2 origin-top'} left-0 right-0 bg-dx-surface border border-dx-border rounded-xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl animate-scale-in`}>
                     <div className="p-2 space-y-1">
                         {userOrganizations.map((item) => (
                             <button

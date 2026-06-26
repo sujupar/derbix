@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { CalendarDaysIcon, ArrowLeftOnRectangleIcon, PaperAirplaneIcon, ShieldCheckIcon, EllipsisVerticalIcon, CogIcon, TrendingUpIcon, SignalIcon } from './icons/Icons';
+import React, { useState, useEffect } from 'react';
+import { CalendarDaysIcon, ShieldCheckIcon, CogIcon, TrendingUpIcon, SignalIcon } from './icons/Icons';
 import { cleanPlanLabel } from '../utils/planDisplay';
 import { supabase } from '../services/supabaseService';
 import { getCurrentDateInBogota } from '../utils/dateUtils';
@@ -12,9 +12,8 @@ import { isAgencyRole } from '../utils/roles';
 import { useOrganization } from '../contexts/OrganizationContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { RecapBadge } from './recap/RecapBadge';
-import { NotificationPreferences } from './settings/NotificationPreferences';
-import { getAvatarRingClass } from './premium/PremiumBadge';
 import { SupportWidget } from './support/SupportWidget';
+import { ProfileMenu } from './ProfileMenu';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -32,9 +31,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
   const { isImpersonating, stopImpersonation, currentOrg } = useOrganization();
   const { plan } = useSubscription();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isNotifPrefsOpen, setIsNotifPrefsOpen] = useState(false);
-  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
-  const accountMenuRef = useRef<HTMLDivElement>(null);
   // Vista previa del tema por plan (SOLO visual; no cambia el plan real del usuario)
   const [planPreview, setPlanPreview] = useState<'base' | 'premium' | 'elite' | null>(null);
   // Conteos para los badges del sidebar (oportunidades de hoy + partidos en vivo)
@@ -74,55 +70,42 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
     return () => { cancelled = true; clearInterval(t); };
   }, []);
 
-  // Cerrar el menú de cuenta (⋮) al hacer clic fuera
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target as Node)) {
-        setIsAccountMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Presentación del plan en el pie (sin etiquetas internas)
-  const planTitle = isAgencyRole(profile?.role) ? 'Plan Agencia' : `Plan ${cleanPlanLabel(plan.display_name)}`;
-  const planSubtitle = isAgencyRole(profile?.role)
-    ? 'Acceso total'
-    : plan.plan_name === 'free' ? 'Mejora tu plan' : 'Plan activo';
   const accountInitials = (profile?.full_name || 'U')
     .split(' ').map(w => w.charAt(0)).slice(0, 2).join('').toUpperCase();
-  // Tema por plan (§11): premium → dorado, pro/élite → plata. Resto → verde (default).
+  // Tema por plan: premium → dorado, pro/élite → plata. Resto → verde (default).
   const planThemeAttr = plan.plan_name === 'premium' ? 'premium' : plan.plan_name === 'pro' ? 'elite' : undefined;
-  // Si hay vista previa activa, ésta manda (solo en el sidebar). 'base' = verde (sin atributo).
-  const sidebarPlanAttr = planPreview ? (planPreview === 'base' ? undefined : planPreview) : planThemeAttr;
+  // Si hay vista previa activa, ésta manda (sidebar + perfil). 'base' = verde (sin atributo).
+  const planScopeAttr = planPreview ? (planPreview === 'base' ? undefined : planPreview) : planThemeAttr;
 
   // Roles: agency (full access) vs client (view only per plan)
   const isAgencySuperadmin = isAgencyRole(profile?.role);
   const isAccountAdmin = profile?.role === 'org_owner';
   const isUser = !isAgencySuperadmin && !isAccountAdmin;
 
-  // Opciones del sidebar simplificadas (agrupadas por sección — Composición 1)
+  const roleLabel = profile?.role === 'platform_owner' ? 'Owner'
+    : profile?.role === 'agency_admin' ? 'Agencia'
+    : profile?.role === 'org_owner' ? 'Admin' : 'Usuario';
+  // Nombre del plan para el menú de perfil (sin etiquetas internas)
+  const menuPlanName = isAgencySuperadmin ? 'Acceso total' : cleanPlanLabel(plan.display_name);
+
+  // Opciones del sidebar (agrupadas por sección — Composición 1)
   const navItems = [
-    // Opciones para TODOS los usuarios
     { id: 'live', label: 'Jornadas', section: 'Menú', icon: <CalendarDaysIcon className="w-5 h-5" />, forAgency: true, forAccount: true, forUser: true },
     { id: 'results', label: 'Resultados', section: 'Menú', icon: <TrendingUpIcon className="w-5 h-5" />, forAgency: true, forAccount: true, forUser: true },
     { id: 'live-now', label: 'En vivo', section: 'Menú', icon: <SignalIcon className="w-5 h-5" />, live: true, forAgency: true, forAccount: true, forUser: true },
 
-    // Opciones SOLO para SUPERADMIN de AGENCIA (platform_owner, agency_admin)
+    // Solo SUPERADMIN de AGENCIA (platform_owner, agency_admin)
     { id: 'admin', label: 'Admin', section: 'Gestión', icon: <ShieldCheckIcon className="w-5 h-5" />, forAgency: true, forAccount: false, forUser: false },
     { id: 'settings', label: 'Configuración', section: 'Gestión', icon: <CogIcon className="w-5 h-5" />, forAgency: true, forAccount: true, forUser: true },
   ];
 
-  // Filtrar según el nivel del usuario
   const availableNavItems = navItems.filter(item => {
     if (isAgencySuperadmin) return item.forAgency;
     if (isAccountAdmin) return item.forAccount;
     if (isUser) return item.forUser;
-    return item.forUser; // Por defecto, permisos básicos
+    return item.forUser;
   });
 
-  // Agrupar los ítems visibles por sección, conservando el orden de aparición
   const navSections = availableNavItems.reduce<{ label: string; items: typeof availableNavItems }[]>((acc, item) => {
     const group = acc.find(g => g.label === item.section);
     if (group) group.items.push(item);
@@ -134,16 +117,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
     <div className="flex h-screen overflow-hidden text-slate-200 font-sans selection:bg-brand selection:text-white bg-dx-bg">
 
       {/* --- DESKTOP SIDEBAR --- */}
-      <aside data-plan={sidebarPlanAttr} className="dx-sidebar hidden md:flex flex-col w-64 h-full bg-dx-surface backdrop-blur-xl border-r border-[color:var(--color-dx-border)] fixed left-0 top-0 z-30 transition-transform duration-300">
+      <aside data-plan={planScopeAttr} className="dx-sidebar dx-planscope hidden md:flex flex-col w-64 h-full bg-dx-surface backdrop-blur-xl border-r border-[color:var(--color-dx-border)] fixed left-0 top-0 z-30 transition-transform duration-300">
         <div className="p-5 flex items-center justify-center border-b border-white/5">
           <img src="/derbix-logo.png" alt="Derbix" className="h-12 object-contain" />
         </div>
 
-        <div className="px-3 pt-4">
-          <OrganizationSwitcher onCreateClick={() => setIsCreateModalOpen(true)} />
-        </div>
-
-        <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-5">
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
           {navSections.map((group) => (
             <div key={group.label} className="space-y-1">
               <p className="dx-sidelabel mb-2">{group.label}</p>
@@ -186,9 +165,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
           />
         )}
 
-        <div className="p-4 border-t border-white/5 space-y-3">
-          {/* Vista previa de tema por plan (solo admin/agencia) — NO cambia el plan real */}
-          {isAgencySuperadmin && (
+        {/* Pie del sidebar — SOLO admins (clientes no ven nada aquí) */}
+        {isAgencySuperadmin && (
+          <div className="p-4 border-t border-white/5 space-y-3">
+            {/* Vista previa de tema por plan (no cambia el plan real) */}
             <div className="rounded-xl border border-dx-border p-2.5">
               <p className="text-[10px] uppercase tracking-wider text-dx-text-mute mb-2 px-0.5">Vista previa de plan</p>
               <div className="grid grid-cols-3 gap-1.5">
@@ -218,69 +198,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
                 <p className="text-[9px] text-dx-text-mute mt-1.5 px-0.5">Solo vista previa · tu plan real no cambia</p>
               )}
             </div>
-          )}
 
-          {/* Tarjeta de plan — escudo dorado + nombre limpio (sin etiquetas internas) */}
-          <button
-            onClick={() => setCurrentPage('pricing')}
-            data-onboarding="plan-badge"
-            className="dx-plan w-full flex items-center gap-3 p-3 transition-all hover:border-dx-green/50 text-left"
-          >
-            <span className="w-9 h-9 rounded-lg bg-dx-green/10 border border-dx-green/30 flex items-center justify-center shrink-0">
-              <ShieldCheckIcon className="w-4 h-4 text-dx-green" />
-            </span>
-            <span className="leading-tight overflow-hidden">
-              <span className="block text-sm font-bold text-white truncate">{planTitle}</span>
-              <span className="block text-xs text-dx-green truncate">{planSubtitle}</span>
-            </span>
-          </button>
-
-          {/* Fila de cuenta + menú (⋮) con acciones (WhatsApp / Cerrar sesión) */}
-          <div className="relative flex items-center gap-3 px-1" ref={accountMenuRef}>
-            <div className={`w-9 h-9 rounded-full bg-gradient-to-tr from-dx-green-bright to-dx-green flex items-center justify-center text-xs font-extrabold text-[#04140C] shadow-lg shrink-0 ${getAvatarRingClass(plan.plan_name)}`}>
-              {accountInitials}
+            {/* Ver como cliente (selector de cuenta — abre hacia arriba) */}
+            <div>
+              <p className="dx-sidelabel mb-2">Ver como cliente</p>
+              <OrganizationSwitcher onCreateClick={() => setIsCreateModalOpen(true)} openUpward />
             </div>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-bold text-dx-green truncate">{profile?.full_name || 'Usuario'}</p>
-              <p className="text-xs text-dx-text-mute truncate">
-                {profile?.role === 'platform_owner' ? 'Owner' :
-                 profile?.role === 'agency_admin' ? 'Agencia' :
-                 profile?.role === 'org_owner' ? 'Admin' : 'Usuario'}
-              </p>
-            </div>
-            <button
-              onClick={() => setIsAccountMenuOpen(o => !o)}
-              className="p-1.5 rounded-lg text-dx-text-mute hover:text-dx-text hover:bg-dx-surface-2 transition-colors shrink-0"
-              aria-label="Opciones de cuenta"
-            >
-              <EllipsisVerticalIcon className="w-5 h-5" />
-            </button>
-
-            {isAccountMenuOpen && (
-              <div className="absolute bottom-full right-0 mb-2 w-56 bg-dx-surface border border-dx-border rounded-xl shadow-2xl overflow-hidden z-50 animate-scale-in origin-bottom-right">
-                <button
-                  onClick={() => { setIsNotifPrefsOpen(true); setIsAccountMenuOpen(false); }}
-                  className="w-full flex items-center justify-between px-4 py-3 text-sm text-dx-text-soft hover:bg-dx-surface-2 hover:text-dx-green transition-colors"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <PaperAirplaneIcon className="w-4 h-4" />
-                    WhatsApp
-                  </span>
-                  <span className={`text-xs font-bold ${profile?.phone_number ? 'text-dx-green' : 'text-dx-text-mute'}`}>
-                    {profile?.phone_number ? 'Activo' : 'Configurar'}
-                  </span>
-                </button>
-                <button
-                  onClick={() => { setIsAccountMenuOpen(false); signOut(); }}
-                  className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-dx-text-soft hover:bg-dx-loss/10 hover:text-dx-loss transition-colors border-t border-dx-border"
-                >
-                  <ArrowLeftOnRectangleIcon className="w-4 h-4" />
-                  Cerrar Sesión
-                </button>
-              </div>
-            )}
           </div>
-        </div>
+        )}
       </aside>
 
       {/* --- MAIN CONTENT AREA --- */}
@@ -293,10 +218,25 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
               onClick={stopImpersonation}
               className="bg-black/20 hover:bg-black/30 px-3 py-1 rounded text-xs font-bold transition-colors"
             >
-              Salir
+              Volver a mi vista
             </button>
           </div>
         )}
+
+        {/* Desktop Top Bar — perfil arriba-derecha */}
+        <header className="hidden md:flex items-center justify-end h-16 px-8 border-b border-[color:var(--color-dx-border)] shrink-0">
+          <ProfileMenu
+            fullName={profile?.full_name || 'Usuario'}
+            initials={accountInitials}
+            roleLabel={roleLabel}
+            planName={menuPlanName}
+            planThemeAttr={planScopeAttr}
+            email={profile?.email}
+            dataOnboarding="plan-badge"
+            onSettings={() => setCurrentPage('settings')}
+            onSignOut={signOut}
+          />
+        </header>
 
         {/* Mobile Header */}
         <header className="md:hidden h-16 glass flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 backdrop-blur-xl border-b border-white/5 shadow-lg">
@@ -310,9 +250,16 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
                 variant="mobile"
               />
             )}
-            <button onClick={signOut} className="text-slate-400 hover:text-white">
-              <ArrowLeftOnRectangleIcon className="w-6 h-6" />
-            </button>
+            <ProfileMenu
+              fullName={profile?.full_name || 'Usuario'}
+              initials={accountInitials}
+              roleLabel={roleLabel}
+              planName={menuPlanName}
+              planThemeAttr={planScopeAttr}
+              email={profile?.email}
+              onSettings={() => setCurrentPage('settings')}
+              onSignOut={signOut}
+            />
           </div>
         </header>
 
@@ -325,7 +272,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
 
         {/* --- MOBILE BOTTOM TAB BAR --- */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 glass border-t border-white/5 z-40 px-6 pb-safe flex justify-between items-center backdrop-blur-2xl bg-slate-900/95">
-          {availableNavItems.slice(0, 5).map((item) => { // Limit to 5 items for mobile spacing
+          {availableNavItems.slice(0, 5).map((item) => {
             const isActive = currentPage === item.id;
             return (
               <button
@@ -340,7 +287,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
               </button>
             );
           })}
-          {/* Mobile Menu 'More' button logic could go here if >5 items needed, skipping for now per simplicity */}
         </nav>
       </div>
 
@@ -351,16 +297,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
       />
 
       <SupportWidget currentPage={currentPage} />
-
-      {/* WhatsApp Notification Preferences Modal */}
-      {isNotifPrefsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setIsNotifPrefsOpen(false)}>
-          <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <NotificationPreferences onClose={() => setIsNotifPrefsOpen(false)} />
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };
