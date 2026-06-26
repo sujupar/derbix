@@ -372,31 +372,31 @@ export const SignUpFlow: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-b from-dx-bg to-dx-bg flex items-center justify-center p-4">
             <div className="w-full max-w-6xl">
                 {/* Progress Bar */}
                 <div className="mb-8">
                     <div className="flex items-center justify-center gap-2 sm:gap-4 mb-4">
-                        <div className={`flex items-center gap-2 ${step >= 1 ? 'text-brand' : 'text-slate-600'}`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 1 ? 'border-brand bg-brand/20' : 'border-slate-600'}`}>
+                        <div className={`flex items-center gap-2 ${step >= 1 ? 'text-brand' : 'text-dx-text-mute'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 1 ? 'border-brand bg-brand/20' : 'border-dx-border'}`}>
                                 {step > 1 ? <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg> : '1'}
                             </div>
                             <span className="text-sm font-medium hidden sm:inline">Tus Datos</span>
                         </div>
 
-                        <div className={`h-0.5 w-6 sm:w-12 ${step >= 2 ? 'bg-brand' : 'bg-slate-700'}`}></div>
+                        <div className={`h-0.5 w-6 sm:w-12 ${step >= 2 ? 'bg-brand' : 'bg-dx-surface-2'}`}></div>
 
-                        <div className={`flex items-center gap-2 ${step >= 2 ? 'text-brand' : 'text-slate-600'}`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 2 ? 'border-brand bg-brand/20' : 'border-slate-600'}`}>
+                        <div className={`flex items-center gap-2 ${step >= 2 ? 'text-brand' : 'text-dx-text-mute'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 2 ? 'border-brand bg-brand/20' : 'border-dx-border'}`}>
                                 {step > 2 ? <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg> : '2'}
                             </div>
                             <span className="text-sm font-medium hidden sm:inline">Elige tu Plan</span>
                         </div>
 
-                        <div className={`h-0.5 w-6 sm:w-12 ${step >= 3 ? 'bg-brand' : 'bg-slate-700'}`}></div>
+                        <div className={`h-0.5 w-6 sm:w-12 ${step >= 3 ? 'bg-brand' : 'bg-dx-surface-2'}`}></div>
 
-                        <div className={`flex items-center gap-2 ${step >= 3 ? 'text-brand' : 'text-slate-600'}`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 3 ? 'border-brand bg-brand/20' : 'border-slate-600'}`}>
+                        <div className={`flex items-center gap-2 ${step >= 3 ? 'text-brand' : 'text-dx-text-mute'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 3 ? 'border-brand bg-brand/20' : 'border-dx-border'}`}>
                                 3
                             </div>
                             <span className="text-sm font-medium hidden sm:inline">Confirmar</span>
@@ -405,7 +405,7 @@ export const SignUpFlow: React.FC = () => {
                 </div>
 
                 {/* Content */}
-                <div className="bg-slate-900 rounded-3xl border border-white/10 p-4 sm:p-6 md:p-8 lg:p-12">
+                <div className="bg-dx-surface rounded-3xl border border-dx-border p-4 sm:p-6 md:p-8 lg:p-12">
                     {step === 3 ? (
                         /* STEP 3: Email Confirmation */
                         <div className="max-w-lg mx-auto text-center py-8">
@@ -419,24 +419,24 @@ export const SignUpFlow: React.FC = () => {
                                 Registro Exitoso
                             </h2>
 
-                            <p className="text-slate-300 text-lg mb-2">
+                            <p className="text-dx-text-soft text-lg mb-2">
                                 Te hemos enviado un correo de confirmacion a:
                             </p>
                             <p className="text-brand font-bold text-lg mb-6">
                                 {signUpData.email}
                             </p>
 
-                            <div className="bg-slate-800/50 border border-white/5 rounded-xl p-5 mb-8 text-left">
+                            <div className="bg-dx-surface-2 border border-dx-border rounded-xl p-5 mb-8 text-left">
                                 <h3 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
                                     <svg className="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
                                     </svg>
                                     Pasos siguientes
                                 </h3>
-                                <ol className="space-y-2 text-sm text-slate-400">
+                                <ol className="space-y-2 text-sm text-dx-text-soft">
                                     <li className="flex items-start gap-2">
                                         <span className="text-brand font-bold mt-0.5">1.</span>
-                                        Abre tu bandeja de entrada y busca el correo de <strong className="text-slate-300">Derbix</strong>
+                                        Abre tu bandeja de entrada y busca el correo de <strong className="text-dx-text-soft">Derbix</strong>
                                     </li>
                                     <li className="flex items-start gap-2">
                                         <span className="text-brand font-bold mt-0.5">2.</span>
@@ -452,13 +452,13 @@ export const SignUpFlow: React.FC = () => {
                                 </ol>
                             </div>
 
-                            <p className="text-xs text-slate-500 mb-6">
-                                Si no encuentras el correo, revisa tu carpeta de <strong className="text-slate-400">spam</strong> o <strong className="text-slate-400">correo no deseado</strong>.
+                            <p className="text-xs text-dx-text-mute mb-6">
+                                Si no encuentras el correo, revisa tu carpeta de <strong className="text-dx-text-soft">spam</strong> o <strong className="text-dx-text-soft">correo no deseado</strong>.
                             </p>
 
                             {error && (
-                                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                                    <p className="text-red-400 text-sm">{error}</p>
+                                <div className="mb-4 p-3 bg-dx-loss/10 border border-dx-loss/30 rounded-xl">
+                                    <p className="text-dx-loss text-sm">{error}</p>
                                 </div>
                             )}
 
@@ -467,11 +467,11 @@ export const SignUpFlow: React.FC = () => {
                                     <button
                                         onClick={handleGoToCheckout}
                                         disabled={checkoutLoading}
-                                        className="px-8 py-3 bg-gradient-to-r from-brand to-emerald-400 text-slate-900 font-bold rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all flex items-center gap-2 disabled:opacity-50"
+                                        className="px-8 py-3 bg-gradient-to-r from-brand to-dx-cyan text-[#04140C] font-bold rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all flex items-center gap-2 disabled:opacity-50"
                                     >
                                         {checkoutLoading ? (
                                             <>
-                                                <div className="w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+                                                <div className="w-5 h-5 border-2 border-dx-border border-t-transparent rounded-full animate-spin"></div>
                                                 Preparando pago...
                                             </>
                                         ) : (
@@ -484,7 +484,7 @@ export const SignUpFlow: React.FC = () => {
                                 ) : (
                                     <button
                                         onClick={() => navigate('/login')}
-                                        className="px-8 py-3 bg-gradient-to-r from-brand to-emerald-400 text-slate-900 font-bold rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all flex items-center gap-2"
+                                        className="px-8 py-3 bg-gradient-to-r from-brand to-dx-cyan text-[#04140C] font-bold rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all flex items-center gap-2"
                                     >
                                         Ir al Login
                                         <ArrowRightIcon className="w-5 h-5" />
@@ -514,14 +514,14 @@ export const SignUpFlow: React.FC = () => {
                                     </h1>
 
                                     {/* Subtitular */}
-                                    <p className="text-base sm:text-lg text-slate-300 leading-relaxed mb-5">
+                                    <p className="text-base sm:text-lg text-dx-text-soft leading-relaxed mb-5">
                                         Cada día Derbix analiza con IA <strong className="text-white">+3.000 datos por partido</strong> y te entrega los pronósticos con mejor probabilidad. Sin tipsters. Sin humo. Solo datos en tu mano.
                                     </p>
 
                                     {/* Beneficios cortos (chips) */}
                                     <div className="flex flex-wrap gap-2 mb-5">
                                         {['IA + estadísticas', 'Datos en tiempo real', 'Plan gratis', 'Sin tarjeta'].map((b, i) => (
-                                            <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/60 border border-white/10 text-xs text-slate-200">
+                                            <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-dx-surface-2 border border-dx-border text-xs text-dx-text">
                                                 <svg className="w-3 h-3 text-brand" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                                                 </svg>
@@ -531,11 +531,11 @@ export const SignUpFlow: React.FC = () => {
                                     </div>
 
                                     {/* CTA primario — scroll to form on mobile */}
-                                    <a href="#signup-form" className="lg:hidden inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-brand to-emerald-400 text-slate-900 font-black rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all">
+                                    <a href="#signup-form" className="lg:hidden inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-brand to-dx-cyan text-[#04140C] font-black rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all">
                                         Crear cuenta gratis
                                         <ArrowRightIcon className="w-5 h-5" />
                                     </a>
-                                    <p className="hidden lg:block text-sm text-slate-400">
+                                    <p className="hidden lg:block text-sm text-dx-text-soft">
                                         👉 Tu cuenta gratis está al lado derecho. 30 segundos y listo.
                                     </p>
                                 </section>
@@ -546,7 +546,7 @@ export const SignUpFlow: React.FC = () => {
                                 <section>
                                     <div className="text-center mb-6">
                                         <h2 className="text-2xl sm:text-3xl font-black text-white mb-2">Lo que hace Derbix distinto</h2>
-                                        <p className="text-sm text-slate-400">Tres razones por las que +1.000 fanáticos del fútbol ya lo usan</p>
+                                        <p className="text-sm text-dx-text-soft">Tres razones por las que +1.000 fanáticos del fútbol ya lo usan</p>
                                     </div>
                                     <div className="grid sm:grid-cols-3 gap-3">
                                         {[
@@ -566,10 +566,10 @@ export const SignUpFlow: React.FC = () => {
                                                 desc: 'Empieza sin pagar. Sin trial de 7 días. Sin domiciliación. Cancela cuando quieras.',
                                             },
                                         ].map((b, i) => (
-                                            <div key={i} className="bg-slate-800/50 border border-white/10 rounded-2xl p-5 hover:border-brand/30 transition-colors">
+                                            <div key={i} className="bg-dx-surface-2 border border-dx-border rounded-2xl p-5 hover:border-brand/30 transition-colors">
                                                 <div className="text-3xl mb-3">{b.icon}</div>
                                                 <h3 className="text-sm font-bold text-white mb-2">{b.title}</h3>
-                                                <p className="text-xs text-slate-400 leading-relaxed">{b.desc}</p>
+                                                <p className="text-xs text-dx-text-soft leading-relaxed">{b.desc}</p>
                                             </div>
                                         ))}
                                     </div>
@@ -578,30 +578,30 @@ export const SignUpFlow: React.FC = () => {
                                 {/* ====================================================== */}
                                 {/* SECTION 3 — STORYTELLING */}
                                 {/* ====================================================== */}
-                                <section className="bg-gradient-to-br from-slate-800/40 to-slate-900/40 border border-white/10 rounded-3xl p-6 sm:p-8">
+                                <section className="bg-gradient-to-br from-dx-surface to-dx-surface border border-dx-border rounded-3xl p-6 sm:p-8">
                                     <div className="text-center mb-6">
                                         <span className="inline-block px-3 py-1 rounded-full bg-brand/10 border border-brand/30 text-[10px] font-bold uppercase tracking-wider text-brand mb-3">Historia real</span>
                                         <h2 className="text-2xl sm:text-3xl font-black text-white">Antes del análisis vs. después</h2>
                                     </div>
                                     <div className="grid sm:grid-cols-2 gap-4">
                                         {/* Antes */}
-                                        <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-5">
-                                            <div className="text-xs font-bold uppercase tracking-wider text-red-400 mb-3">❌ Antes de Derbix</div>
-                                            <ul className="space-y-2.5 text-sm text-slate-300">
+                                        <div className="bg-dx-loss/5 border border-dx-loss/20 rounded-2xl p-5">
+                                            <div className="text-xs font-bold uppercase tracking-wider text-dx-loss mb-3">❌ Antes de Derbix</div>
+                                            <ul className="space-y-2.5 text-sm text-dx-text-soft">
                                                 <li className="flex items-start gap-2">
-                                                    <span className="text-red-400 mt-0.5">·</span>
+                                                    <span className="text-dx-loss mt-0.5">·</span>
                                                     <span>Veía un partido y apostaba a corazonada</span>
                                                 </li>
                                                 <li className="flex items-start gap-2">
-                                                    <span className="text-red-400 mt-0.5">·</span>
+                                                    <span className="text-dx-loss mt-0.5">·</span>
                                                     <span>Pagaba a tipsters de Instagram que prometían el oro</span>
                                                 </li>
                                                 <li className="flex items-start gap-2">
-                                                    <span className="text-red-400 mt-0.5">·</span>
+                                                    <span className="text-dx-loss mt-0.5">·</span>
                                                     <span>Cuando perdían, borraban el pick y desaparecían</span>
                                                 </li>
                                                 <li className="flex items-start gap-2">
-                                                    <span className="text-red-400 mt-0.5">·</span>
+                                                    <span className="text-dx-loss mt-0.5">·</span>
                                                     <span>Sin manera de validar si tenían razón</span>
                                                 </li>
                                             </ul>
@@ -609,7 +609,7 @@ export const SignUpFlow: React.FC = () => {
                                         {/* Después */}
                                         <div className="bg-brand/5 border border-brand/30 rounded-2xl p-5">
                                             <div className="text-xs font-bold uppercase tracking-wider text-brand mb-3">✅ Con Derbix</div>
-                                            <ul className="space-y-2.5 text-sm text-slate-200">
+                                            <ul className="space-y-2.5 text-sm text-dx-text">
                                                 <li className="flex items-start gap-2">
                                                     <span className="text-brand mt-0.5">·</span>
                                                     <span>Reviso datos antes de cualquier movimiento</span>
@@ -636,8 +636,8 @@ export const SignUpFlow: React.FC = () => {
                                 {/* ====================================================== */}
                                 <section className="text-center">
                                     <h3 className="text-xl sm:text-2xl font-black text-white mb-3">¿Sigues apostando a corazonada?</h3>
-                                    <p className="text-sm text-slate-400 mb-5">Únete y deja que la IA haga el análisis por ti.</p>
-                                    <a href="#signup-form" className="inline-flex items-center gap-2 px-7 py-3.5 bg-gradient-to-r from-brand to-emerald-400 text-slate-900 font-black rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all">
+                                    <p className="text-sm text-dx-text-soft mb-5">Únete y deja que la IA haga el análisis por ti.</p>
+                                    <a href="#signup-form" className="inline-flex items-center gap-2 px-7 py-3.5 bg-gradient-to-r from-brand to-dx-cyan text-[#04140C] font-black rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all">
                                         Empezar gratis ahora
                                         <ArrowRightIcon className="w-5 h-5" />
                                     </a>
@@ -650,7 +650,7 @@ export const SignUpFlow: React.FC = () => {
                                     <div className="mb-5">
                                         <span className="inline-block px-3 py-1 rounded-full bg-brand/10 border border-brand/30 text-[10px] font-bold uppercase tracking-wider text-brand mb-3">Lo más importante</span>
                                         <h2 className="text-2xl sm:text-3xl font-black text-white mb-2">Por qué importa</h2>
-                                        <p className="text-sm text-slate-400">Datos verificables. Sin promesas vacías.</p>
+                                        <p className="text-sm text-dx-text-soft">Datos verificables. Sin promesas vacías.</p>
                                     </div>
                                     <div className="grid sm:grid-cols-2 gap-3">
                                         {[
@@ -675,10 +675,10 @@ export const SignUpFlow: React.FC = () => {
                                                 desc: 'Cada pronóstico verificado en tiempo real. Cero borrado de picks perdedores.',
                                             },
                                         ].map((b, i) => (
-                                            <div key={i} className="bg-slate-800/50 border border-brand/20 rounded-2xl p-5">
+                                            <div key={i} className="bg-dx-surface-2 border border-brand/20 rounded-2xl p-5">
                                                 <div className="text-3xl font-black text-brand mb-1">{b.num}</div>
                                                 <div className="text-sm font-bold text-white mb-2">{b.label}</div>
-                                                <p className="text-xs text-slate-400 leading-relaxed">{b.desc}</p>
+                                                <p className="text-xs text-dx-text-soft leading-relaxed">{b.desc}</p>
                                             </div>
                                         ))}
                                     </div>
@@ -687,30 +687,30 @@ export const SignUpFlow: React.FC = () => {
                                 {/* ====================================================== */}
                                 {/* SECTION 6 — FINAL CTA */}
                                 {/* ====================================================== */}
-                                <section className="text-center bg-gradient-to-br from-brand/10 via-slate-900 to-slate-900 border border-brand/30 rounded-3xl p-6 sm:p-10">
+                                <section className="text-center bg-gradient-to-br from-brand/10 via-dx-bg to-dx-bg border border-brand/30 rounded-3xl p-6 sm:p-10">
                                     <div className="text-4xl mb-3">⚡</div>
                                     <h3 className="text-2xl sm:text-3xl font-black text-white mb-3">Los pronósticos de hoy ya están listos</h3>
-                                    <p className="text-base text-slate-300 mb-6 max-w-md mx-auto">
+                                    <p className="text-base text-dx-text-soft mb-6 max-w-md mx-auto">
                                         No esperes mañana. Únete gratis ahora y revisa el análisis de los partidos del día.
                                     </p>
-                                    <a href="#signup-form" className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-brand to-emerald-400 text-slate-900 font-black rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all text-base">
+                                    <a href="#signup-form" className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-brand to-dx-cyan text-[#04140C] font-black rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all text-base">
                                         Crear cuenta gratis
                                         <ArrowRightIcon className="w-5 h-5" />
                                     </a>
-                                    <p className="text-[11px] text-slate-500 mt-4">30 segundos · sin tarjeta · cancela cuando quieras</p>
+                                    <p className="text-[11px] text-dx-text-mute mt-4">30 segundos · sin tarjeta · cancela cuando quieras</p>
                                 </section>
                             </div>
 
                             {/* RIGHT: Form */}
                             <div id="signup-form" className="lg:col-span-2 lg:sticky lg:top-8 scroll-mt-8">
-                                <div className="bg-slate-800/50 backdrop-blur border border-white/10 rounded-2xl p-5 sm:p-6">
+                                <div className="bg-dx-surface-2 backdrop-blur border border-dx-border rounded-2xl p-5 sm:p-6">
                                     <div className="text-center mb-5">
                                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand/10 border border-brand/30 mb-3">
                                             <SparklesIcon className="w-3.5 h-3.5 text-brand" />
                                             <span className="text-[10px] font-bold uppercase tracking-wider text-brand">30 segundos</span>
                                         </div>
                                         <h2 className="text-xl sm:text-2xl font-black text-white mb-1">Crea tu cuenta gratis</h2>
-                                        <p className="text-xs text-slate-400">Empieza a ver oportunidades hoy</p>
+                                        <p className="text-xs text-dx-text-soft">Empieza a ver oportunidades hoy</p>
                                     </div>
 
                                     <form onSubmit={handleStep1Submit} className="space-y-3">
@@ -718,7 +718,7 @@ export const SignUpFlow: React.FC = () => {
                                             type="text"
                                             value={signUpData.fullName}
                                             onChange={(e) => setSignUpData({ ...signUpData, fullName: e.target.value })}
-                                            className="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand transition-colors"
+                                            className="w-full px-4 py-3 bg-dx-surface border border-dx-border rounded-xl text-white placeholder-dx-text-mute focus:outline-none focus:border-brand transition-colors"
                                             placeholder="Nombre completo"
                                             required
                                         />
@@ -726,7 +726,7 @@ export const SignUpFlow: React.FC = () => {
                                             type="email"
                                             value={signUpData.email}
                                             onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
-                                            className="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand transition-colors"
+                                            className="w-full px-4 py-3 bg-dx-surface border border-dx-border rounded-xl text-white placeholder-dx-text-mute focus:outline-none focus:border-brand transition-colors"
                                             placeholder="Tu email"
                                             required
                                         />
@@ -734,7 +734,7 @@ export const SignUpFlow: React.FC = () => {
                                             type="password"
                                             value={signUpData.password}
                                             onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
-                                            className="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand transition-colors"
+                                            className="w-full px-4 py-3 bg-dx-surface border border-dx-border rounded-xl text-white placeholder-dx-text-mute focus:outline-none focus:border-brand transition-colors"
                                             placeholder="Contraseña (mín. 6)"
                                             required
                                             minLength={8}
@@ -743,39 +743,39 @@ export const SignUpFlow: React.FC = () => {
                                             type="password"
                                             value={signUpData.confirmPassword}
                                             onChange={(e) => setSignUpData({ ...signUpData, confirmPassword: e.target.value })}
-                                            className="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand transition-colors"
+                                            className="w-full px-4 py-3 bg-dx-surface border border-dx-border rounded-xl text-white placeholder-dx-text-mute focus:outline-none focus:border-brand transition-colors"
                                             placeholder="Repite la contraseña"
                                             required
                                             minLength={8}
                                         />
 
                                         {error && (
-                                            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                                                <p className="text-red-400 text-xs">{error}</p>
+                                            <div className="p-3 bg-dx-loss/10 border border-dx-loss/30 rounded-xl">
+                                                <p className="text-dx-loss text-xs">{error}</p>
                                             </div>
                                         )}
 
                                         <button
                                             type="submit"
-                                            className="w-full py-3.5 bg-gradient-to-r from-brand to-emerald-400 text-slate-900 font-black rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all flex items-center justify-center gap-2"
+                                            className="w-full py-3.5 bg-gradient-to-r from-brand to-dx-cyan text-[#04140C] font-black rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all flex items-center justify-center gap-2"
                                         >
                                             Empezar gratis
                                             <ArrowRightIcon className="w-5 h-5" />
                                         </button>
 
-                                        <p className="text-[10px] text-slate-500 text-center leading-relaxed pt-1">
+                                        <p className="text-[10px] text-dx-text-mute text-center leading-relaxed pt-1">
                                             Al registrarte aceptas nuestros{' '}
-                                            <a href="/terms" className="text-slate-400 hover:text-brand underline">Términos</a> y{' '}
-                                            <a href="/privacy" className="text-slate-400 hover:text-brand underline">Privacidad</a>
+                                            <a href="/terms" className="text-dx-text-soft hover:text-brand underline">Términos</a> y{' '}
+                                            <a href="/privacy" className="text-dx-text-soft hover:text-brand underline">Privacidad</a>
                                         </p>
 
-                                        <div className="pt-3 border-t border-white/5 text-center">
-                                            <p className="text-xs text-slate-400">
+                                        <div className="pt-3 border-t border-dx-border text-center">
+                                            <p className="text-xs text-dx-text-soft">
                                                 ¿Ya tienes cuenta?{' '}
                                                 <button
                                                     type="button"
                                                     onClick={() => navigate('/login')}
-                                                    className="text-brand hover:text-emerald-400 font-bold"
+                                                    className="text-brand hover:text-dx-green font-bold"
                                                 >
                                                     Inicia sesión
                                                 </button>
@@ -785,7 +785,7 @@ export const SignUpFlow: React.FC = () => {
                                 </div>
 
                                 {/* Mini trust row */}
-                                <div className="mt-4 flex items-center justify-center gap-4 text-[10px] sm:text-xs text-slate-500">
+                                <div className="mt-4 flex items-center justify-center gap-4 text-[10px] sm:text-xs text-dx-text-mute">
                                     <div className="flex items-center gap-1.5">
                                         <svg className="w-3.5 h-3.5 text-brand" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -812,8 +812,8 @@ export const SignUpFlow: React.FC = () => {
                             />
 
                             {error && (
-                                <div className="mt-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl max-w-2xl mx-auto">
-                                    <p className="text-red-400 text-sm text-center">{error}</p>
+                                <div className="mt-6 p-4 bg-dx-loss/10 border border-dx-loss/30 rounded-xl max-w-2xl mx-auto">
+                                    <p className="text-dx-loss text-sm text-center">{error}</p>
                                 </div>
                             )}
 
@@ -821,7 +821,7 @@ export const SignUpFlow: React.FC = () => {
                                 <button
                                     onClick={() => setStep(1)}
                                     disabled={loading}
-                                    className="px-6 py-3 bg-slate-800 text-white font-medium rounded-xl hover:bg-slate-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                                    className="px-6 py-3 bg-dx-surface-2 text-white font-medium rounded-xl hover:bg-dx-surface-2 transition-colors flex items-center gap-2 disabled:opacity-50"
                                 >
                                     <ArrowLeftIcon className="w-5 h-5" />
                                     Atrás
@@ -830,11 +830,11 @@ export const SignUpFlow: React.FC = () => {
                                 <button
                                     onClick={handleCompleteSignUp}
                                     disabled={!selectedPlan || loading}
-                                    className="px-8 py-3 bg-gradient-to-r from-brand to-emerald-400 text-slate-900 font-bold rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="px-8 py-3 bg-gradient-to-r from-brand to-dx-cyan text-[#04140C] font-bold rounded-xl hover:shadow-lg hover:shadow-brand/30 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {loading ? (
                                         <>
-                                            <div className="w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+                                            <div className="w-5 h-5 border-2 border-dx-border border-t-transparent rounded-full animate-spin"></div>
                                             Procesando...
                                         </>
                                     ) : (
@@ -851,9 +851,9 @@ export const SignUpFlow: React.FC = () => {
 
                 {/* Trust Indicators */}
                 <div className="mt-8 text-center">
-                    <div className="flex items-center justify-center gap-6 text-sm text-slate-500">
+                    <div className="flex items-center justify-center gap-6 text-sm text-dx-text-mute">
                         <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 rounded-full bg-green-500"></div>
+                            <div className="w-4 h-4 rounded-full bg-dx-green"></div>
                             <span>+1,250 usuarios</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -861,7 +861,7 @@ export const SignUpFlow: React.FC = () => {
                             <span>65% acierto verificado</span>
                         </div>
                         <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 rounded-full bg-blue-500"></div>
+                            <div className="w-4 h-4 rounded-full bg-dx-green"></div>
                             <span>Pago seguro</span>
                         </div>
                     </div>
