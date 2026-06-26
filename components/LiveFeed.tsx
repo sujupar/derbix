@@ -3,7 +3,7 @@ import { DashboardData, League, Game, VisualAnalysisResult, Country, AnalysisJob
 import { fetchFixturesByDate, fetchLiveFixtures } from '../services/liveDataService';
 import { createAnalysisJob, getAnalysisJob, getAnalysisResult, getAnalysisResultByRunId, getAnalysisResultByFixtureId, markJobAsTimedOut } from '../services/analysisService';
 import { useAnalysisCache } from '../hooks/useAnalysisCache';
-import { BrainIcon, CalendarDaysIcon, CheckCircleIcon, ChevronDownIcon, ChevronUpIcon, SparklesIcon, ArrowPathIcon, ListBulletIcon, TrophyIcon, SignalIcon, ChartBarIcon } from './icons/Icons';
+import { BrainIcon, CalendarDaysIcon, CheckCircleIcon, ChevronDownIcon, ChevronUpIcon, SparklesIcon, ArrowPathIcon, ListBulletIcon, TrophyIcon, SignalIcon, ChartBarIcon, RefreshIcon } from './icons/Icons';
 import { getCurrentDateInBogota } from '../utils/dateUtils';
 import { AnalysisInProgressModal } from './ai/AnalysisInProgressModal';
 import { AnalysisReportModal } from './ai/AnalysisReportModal';
@@ -849,7 +849,7 @@ export const FixturesFeed: React.FC<{ initialLive?: boolean }> = ({ initialLive 
                                 title="Actualizar oportunidades"
                                 className="flex items-center justify-center w-11 h-11 rounded-xl border border-dx-border bg-dx-surface text-dx-text-soft hover:text-dx-green hover:border-dx-border-active transition-all shrink-0"
                             >
-                                <ArrowPathIcon className="w-5 h-5" />
+                                <RefreshIcon className="w-5 h-5" />
                             </button>
                         )}
                     </div>

@@ -12,7 +12,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { isHistoricalDate, getAllowedPickCount } from '../../utils/planAccessUtils';
 import { cleanPlanLabel } from '../../utils/planDisplay';
-import { TrophyIcon, ChartBarIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, LockClosedIcon } from '../icons/Icons';
+import { TrophyIcon, ChartBarIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, LockClosedIcon, ChartUpIcon } from '../icons/Icons';
 import { usePresentationMode } from '../../hooks/usePresentationMode';
 import { isAgencyRole } from '../../utils/roles';
 import { useOrganization } from '../../contexts/OrganizationContext';
@@ -326,7 +326,7 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-dx-border">
                 <div className="flex items-center gap-3">
                     <div className="p-3 bg-gradient-to-br from-dx-green-deep to-dx-green rounded-xl shadow-lg shadow-dx-green-glow">
-                        <TrophyIcon className="w-6 h-6 text-[#04140C]" />
+                        <ChartUpIcon className="w-6 h-6 text-[#04140C]" />
                     </div>
                     <div>
                         <h3 className="text-xl sm:text-2xl font-display font-bold text-white tracking-tight">Oportunidades de Valor</h3>
