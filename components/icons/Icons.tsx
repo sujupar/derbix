@@ -481,14 +481,14 @@ export const ArrowTopRightOnSquareIcon: React.FC<IconProps> = (props) => (
 
 // Barras de estadística ascendentes + flecha de crecimiento (motivo del logo Derbix)
 export const ChartUpIcon: React.FC<IconProps> = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6" {...props}>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.3} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6" {...props}>
     <g fill="currentColor" stroke="none">
-      <rect x="3" y="15" width="3.6" height="5.5" rx="1.2" />
-      <rect x="10.2" y="12.5" width="3.6" height="8" rx="1.2" />
-      <rect x="17.4" y="10" width="3.6" height="10.5" rx="1.2" />
+      <rect x="2.5" y="14.5" width="4" height="6.5" rx="1.5" />
+      <rect x="10" y="11.5" width="4" height="9.5" rx="1.5" />
+      <rect x="17.5" y="8.5" width="4" height="12.5" rx="1.5" />
     </g>
-    <path d="M3.5 11.5 L9.5 6.5 L13 9.5 L20.5 3.5" />
-    <path d="M15.5 3.5 H20.5 V8.5" />
+    <path d="M3 11.5 L9.5 6 L13 9 L20 3" />
+    <path d="M14.5 3 H20 V8.5" />
   </svg>
 );
 

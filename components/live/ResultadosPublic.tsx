@@ -181,8 +181,8 @@ const ResultadosPublic: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigge
             <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-3 bg-gradient-to-br from-dx-green-deep to-dx-green rounded-xl shadow-lg shadow-dx-green-glow">
-                            <TrophyIcon className="w-6 h-6 text-[#04140C]" />
+                        <div className="w-14 h-14 shrink-0 flex items-center justify-center bg-gradient-to-br from-dx-green-deep to-dx-green rounded-2xl shadow-lg shadow-dx-green-glow">
+                            <TrophyIcon className="w-8 h-8 text-[#04140C]" />
                         </div>
                         <div>
                             <h3 className="text-2xl font-display font-bold text-white tracking-tight">Resultados</h3>
