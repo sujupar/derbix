@@ -377,5 +377,52 @@
   .cta.gold{background:linear-gradient(90deg,var(--dx-gold),#F6D27A);color:#1A1305}
 </style>
 
+<div class="tag">5 · Tema por plan — SOLO en el sidebar (resto de la app siempre verde)</div>
+<div style="max-width:1180px;margin:0 auto 40px;display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
+
+  <!-- BASE (verde) -->
+  <div class="mini" style="--ac:#1DE782;--ac2:#22E5C0;--ink:#04140C">
+    <div class="mini-h">Base / sin plan → <b style="color:var(--ac)">VERDE</b></div>
+    <div class="mini-item on"><span class="mini-ic">▦</span> Jornadas <span class="mini-badge">12</span></div>
+    <div class="mini-item live"><span class="mini-ic">📶</span> En vivo <span style="margin-left:auto;color:#FF3B30;font-size:11px;font-weight:700">●3</span></div>
+    <div class="mini-plan"><span class="mini-sh">🛡</span><div><div style="font-size:13px;font-weight:700;color:#fff">Plan Explorador</div><div style="font-size:11px;color:var(--ac)">Acceso básico</div></div></div>
+    <div class="mini-user"><span class="mini-av">JG</span><div><div style="font-size:13px;font-weight:700;color:var(--ac)">Johann Gonzalez</div><div style="font-size:11px;color:var(--mute)">Usuario</div></div></div>
+  </div>
+
+  <!-- PREMIUM (dorado) -->
+  <div class="mini" style="--ac:#E7B84F;--ac2:#F6D27A;--ink:#1A1305">
+    <div class="mini-h">Premium → <b style="color:var(--ac)">DORADO</b></div>
+    <div class="mini-item on"><span class="mini-ic">▦</span> Jornadas <span class="mini-badge">12</span></div>
+    <div class="mini-item live"><span class="mini-ic">📶</span> En vivo <span style="margin-left:auto;color:#FF3B30;font-size:11px;font-weight:700">●3</span></div>
+    <div class="mini-plan"><span class="mini-sh">🛡</span><div><div style="font-size:13px;font-weight:700;color:#fff">Plan Premium</div><div style="font-size:11px;color:var(--ac)">Acceso total</div></div></div>
+    <div class="mini-user"><span class="mini-av">JG</span><div><div style="font-size:13px;font-weight:700;color:var(--ac)">Johann Gonzalez</div><div style="font-size:11px;color:var(--mute)">Usuario</div></div></div>
+  </div>
+
+  <!-- ELITE (platino) -->
+  <div class="mini" style="--ac:#C2CDD8;--ac2:#E8EEF3;--ink:#0B0F14">
+    <div class="mini-h">Élite → <b style="color:var(--ac)">PLATA</b></div>
+    <div class="mini-item on"><span class="mini-ic">▦</span> Jornadas <span class="mini-badge">12</span></div>
+    <div class="mini-item live"><span class="mini-ic">📶</span> En vivo <span style="margin-left:auto;color:#FF3B30;font-size:11px;font-weight:700">●3</span></div>
+    <div class="mini-plan"><span class="mini-sh">🛡</span><div><div style="font-size:13px;font-weight:700;color:#fff">Plan Elite</div><div style="font-size:11px;color:var(--ac)">Acceso total</div></div></div>
+    <div class="mini-user"><span class="mini-av">JG</span><div><div style="font-size:13px;font-weight:700;color:var(--ac)">Johann Gonzalez</div><div style="font-size:11px;color:var(--mute)">Usuario</div></div></div>
+  </div>
+</div>
+<div style="max-width:1180px;margin:-24px auto 40px;color:var(--dx-text-mute);font-size:13px">↑ Nota: el <b style="color:#fff">“En vivo” sigue rojo</b> en los 3 (no cambia con el plan). Fuera del sidebar, todo sigue verde.</div>
+
+<style>
+  .mini{--mute:rgba(255,255,255,.36);background:var(--dx-surface);border:1px solid var(--dx-border);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:8px}
+  .mini-h{font-size:12px;color:var(--dx-text-soft);margin-bottom:6px}
+  .mini-item{position:relative;display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;font-size:13px;font-weight:600;color:var(--dx-text-soft)}
+  .mini-item.on{background:var(--dx-surface-2);color:var(--ac)}
+  .mini-item.on::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:2px;background:var(--ac)}
+  .mini-item.live{color:#FF3B30}
+  .mini-ic{font-size:13px}
+  .mini-badge{margin-left:auto;font-size:11px;font-weight:700;color:var(--ac);background:color-mix(in srgb,var(--ac) 15%,transparent);border-radius:6px;padding:1px 7px}
+  .mini-plan{display:flex;align-items:center;gap:10px;background:var(--dx-surface);border:1px solid color-mix(in srgb,var(--ac) 30%,var(--dx-border));border-radius:12px;padding:10px;margin-top:4px}
+  .mini-sh{width:30px;height:30px;border-radius:8px;background:color-mix(in srgb,var(--ac) 12%,transparent);border:1px solid color-mix(in srgb,var(--ac) 30%,transparent);display:flex;align-items:center;justify-content:center;color:var(--ac);font-size:14px}
+  .mini-user{display:flex;align-items:center;gap:10px;padding:2px}
+  .mini-av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--ac2),var(--ac));color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px}
+</style>
+
 </body>
 </html>
