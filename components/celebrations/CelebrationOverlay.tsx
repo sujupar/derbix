@@ -79,7 +79,7 @@ export const CelebrationOverlay: React.FC<CelebrationOverlayProps> = ({
 
         {/* Logo */}
         <motion.img
-          src="/derbix-logo.png"
+          src="/derbix-logo.svg"
           alt="Derbix"
           className="h-16 object-contain mb-6 relative"
           initial={{ scale: 0 }}

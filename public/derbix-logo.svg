@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 92" fill="none" role="img" aria-label="Derbix">
+  <!-- Barras ascendentes (crecimiento) -->
+  <g fill="#FFFFFF">
+    <rect x="44"  y="50" width="16" height="30" rx="3"/>
+    <rect x="68"  y="34" width="16" height="46" rx="3"/>
+    <rect x="92"  y="18" width="16" height="62" rx="3"/>
+  </g>
+
+  <!-- Flecha / línea de crecimiento -->
+  <path d="M14 84 L120 26 L120 35 L28 84 Z" fill="#FFFFFF"/>
+
+  <!-- Balón de fútbol (blanco con patrón oscuro), al frente de las barras -->
+  <g>
+    <circle cx="70" cy="47" r="25" fill="#0B0F0C"/>
+    <circle cx="70" cy="47" r="22" fill="#FFFFFF"/>
+    <!-- pentágono central -->
+    <path d="M70 38 L78.6 44.2 L75.3 54.3 L64.7 54.3 L61.4 44.2 Z" fill="#0B0F0C"/>
+    <!-- struts hacia el borde -->
+    <g stroke="#0B0F0C" stroke-width="2.4" stroke-linecap="round">
+      <line x1="70"   y1="38"   x2="70"   y2="26"/>
+      <line x1="78.6" y1="44.2" x2="90"   y2="39"/>
+      <line x1="75.3" y1="54.3" x2="83"   y2="66"/>
+      <line x1="64.7" y1="54.3" x2="57"   y2="66"/>
+      <line x1="61.4" y1="44.2" x2="50"   y2="39"/>
+    </g>
+    <!-- parches oscuros en el borde -->
+    <g fill="#0B0F0C">
+      <path d="M70 25 l5 -1 -1 5 -8 0 -1 -5 z" opacity="0.9"/>
+      <path d="M91 38 l3 4 -4 3 -5 -6 z" opacity="0.9"/>
+      <path d="M84 67 l-1 5 -5 -2 2 -6 z" opacity="0.9"/>
+      <path d="M56 67 l1 5 5 -2 -2 -6 z" opacity="0.9"/>
+      <path d="M49 38 l-3 4 4 3 5 -6 z" opacity="0.9"/>
+    </g>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="150" y="62" font-family="'Space Grotesk','Outfit','Arial',sans-serif"
+        font-size="42" font-weight="700" letter-spacing="2" fill="#FFFFFF">DERBIX</text>
+</svg>
