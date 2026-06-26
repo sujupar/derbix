@@ -27,7 +27,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ userName, planName
       <div className="relative flex flex-col items-center text-center px-6 max-w-md">
         {/* Logo */}
         <motion.img
-          src="/derbix-logo.svg"
+          src="/derbix-logo.png"
           alt="Derbix"
           className="h-20 object-contain mb-8"
           initial={{ scale: 0.5, opacity: 0 }}

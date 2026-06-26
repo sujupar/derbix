@@ -132,7 +132,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
       {/* --- DESKTOP SIDEBAR --- */}
       <aside data-plan={planThemeAttr} className="dx-sidebar hidden md:flex flex-col w-64 h-full bg-dx-surface backdrop-blur-xl border-r border-[color:var(--color-dx-border)] fixed left-0 top-0 z-30 transition-transform duration-300">
         <div className="p-5 flex items-center justify-center border-b border-white/5">
-          <img src="/derbix-logo.svg" alt="Derbix" className="h-12 object-contain" />
+          <img src="/derbix-logo.png" alt="Derbix" className="h-12 object-contain" />
         </div>
 
         <div className="px-3 pt-4">
@@ -263,7 +263,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
 
         {/* Mobile Header */}
         <header className="md:hidden h-16 glass flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 backdrop-blur-xl border-b border-white/5 shadow-lg">
-          <img src="/derbix-logo.svg" alt="Derbix" className="h-10 object-contain" />
+          <img src="/derbix-logo.png" alt="Derbix" className="h-10 object-contain" />
           <div className="flex items-center gap-3">
             {recapBadge && (
               <RecapBadge
