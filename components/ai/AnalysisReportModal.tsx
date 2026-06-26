@@ -893,7 +893,7 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
     if (!data) {
         return (
             <div className="fixed inset-0 bg-black/95 z-[100] flex items-center justify-center p-4 md:p-6 animate-fade-in backdrop-blur-md" onClick={(e) => e.target === e.currentTarget && onClose()}>
-                <div className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col border border-white/10" onClick={(e) => e.stopPropagation()}>
+                <div className="bg-dx-bg rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col border border-dx-border" onClick={(e) => e.stopPropagation()}>
                     <div className="p-6 border-b border-gray-800 flex justify-between">
                         <h2 className="text-xl font-bold text-red-400">Error de Formato Visual</h2>
                         <button onClick={onClose}><XMarkIcon className="w-6 h-6 text-gray-400" /></button>
@@ -944,7 +944,7 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
 
     return createPortal(
         <div className="fixed inset-0 bg-black/95 z-[100] flex items-center justify-center p-0 md:p-6 animate-fade-in backdrop-blur-md" onClick={(e) => e.target === e.currentTarget && onClose()}>
-            <div className="bg-slate-900 w-full h-full md:h-[90vh] md:max-w-6xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-white/10" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-dx-bg w-full h-full md:h-[90vh] md:max-w-6xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-dx-border" onClick={(e) => e.stopPropagation()}>
 
                 {/* ═══════════════════════════════════════════════════════════════
                             DEBUG MODE: SPLIT VIEW (PAYLOAD vs AI RESPONSE)
