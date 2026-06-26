@@ -299,5 +299,83 @@
   .rdot.loss{background:rgba(244,88,78,.20);color:var(--dx-loss)}
 </style>
 
+<div class="tag">4 · Planes — recomendado en VERDE, premium en DORADO, fondo negro (§8)</div>
+<div class="shell" style="min-height:auto">
+  <main class="main" style="width:100%">
+    <div style="text-align:center;max-width:640px;margin:0 auto 28px">
+      <h1 style="font-size:30px">Deja de Perder Dinero <span style="color:var(--dx-green)">con Corazonadas</span></h1>
+      <div class="sub" style="font-size:14px;margin-top:8px">Solo las oportunidades con <b style="color:#fff">83%+ de confianza</b>.</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:920px;margin:36px auto 0">
+      <!-- Ventaja (neutro) -->
+      <div class="plan-card">
+        <div style="padding:20px;border-bottom:1px solid var(--dx-border)">
+          <div style="font-weight:700;font-size:17px">Ventaja</div>
+          <div style="color:var(--dx-text-soft);font-size:13px;margin-top:4px">Para empezar con valor</div>
+          <div style="margin-top:14px"><span class="price" style="color:#fff">$19</span><span style="color:var(--dx-text-mute)">/mes</span></div>
+        </div>
+        <div style="padding:20px;display:flex;flex-direction:column;gap:10px;font-size:14px">
+          <div class="feat"><span class="ck">✓</span> 35% de oportunidades diarias</div>
+          <div class="feat"><span class="ck">✓</span> Análisis de partidos</div>
+          <div class="feat off"><span class="ck off">✕</span> Estadísticas avanzadas</div>
+        </div>
+        <div style="padding:20px;border-top:1px solid var(--dx-border)"><div class="cta ghost">Obtener mi Ventaja →</div></div>
+      </div>
+
+      <!-- Elite (recomendado · VERDE) -->
+      <div class="plan-card pop">
+        <div class="ribbon green">★ Más Popular</div>
+        <div style="padding:20px;border-bottom:1px solid var(--dx-border);background:linear-gradient(180deg,rgba(29,231,130,.10),transparent)">
+          <div style="font-weight:700;font-size:17px">Elite</div>
+          <div style="color:var(--dx-text-soft);font-size:13px;margin-top:4px">Acceso mayoritario</div>
+          <div style="margin-top:14px"><span class="price" style="color:var(--dx-green)">$49</span><span style="color:var(--dx-text-mute)">/mes</span></div>
+        </div>
+        <div style="padding:20px;display:flex;flex-direction:column;gap:10px;font-size:14px">
+          <div class="feat"><span class="ck">✓</span> 80% de oportunidades diarias</div>
+          <div class="feat"><span class="ck">✓</span> Estadísticas avanzadas</div>
+          <div class="feat"><span class="ck">✓</span> Soporte prioritario</div>
+        </div>
+        <div style="padding:20px;border-top:1px solid var(--dx-border)"><div class="cta green">Unirme al Elite →</div></div>
+      </div>
+
+      <!-- Máquina (premium · DORADO) -->
+      <div class="plan-card prem">
+        <div class="ribbon gold">★ Máximo Acceso</div>
+        <div style="padding:20px;border-bottom:1px solid var(--dx-border);background:linear-gradient(180deg,rgba(231,184,79,.10),transparent)">
+          <div style="font-weight:700;font-size:17px">Máquina</div>
+          <div style="color:var(--dx-text-soft);font-size:13px;margin-top:4px">Todo el sistema, sin límites</div>
+          <div style="margin-top:14px"><span class="price" style="color:var(--dx-gold)">$99</span><span style="color:var(--dx-text-mute)">/mes</span></div>
+        </div>
+        <div style="padding:20px;display:flex;flex-direction:column;gap:10px;font-size:14px">
+          <div class="feat"><span class="ck gold">✓</span> 100% de oportunidades diarias</div>
+          <div class="feat"><span class="ck gold">✓</span> Estadísticas avanzadas</div>
+          <div class="feat"><span class="ck gold">✓</span> Soporte prioritario</div>
+        </div>
+        <div style="padding:20px;border-top:1px solid var(--dx-border)"><div class="cta gold">Activar la Máquina →</div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<style>
+  .plan-card{position:relative;background:var(--dx-surface);border:2px solid var(--dx-border);border-radius:18px;display:flex;flex-direction:column}
+  .plan-card.pop{border-color:var(--dx-green);box-shadow:0 0 30px -10px rgba(29,231,130,.4)}
+  .plan-card.prem{border-color:var(--dx-gold);box-shadow:0 0 30px -10px rgba(231,184,79,.4)}
+  .price{font-family:'Space Grotesk';font-weight:800;font-size:34px;font-variant-numeric:tabular-nums}
+  .ribbon{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:4px 14px;border-radius:999px;white-space:nowrap}
+  .ribbon.green{background:linear-gradient(90deg,var(--dx-green),var(--dx-cyan));color:#04140C}
+  .ribbon.gold{background:linear-gradient(90deg,var(--dx-gold),#F6D27A);color:#1A1305}
+  .feat{display:flex;align-items:center;gap:10px;color:#fff}
+  .feat.off{color:var(--dx-text-mute)}
+  .ck{color:var(--dx-green);font-weight:800}
+  .ck.gold{color:var(--dx-gold)}
+  .ck.off{color:var(--dx-text-mute)}
+  .cta{text-align:center;padding:13px;border-radius:12px;font-weight:700;font-size:14px}
+  .cta.ghost{background:rgba(255,255,255,.05);border:1px solid var(--dx-border);color:#fff}
+  .cta.green{background:linear-gradient(90deg,var(--dx-green),var(--dx-cyan));color:#04140C}
+  .cta.gold{background:linear-gradient(90deg,var(--dx-gold),#F6D27A);color:#1A1305}
+</style>
+
 </body>
 </html>
