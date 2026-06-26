@@ -330,7 +330,7 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                     </div>
                     <div>
                         <h3 className="text-xl sm:text-2xl font-display font-bold text-white tracking-tight">Oportunidades de Valor</h3>
-                        <p className="text-sm text-dx-text-soft">Pron\u00f3sticos individuales \u00b7 Prob {'\u2265'} {OPPORTUNITIES_THRESHOLD_PERCENT}%</p>
+                        <p className="text-sm text-dx-text-soft">{'Pron\u00f3sticos individuales \u00b7 Prob \u2265 '}{OPPORTUNITIES_THRESHOLD_PERCENT}%</p>
                     </div>
                 </div>
 

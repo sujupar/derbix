@@ -35,6 +35,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
   const [isNotifPrefsOpen, setIsNotifPrefsOpen] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  // Vista previa del tema por plan (SOLO visual; no cambia el plan real del usuario)
+  const [planPreview, setPlanPreview] = useState<'base' | 'premium' | 'elite' | null>(null);
   // Conteos para los badges del sidebar (oportunidades de hoy + partidos en vivo)
   const [oppCount, setOppCount] = useState(0);
   const [liveCount, setLiveCount] = useState(0);
@@ -92,6 +94,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
     .split(' ').map(w => w.charAt(0)).slice(0, 2).join('').toUpperCase();
   // Tema por plan (§11): premium → dorado, pro/élite → plata. Resto → verde (default).
   const planThemeAttr = plan.plan_name === 'premium' ? 'premium' : plan.plan_name === 'pro' ? 'elite' : undefined;
+  // Si hay vista previa activa, ésta manda (solo en el sidebar). 'base' = verde (sin atributo).
+  const sidebarPlanAttr = planPreview ? (planPreview === 'base' ? undefined : planPreview) : planThemeAttr;
 
   // Roles: agency (full access) vs client (view only per plan)
   const isAgencySuperadmin = isAgencyRole(profile?.role);
@@ -130,7 +134,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
     <div className="flex h-screen overflow-hidden text-slate-200 font-sans selection:bg-brand selection:text-white bg-dx-bg">
 
       {/* --- DESKTOP SIDEBAR --- */}
-      <aside data-plan={planThemeAttr} className="dx-sidebar hidden md:flex flex-col w-64 h-full bg-dx-surface backdrop-blur-xl border-r border-[color:var(--color-dx-border)] fixed left-0 top-0 z-30 transition-transform duration-300">
+      <aside data-plan={sidebarPlanAttr} className="dx-sidebar hidden md:flex flex-col w-64 h-full bg-dx-surface backdrop-blur-xl border-r border-[color:var(--color-dx-border)] fixed left-0 top-0 z-30 transition-transform duration-300">
         <div className="p-5 flex items-center justify-center border-b border-white/5">
           <img src="/derbix-logo.png" alt="Derbix" className="h-12 object-contain" />
         </div>
@@ -183,6 +187,39 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
         )}
 
         <div className="p-4 border-t border-white/5 space-y-3">
+          {/* Vista previa de tema por plan (solo admin/agencia) — NO cambia el plan real */}
+          {isAgencySuperadmin && (
+            <div className="rounded-xl border border-dx-border p-2.5">
+              <p className="text-[10px] uppercase tracking-wider text-dx-text-mute mb-2 px-0.5">Vista previa de plan</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {([
+                  { k: 'base', label: 'Base', c: '#1DE782' },
+                  { k: 'premium', label: 'Premium', c: '#E7B84F' },
+                  { k: 'elite', label: 'Élite', c: '#C2CDD8' },
+                ] as const).map((opt) => {
+                  const active = planPreview === opt.k;
+                  return (
+                    <button
+                      key={opt.k}
+                      onClick={() => setPlanPreview(active ? null : opt.k)}
+                      className="flex flex-col items-center gap-1 py-1.5 rounded-lg border transition-all"
+                      style={{
+                        borderColor: active ? opt.c : 'rgba(255,255,255,0.07)',
+                        background: active ? opt.c + '1f' : 'transparent',
+                      }}
+                    >
+                      <span className="w-3.5 h-3.5 rounded-full" style={{ background: opt.c }} />
+                      <span className="text-[10px] font-bold" style={{ color: active ? opt.c : 'rgba(255,255,255,0.58)' }}>{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {planPreview && (
+                <p className="text-[9px] text-dx-text-mute mt-1.5 px-0.5">Solo vista previa · tu plan real no cambia</p>
+              )}
+            </div>
+          )}
+
           {/* Tarjeta de plan — escudo dorado + nombre limpio (sin etiquetas internas) */}
           <button
             onClick={() => setCurrentPage('pricing')}

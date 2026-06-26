@@ -118,8 +118,13 @@ export const ScaleIcon: React.FC<IconProps> = (props) => (
 );
 
 export const TrophyIcon: React.FC<IconProps> = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6" {...props}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-6.75c-.622 0-1.125.504-1.125 1.125V18.75m9 0h-9" />
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6" {...props}>
+    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+    <path d="M4 22h16" />
+    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+    <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
   </svg>
 );
 
@@ -476,14 +481,14 @@ export const ArrowTopRightOnSquareIcon: React.FC<IconProps> = (props) => (
 
 // Barras de estadística ascendentes + flecha de crecimiento (motivo del logo Derbix)
 export const ChartUpIcon: React.FC<IconProps> = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6" {...props}>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6" {...props}>
     <g fill="currentColor" stroke="none">
-      <rect x="3.5" y="13" width="3.2" height="7" rx="0.8" />
-      <rect x="10.4" y="9.5" width="3.2" height="10.5" rx="0.8" />
-      <rect x="17.3" y="6" width="3.2" height="14" rx="0.8" />
+      <rect x="3" y="15" width="3.6" height="5.5" rx="1.2" />
+      <rect x="10.2" y="12.5" width="3.6" height="8" rx="1.2" />
+      <rect x="17.4" y="10" width="3.6" height="10.5" rx="1.2" />
     </g>
-    <path d="M3.5 9.5 L9.5 5 L13.5 7.5 L21 2.5" />
-    <path d="M16.5 2.5 H21 V7" />
+    <path d="M3.5 11.5 L9.5 6.5 L13 9.5 L20.5 3.5" />
+    <path d="M15.5 3.5 H20.5 V8.5" />
   </svg>
 );
 
