@@ -11,24 +11,24 @@ export interface ToastItem {
 
 const typeStyles: Record<ToastItem['type'], { border: string; icon: string; text: string }> = {
   success: {
-    border: 'border-emerald-500/40',
+    border: 'border-dx-green/40',
     icon: '✓',
-    text: 'text-emerald-400',
+    text: 'text-dx-green',
   },
   error: {
-    border: 'border-red-500/40',
+    border: 'border-dx-loss/40',
     icon: '✕',
-    text: 'text-red-400',
+    text: 'text-dx-loss',
   },
   warning: {
-    border: 'border-amber-500/40',
+    border: 'border-dx-gold/40',
     icon: '⚠',
-    text: 'text-amber-400',
+    text: 'text-dx-gold',
   },
   info: {
-    border: 'border-blue-500/40',
+    border: 'border-dx-border-active',
     icon: 'ℹ',
-    text: 'text-blue-400',
+    text: 'text-dx-text-soft',
   },
 };
 
@@ -47,11 +47,11 @@ const SingleToast: React.FC<{ toast: ToastItem; onRemove: (id: number) => void }
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: 80, scale: 0.95 }}
       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-      className={`flex items-center gap-3 px-4 py-3 rounded-xl backdrop-blur-xl bg-slate-900/90 border ${style.border} shadow-2xl max-w-sm cursor-pointer`}
+      className={`flex items-center gap-3 px-4 py-3 rounded-xl backdrop-blur-xl bg-dx-surface/90 border ${style.border} shadow-2xl max-w-sm cursor-pointer`}
       onClick={() => onRemove(toast.id)}
     >
       <span className={`text-lg font-bold ${style.text} shrink-0`}>{style.icon}</span>
-      <p className="text-sm text-slate-200 font-medium leading-snug">{toast.message}</p>
+      <p className="text-sm text-dx-text font-medium leading-snug">{toast.message}</p>
     </motion.div>
   );
 };

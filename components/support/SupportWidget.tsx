@@ -41,10 +41,10 @@ const TYPE_LABELS: Record<TicketType, string> = {
 };
 
 const STATUS_STYLES: Record<string, { label: string; class: string }> = {
-  open: { label: 'Abierto', class: 'bg-blue-500/10 text-blue-400 border-blue-500/30' },
-  in_progress: { label: 'En Progreso', class: 'bg-amber-500/10 text-amber-400 border-amber-500/30' },
-  resolved: { label: 'Resuelto', class: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' },
-  closed: { label: 'Cerrado', class: 'bg-slate-500/10 text-slate-400 border-slate-500/30' },
+  open: { label: 'Abierto', class: 'bg-white/5 text-dx-text-soft border-dx-border' },
+  in_progress: { label: 'En Progreso', class: 'bg-dx-gold/10 text-dx-gold border-dx-gold/30' },
+  resolved: { label: 'Resuelto', class: 'bg-dx-green/10 text-dx-green border-dx-green/30' },
+  closed: { label: 'Cerrado', class: 'bg-white/5 text-dx-text-mute border-dx-border' },
 };
 
 export const SupportWidget: React.FC<{ currentPage: string }> = ({ currentPage }) => {
@@ -111,7 +111,7 @@ export const SupportWidget: React.FC<{ currentPage: string }> = ({ currentPage }
       {/* Floating button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed z-[60] bottom-6 right-6 md:bottom-6 md:right-6 bottom-24 w-12 h-12 rounded-full bg-gradient-to-r from-brand to-emerald-600 text-white shadow-lg shadow-brand/30 hover:shadow-brand/50 transition-all hover:scale-110 active:scale-95 flex items-center justify-center ${isOpen ? 'rotate-45' : ''}`}
+        className={`fixed z-[60] bottom-6 right-6 md:bottom-6 md:right-6 bottom-24 w-12 h-12 rounded-full bg-gradient-to-r from-brand to-dx-cyan text-[#04140C] shadow-lg shadow-brand/30 hover:shadow-brand/50 transition-all hover:scale-110 active:scale-95 flex items-center justify-center ${isOpen ? 'rotate-45' : ''}`}
       >
         {isOpen ? (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -123,7 +123,7 @@ export const SupportWidget: React.FC<{ currentPage: string }> = ({ currentPage }
           </svg>
         )}
         {unreadCount > 0 && !isOpen && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-[10px] font-bold flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 w-5 h-5 bg-dx-loss rounded-full text-[10px] font-bold flex items-center justify-center text-white">
             {unreadCount}
           </span>
         )}
@@ -139,9 +139,9 @@ export const SupportWidget: React.FC<{ currentPage: string }> = ({ currentPage }
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
           >
-            <div className="bg-slate-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[500px] flex flex-col">
+            <div className="bg-dx-surface/95 backdrop-blur-2xl border border-dx-border rounded-2xl shadow-2xl overflow-hidden max-h-[500px] flex flex-col">
               {/* Header */}
-              <div className="p-4 border-b border-white/5">
+              <div className="p-4 border-b border-dx-border">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-white font-bold text-base">Soporte Derbix</h3>
                   {isPaidUser && (
@@ -151,15 +151,15 @@ export const SupportWidget: React.FC<{ currentPage: string }> = ({ currentPage }
                   )}
                 </div>
                 {/* Tabs */}
-                <div className="flex gap-1 bg-slate-800/50 rounded-lg p-0.5">
+                <div className="flex gap-1 bg-dx-surface-2 rounded-lg p-0.5">
                   {(['help', 'contact', 'tickets'] as Tab[]).map(tab => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
                       className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
                         activeTab === tab
-                          ? 'bg-slate-700 text-white'
-                          : 'text-slate-400 hover:text-white'
+                          ? 'bg-dx-green/15 text-dx-green'
+                          : 'text-dx-text-soft hover:text-white'
                       }`}
                     >
                       {tab === 'help' ? 'Ayuda' : tab === 'contact' ? 'Contacto' : 'Mis Tickets'}
@@ -173,21 +173,21 @@ export const SupportWidget: React.FC<{ currentPage: string }> = ({ currentPage }
                 {activeTab === 'help' && (
                   <div className="space-y-2">
                     {FAQ_ITEMS.map((item, i) => (
-                      <div key={i} className="border border-white/5 rounded-xl overflow-hidden">
+                      <div key={i} className="border border-dx-border rounded-xl overflow-hidden">
                         <button
                           onClick={() => setExpandedFaq(expandedFaq === i ? null : i)}
-                          className="w-full flex items-center justify-between p-3 text-left text-sm font-medium text-slate-200 hover:bg-white/5 transition-colors"
+                          className="w-full flex items-center justify-between p-3 text-left text-sm font-medium text-dx-text hover:bg-white/5 transition-colors"
                         >
                           <span>{item.q}</span>
                           <svg
-                            className={`w-4 h-4 text-slate-500 transition-transform ${expandedFaq === i ? 'rotate-180' : ''}`}
+                            className={`w-4 h-4 text-dx-text-mute transition-transform ${expandedFaq === i ? 'rotate-180' : ''}`}
                             fill="none" viewBox="0 0 24 24" stroke="currentColor"
                           >
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
                         </button>
                         {expandedFaq === i && (
-                          <div className="px-3 pb-3 text-xs text-slate-400 leading-relaxed">
+                          <div className="px-3 pb-3 text-xs text-dx-text-soft leading-relaxed">
                             {item.a}
                           </div>
                         )}
@@ -200,7 +200,7 @@ export const SupportWidget: React.FC<{ currentPage: string }> = ({ currentPage }
                   <div className="space-y-4">
                     {/* Type selector */}
                     <div>
-                      <label className="text-xs text-slate-400 font-medium mb-1.5 block">Tipo</label>
+                      <label className="text-xs text-dx-text-soft font-medium mb-1.5 block">Tipo</label>
                       <div className="grid grid-cols-2 gap-1.5">
                         {(Object.entries(TYPE_LABELS) as [TicketType, string][]).map(([key, label]) => (
                           <button
@@ -209,7 +209,7 @@ export const SupportWidget: React.FC<{ currentPage: string }> = ({ currentPage }
                             className={`py-1.5 px-2 rounded-lg text-xs font-medium transition-all border ${
                               ticketType === key
                                 ? 'bg-brand/10 border-brand/30 text-brand'
-                                : 'border-white/5 text-slate-400 hover:border-white/10'
+                                : 'border-dx-border text-dx-text-soft hover:border-dx-border'
                             }`}
                           >
                             {label}
@@ -220,23 +220,23 @@ export const SupportWidget: React.FC<{ currentPage: string }> = ({ currentPage }
 
                     {/* Message */}
                     <div>
-                      <label className="text-xs text-slate-400 font-medium mb-1.5 block">Mensaje</label>
+                      <label className="text-xs text-dx-text-soft font-medium mb-1.5 block">Mensaje</label>
                       <textarea
                         value={message}
                         onChange={e => setMessage(e.target.value)}
                         maxLength={1000}
                         rows={4}
                         placeholder="Describe tu pregunta, sugerencia o problema..."
-                        className="w-full bg-slate-800/50 border border-white/5 rounded-xl p-3 text-sm text-white placeholder-slate-500 resize-none focus:outline-none focus:border-brand/30 transition-colors"
+                        className="w-full bg-dx-surface-2 border border-dx-border rounded-xl p-3 text-sm text-white placeholder-dx-text-mute resize-none focus:outline-none focus:border-dx-green transition-colors"
                       />
-                      <p className="text-right text-[10px] text-slate-600 mt-1">{message.length}/1000</p>
+                      <p className="text-right text-[10px] text-dx-text-mute mt-1">{message.length}/1000</p>
                     </div>
 
                     {/* Submit */}
                     <button
                       onClick={handleSubmit}
                       disabled={!message.trim() || sending}
-                      className="w-full py-2.5 rounded-xl bg-gradient-to-r from-brand to-emerald-600 text-white font-bold text-sm shadow-lg shadow-brand/20 disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-brand/40 transition-all active:scale-[0.98]"
+                      className="w-full py-2.5 rounded-xl bg-gradient-to-r from-brand to-dx-cyan text-[#04140C] font-bold text-sm shadow-lg shadow-brand/20 disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-brand/40 transition-all active:scale-[0.98]"
                     >
                       {sending ? 'Enviando...' : 'Enviar'}
                     </button>
@@ -251,7 +251,7 @@ export const SupportWidget: React.FC<{ currentPage: string }> = ({ currentPage }
                       </div>
                     ) : tickets.length === 0 ? (
                       <div className="text-center py-8">
-                        <p className="text-slate-500 text-sm">No tienes tickets a\u00FAn</p>
+                        <p className="text-dx-text-mute text-sm">No tienes tickets a\u00FAn</p>
                         <button
                           onClick={() => setActiveTab('contact')}
                           className="text-brand text-xs font-medium mt-2 hover:underline"
@@ -263,20 +263,20 @@ export const SupportWidget: React.FC<{ currentPage: string }> = ({ currentPage }
                       tickets.map(ticket => {
                         const status = STATUS_STYLES[ticket.status] || STATUS_STYLES.open;
                         return (
-                          <div key={ticket.id} className="border border-white/5 rounded-xl p-3 space-y-2">
+                          <div key={ticket.id} className="border border-dx-border rounded-xl p-3 space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-xs text-slate-500">
+                              <span className="text-xs text-dx-text-mute">
                                 {TYPE_LABELS[ticket.type]} &middot; {new Date(ticket.created_at).toLocaleDateString('es')}
                               </span>
                               <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${status.class}`}>
                                 {status.label}
                               </span>
                             </div>
-                            <p className="text-sm text-slate-300 leading-relaxed">{ticket.message}</p>
+                            <p className="text-sm text-dx-text-soft leading-relaxed">{ticket.message}</p>
                             {ticket.admin_response && (
                               <div className="bg-brand/5 border border-brand/10 rounded-lg p-2.5 mt-2">
                                 <p className="text-[10px] text-brand font-bold mb-1">Respuesta del equipo</p>
-                                <p className="text-xs text-slate-300 leading-relaxed">{ticket.admin_response}</p>
+                                <p className="text-xs text-dx-text-soft leading-relaxed">{ticket.admin_response}</p>
                               </div>
                             )}
                           </div>

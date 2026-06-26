@@ -72,9 +72,9 @@ const Platform: React.FC = () => {
   // Error safety for profile loading
   if (!profile) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-4">
-        <h2 className="text-2xl font-bold mb-4 text-center">Cargando Perfil...</h2>
-        <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-dx-bg text-white p-4">
+        <h2 className="text-2xl font-display font-bold mb-4 text-center">Cargando Perfil...</h2>
+        <div className="w-8 h-8 border-4 border-dx-green border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
