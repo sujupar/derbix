@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CalendarDaysIcon, UsersIcon, ArrowLeftOnRectangleIcon, TrophyIcon, PaperAirplaneIcon, ShieldCheckIcon, EllipsisVerticalIcon, ClockIcon, CogIcon } from './icons/Icons';
+import { CalendarDaysIcon, ArrowLeftOnRectangleIcon, PaperAirplaneIcon, ShieldCheckIcon, EllipsisVerticalIcon, CogIcon, TrendingUpIcon, SignalIcon } from './icons/Icons';
 import { cleanPlanLabel } from '../utils/planDisplay';
 import { supabase } from '../services/supabaseService';
 import { getCurrentDateInBogota } from '../utils/dateUtils';
@@ -90,6 +90,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
     : plan.plan_name === 'free' ? 'Mejora tu plan' : 'Plan activo';
   const accountInitials = (profile?.full_name || 'U')
     .split(' ').map(w => w.charAt(0)).slice(0, 2).join('').toUpperCase();
+  // Tema por plan (§11): premium → dorado, pro/élite → plata. Resto → verde (default).
+  const planThemeAttr = plan.plan_name === 'premium' ? 'premium' : plan.plan_name === 'pro' ? 'elite' : undefined;
 
   // Roles: agency (full access) vs client (view only per plan)
   const isAgencySuperadmin = isAgencyRole(profile?.role);
@@ -100,11 +102,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
   const navItems = [
     // Opciones para TODOS los usuarios
     { id: 'live', label: 'Jornadas', section: 'Menú', icon: <CalendarDaysIcon className="w-5 h-5" />, forAgency: true, forAccount: true, forUser: true },
-    { id: 'results', label: 'Resultados', section: 'Menú', icon: <TrophyIcon className="w-5 h-5" />, forAgency: true, forAccount: true, forUser: true },
-    { id: 'live-now', label: 'En vivo', section: 'Menú', icon: <ClockIcon className="w-5 h-5" />, forAgency: true, forAccount: true, forUser: true },
+    { id: 'results', label: 'Resultados', section: 'Menú', icon: <TrendingUpIcon className="w-5 h-5" />, forAgency: true, forAccount: true, forUser: true },
+    { id: 'live-now', label: 'En vivo', section: 'Menú', icon: <SignalIcon className="w-5 h-5" />, live: true, forAgency: true, forAccount: true, forUser: true },
 
     // Opciones SOLO para SUPERADMIN de AGENCIA (platform_owner, agency_admin)
-    { id: 'admin', label: 'Admin', section: 'Gestión', icon: <UsersIcon className="w-5 h-5" />, forAgency: true, forAccount: false, forUser: false },
+    { id: 'admin', label: 'Admin', section: 'Gestión', icon: <ShieldCheckIcon className="w-5 h-5" />, forAgency: true, forAccount: false, forUser: false },
     { id: 'settings', label: 'Configuración', section: 'Gestión', icon: <CogIcon className="w-5 h-5" />, forAgency: true, forAccount: true, forUser: true },
   ];
 
@@ -125,7 +127,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden text-slate-200 font-sans selection:bg-brand selection:text-white bg-dx-bg">
+    <div data-plan={planThemeAttr} className="flex h-screen overflow-hidden text-slate-200 font-sans selection:bg-brand selection:text-white bg-dx-bg">
 
       {/* --- DESKTOP SIDEBAR --- */}
       <aside className="hidden md:flex flex-col w-64 h-full bg-dx-surface backdrop-blur-xl border-r border-[color:var(--color-dx-border)] fixed left-0 top-0 z-30 transition-transform duration-300">
@@ -148,18 +150,19 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
                     key={item.id}
                     onClick={() => setCurrentPage(item.id as Page)}
                     data-onboarding={item.id === 'results' ? 'results' : undefined}
-                    className={`dx-nav-item group active:scale-[0.98] ${isActive ? 'on' : ''}`}
+                    className={`dx-nav-item group active:scale-[0.98] ${(item as any).live ? 'live' : ''} ${isActive ? 'on' : ''}`}
                   >
                     <span className={`transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
                       {item.icon}
                     </span>
                     <span className="tracking-wide">{item.label}</span>
-                    {item.id === 'live' && oppCount > 0 ? (
-                      <span className="ml-auto text-[11px] font-display font-bold text-dx-green bg-dx-green/15 rounded-md px-2 py-0.5 dx-num">{oppCount}</span>
-                    ) : item.id === 'live-now' && liveCount > 0 ? (
+                    {(item as any).live ? (
                       <span className="ml-auto flex items-center gap-1.5 text-[11px] font-bold text-dx-live dx-num">
-                        <span className="w-1.5 h-1.5 rounded-full bg-dx-live animate-pulse" />{liveCount}
+                        <span className="w-1.5 h-1.5 rounded-full bg-dx-live" style={{ animation: 'dxpulse 1.3s ease-in-out infinite' }} />
+                        {liveCount > 0 ? liveCount : ''}
                       </span>
+                    ) : item.id === 'live' && oppCount > 0 ? (
+                      <span className="ml-auto text-[11px] font-display font-bold text-dx-green bg-dx-green/15 rounded-md px-2 py-0.5 dx-num">{oppCount}</span>
                     ) : isActive ? (
                       <span className="ml-auto w-1.5 h-1.5 rounded-full bg-dx-green animate-pulse shadow-[0_0_8px_#1DE782]"></span>
                     ) : null}

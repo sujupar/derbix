@@ -108,18 +108,18 @@ export const OrganizationSwitcher: React.FC<OrganizationSwitcherProps> = ({ onCr
                 </button>
 
                 {isOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-[#0f172a] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl animate-scale-in origin-top">
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-dx-surface border border-dx-border rounded-xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl animate-scale-in origin-top">
                         {/* Buscador */}
-                        <div className="p-2 border-b border-white/5">
-                            <div className="relative">
-                                <MagnifyingGlassIcon className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                        <div className="p-2 border-b border-dx-border">
+                            <div className="relative rounded-lg border border-dx-border focus-within:border-dx-green focus-within:shadow-[0_0_0_3px_rgba(29,231,130,0.14)] transition-all">
+                                <MagnifyingGlassIcon className="w-3.5 h-3.5 text-dx-text-mute absolute left-2.5 top-1/2 -translate-y-1/2" />
                                 <input
                                     ref={searchInputRef}
                                     type="text"
                                     placeholder="Buscar cuenta..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full bg-slate-800/50 border-none rounded-lg py-2 pl-8 pr-3 text-white text-xs focus:ring-1 focus:ring-brand placeholder-slate-500 outline-none"
+                                    className="w-full bg-dx-surface-2 border-none rounded-lg py-2 pl-8 pr-3 text-white text-xs placeholder-dx-text-mute outline-none"
                                 />
                             </div>
                         </div>
@@ -128,14 +128,14 @@ export const OrganizationSwitcher: React.FC<OrganizationSwitcherProps> = ({ onCr
                             {/* Mi cuenta (la del admin) */}
                             {myOrg && (
                                 <div className="p-2 space-y-1">
-                                    <div className="px-3 py-1 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                                    <div className="px-3 py-1 text-[10px] font-semibold text-dx-text-mute uppercase tracking-wider">
                                         Mi cuenta
                                     </div>
                                     <button
                                         onClick={handleSelectMyOrg}
                                         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-sm ${!isImpersonating
-                                            ? 'bg-brand/10 text-brand'
-                                            : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                                            ? 'bg-dx-green/10 text-dx-green border border-dx-border-active'
+                                            : 'text-dx-text-soft hover:bg-dx-surface-2 hover:text-white'
                                         }`}
                                     >
                                         <span className="truncate">{myOrg.name}</span>
@@ -145,8 +145,8 @@ export const OrganizationSwitcher: React.FC<OrganizationSwitcherProps> = ({ onCr
                             )}
 
                             {/* Cuentas de clientes */}
-                            <div className="p-2 space-y-1 border-t border-white/5">
-                                <div className="px-3 py-1 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                            <div className="p-2 space-y-1 border-t border-dx-border">
+                                <div className="px-3 py-1 text-[10px] font-semibold text-dx-text-mute uppercase tracking-wider">
                                     Cuentas ({filteredClientOrgs.length})
                                 </div>
                                 {filteredClientOrgs.map((org) => (
@@ -154,12 +154,12 @@ export const OrganizationSwitcher: React.FC<OrganizationSwitcherProps> = ({ onCr
                                         key={org.id}
                                         onClick={() => handleSelectClientOrg(org.id)}
                                         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-sm ${isImpersonating && currentOrg.id === org.id
-                                            ? 'bg-amber-500/10 text-amber-400'
-                                            : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                                            ? 'bg-dx-green/10 text-dx-green border border-dx-border-active'
+                                            : 'text-dx-text-soft hover:bg-dx-surface-2 hover:text-white'
                                         }`}
                                     >
                                         <div className="flex items-center gap-2 truncate">
-                                            <span className="w-6 h-6 rounded-md bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-400 shrink-0">
+                                            <span className="w-6 h-6 rounded-md bg-dx-surface-2 flex items-center justify-center text-[10px] font-bold text-dx-text-soft shrink-0">
                                                 {org.name.charAt(0).toUpperCase()}
                                             </span>
                                             <span className="truncate">{org.name}</span>
@@ -170,7 +170,7 @@ export const OrganizationSwitcher: React.FC<OrganizationSwitcherProps> = ({ onCr
                                     </button>
                                 ))}
                                 {filteredClientOrgs.length === 0 && (
-                                    <div className="px-3 py-4 text-center text-xs text-slate-500">
+                                    <div className="px-3 py-4 text-center text-xs text-dx-text-mute">
                                         {searchTerm ? 'Sin resultados' : 'No hay cuentas'}
                                     </div>
                                 )}
@@ -178,14 +178,14 @@ export const OrganizationSwitcher: React.FC<OrganizationSwitcherProps> = ({ onCr
                         </div>
 
                         {/* Crear nueva cuenta */}
-                        <div className="p-2 border-t border-white/5">
+                        <div className="p-2 border-t border-dx-border">
                             <button
                                 onClick={() => {
                                     if (onCreateClick) onCreateClick();
                                     else alert("Crear organización: Próximamente");
                                     setIsOpen(false);
                                 }}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-dx-green hover:bg-dx-surface-2 rounded-lg transition-colors font-medium"
                             >
                                 <PlusIcon className="w-4 h-4" />
                                 <span>Nueva cuenta</span>
@@ -223,7 +223,7 @@ export const OrganizationSwitcher: React.FC<OrganizationSwitcherProps> = ({ onCr
             </button>
 
             {isOpen && userOrganizations.length > 1 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-[#0f172a] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl animate-scale-in origin-top">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-dx-surface border border-dx-border rounded-xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl animate-scale-in origin-top">
                     <div className="p-2 space-y-1">
                         {userOrganizations.map((item) => (
                             <button
@@ -233,8 +233,8 @@ export const OrganizationSwitcher: React.FC<OrganizationSwitcherProps> = ({ onCr
                                     setIsOpen(false);
                                 }}
                                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-sm ${currentOrg.id === item.org.id
-                                    ? 'bg-brand/10 text-brand'
-                                    : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                                    ? 'bg-dx-green/10 text-dx-green border border-dx-border-active'
+                                    : 'text-dx-text-soft hover:bg-dx-surface-2 hover:text-white'
                                 }`}
                             >
                                 <span className="truncate">{item.org.name}</span>

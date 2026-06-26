@@ -828,29 +828,19 @@ export const FixturesFeed: React.FC<{ initialLive?: boolean }> = ({ initialLive 
                         </button>
                     </div>
 
-                    {/* Fecha + En vivo */}
+                    {/* Fecha (un solo calendario, §3.3) — el botón EN VIVO se eliminó (§3.2): el en vivo vive solo en el menú izquierdo */}
                     <div className="flex items-center gap-3 w-full sm:w-auto">
                         <div className="relative flex-1 sm:flex-none">
                             <input
                                 type="date"
                                 value={selectedDate}
                                 onChange={(e) => setSelectedDate(e.target.value)}
-                                className="w-full bg-dx-surface border border-dx-border text-white text-sm rounded-xl px-4 py-3 pr-10 outline-none transition-all focus:border-dx-green focus:ring-2 focus:ring-dx-green/30 [color-scheme:dark] dx-num"
+                                className="dx-dateinput w-full bg-dx-surface border border-dx-border text-white text-sm rounded-xl px-4 py-3 pr-10 outline-none transition-all focus:border-dx-green focus:ring-2 focus:ring-dx-green/30 [color-scheme:dark] dx-num"
                             />
                             <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-dx-green">
                                 <CalendarDaysIcon className="w-5 h-5" />
                             </div>
                         </div>
-
-                        {viewMode === 'fixtures' && (
-                            <button
-                                onClick={() => setShowLiveOnly(!showLiveOnly)}
-                                className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all border shrink-0 ${showLiveOnly ? 'bg-dx-live/15 text-dx-live border-dx-live/50' : 'text-dx-text-mute hover:text-dx-live border-dx-border hover:border-dx-live/40'}`}
-                            >
-                                <span className="w-2 h-2 rounded-full bg-dx-live animate-pulse" />
-                                EN VIVO
-                            </button>
-                        )}
 
                         {/* Actualizar Oportunidades (mismo handler, reubicado a la barra) */}
                         {viewMode === 'top-picks' && (
