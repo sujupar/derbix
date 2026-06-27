@@ -34,19 +34,25 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
   // Conteos para los badges del sidebar (oportunidades de hoy + partidos en vivo)
   const [oppCount, setOppCount] = useState(0);
   const [liveCount, setLiveCount] = useState(0);
+  const [analyzedCount, setAnalyzedCount] = useState(0); // pronósticos/partidos del día
 
   useEffect(() => {
     let cancelled = false;
     const loadOpp = async () => {
       try {
         const today = getCurrentDateInBogota();
-        const { count } = await supabase
-          .from('value_picks_v2')
-          .select('id', { count: 'exact', head: true })
-          .eq('is_opportunity', true)
-          .eq('opportunity_date', today);
-        if (!cancelled) setOppCount(count || 0);
-      } catch { /* silencioso — el badge es informativo */ }
+        // Oportunidades (picks de valor) + partidos del día (pronósticos)
+        const [oppRes, matchRes] = await Promise.all([
+          supabase.from('value_picks_v2').select('id', { count: 'exact', head: true })
+            .eq('is_opportunity', true).eq('opportunity_date', today),
+          supabase.from('daily_matches').select('api_fixture_id', { count: 'exact', head: true })
+            .eq('match_date', today),
+        ]);
+        if (!cancelled) {
+          setOppCount(oppRes.count || 0);
+          setAnalyzedCount(matchRes.count || 0);
+        }
+      } catch { /* silencioso — el resumen es informativo */ }
     };
     loadOpp();
     const t = setInterval(loadOpp, 120000);
@@ -173,34 +179,33 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
             <OrganizationSwitcher onCreateClick={() => setIsCreateModalOpen(true)} openUpward />
           </div>
         ) : (
-          /* Usuarios: resumen de hoy (en vivo) + adquirir plan */
+          /* Usuarios: resumen de hoy (en vivo) + mejorar plan */
           <div className="p-4 border-t border-white/5 space-y-3">
-            <div className="rounded-xl border border-dx-border bg-dx-surface-2 p-3.5">
-              <div className="flex items-center gap-1.5 mb-2">
+            <div className="rounded-xl border border-dx-border bg-dx-surface-2 p-3">
+              <div className="flex items-center gap-1.5 mb-2.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-dx-green" style={{ animation: 'dxpulse 1.4s ease-in-out infinite' }} />
                 <span className="text-[10px] uppercase tracking-wider font-bold text-dx-green">En vivo</span>
                 <span className="text-[10px] uppercase tracking-wider font-bold text-dx-text-mute">· Hoy</span>
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="font-display font-extrabold text-3xl text-dx-green dx-num leading-none">{oppCount}</span>
-                <span className="text-xs text-dx-text-soft">oportunidades</span>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="text-center">
+                  <div className="font-display font-extrabold text-2xl text-dx-green dx-num leading-none">{oppCount}</div>
+                  <div className="text-[10px] text-dx-text-mute uppercase tracking-wide mt-1">Oportunidades</div>
+                </div>
+                <div className="text-center border-l border-dx-border">
+                  <div className="font-display font-extrabold text-2xl text-dx-green dx-num leading-none">{analyzedCount}</div>
+                  <div className="text-[10px] text-dx-text-mute uppercase tracking-wide mt-1">Pronósticos</div>
+                </div>
               </div>
             </div>
 
-            <div>
-              <div className="flex items-center gap-2 mb-2 px-1">
-                <ShieldCheckIcon className="w-3.5 h-3.5" style={{ color: '#A78BFA' }} />
-                <span className="text-xs font-bold text-dx-text-soft truncate">Plan {cleanPlanLabel(plan.display_name)}</span>
-              </div>
-              <button
-                onClick={() => setCurrentPage('pricing')}
-                className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl font-extrabold text-sm text-white transition-all hover:brightness-110 active:scale-[0.98]"
-                style={{ background: 'linear-gradient(180deg, #7C3AED, #6D28D9)', boxShadow: '0 8px 22px -10px rgba(109,40,217,0.55)' }}
-              >
-                {plan.plan_name === 'free' ? 'Adquirir plan' : plan.plan_name === 'premium' ? 'Gestionar plan' : 'Mejorar mi plan'}
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-              </button>
-            </div>
+            <button
+              onClick={() => setCurrentPage('pricing')}
+              className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl font-extrabold text-sm text-[#04140C] bg-gradient-to-r from-dx-green to-dx-cyan transition-all hover:brightness-110 hover:shadow-[0_10px_28px_-8px_rgba(34,229,192,0.55)] active:scale-[0.98]"
+            >
+              Mejorar plan
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </button>
           </div>
         )}
       </aside>
