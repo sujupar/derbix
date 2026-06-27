@@ -311,8 +311,9 @@
   font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 700;
   color: var(--color-dx-green); background: rgba(29,231,130,0.14); border-radius: 6px; padding: 1px 7px; }
 
-/* "En vivo" — excepción ROJA (no usa el acento) */
-.dx-nav-item.live { color: var(--color-dx-live); }
+/* "En vivo" — excepción ROJA (no usa el acento) · TODO el ítem palpita */
+.dx-nav-item.live { color: var(--color-dx-live); animation: dxlivepulse 1.5s ease-in-out infinite; }
+@keyframes dxlivepulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 .dx-nav-item.live:hover { color: var(--color-dx-live); background: var(--color-dx-surface-2); }
 .dx-nav-item.live.on { color: var(--color-dx-live); }
 .dx-nav-item.live.on::before { background: var(--color-dx-live); box-shadow: 0 0 10px rgba(255,59,48,0.5); }
