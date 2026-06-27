@@ -296,13 +296,23 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 glass border-t border-white/5 z-40 px-6 pb-safe flex justify-between items-center backdrop-blur-2xl bg-slate-900/95">
           {availableNavItems.slice(0, 5).map((item) => {
             const isActive = currentPage === item.id;
+            const isLive = !!(item as any).live; // "En vivo" siempre en rojo (regla de la plataforma)
+            const color = isLive
+              ? 'text-dx-live'
+              : isActive ? 'text-brand' : 'text-slate-500 active:text-slate-200';
+            const ring = isActive
+              ? (isLive
+                  ? 'bg-dx-live/15 shadow-[0_0_10px_rgba(255,59,48,0.3)] scale-110'
+                  : 'bg-brand/10 shadow-[0_0_10px_rgba(16,185,129,0.2)] scale-110')
+              : 'active:bg-white/5';
             return (
               <button
                 key={item.id}
                 onClick={() => setCurrentPage(item.id as Page)}
-                className={`flex flex-col items-center justify-center flex-1 max-w-[72px] h-full transition-all duration-300 ease-out active:scale-95 ${isActive ? 'text-brand -translate-y-2' : 'text-slate-500 active:text-slate-200'}`}
+                className={`flex flex-col items-center justify-center flex-1 max-w-[72px] h-full transition-all duration-300 ease-out active:scale-95 ${color} ${isActive ? '-translate-y-2' : ''}`}
+                style={isLive ? { animation: 'dxlivepulse 1.6s ease-in-out infinite' } : undefined}
               >
-                <div className={`p-2 rounded-full transition-all duration-300 ease-out ${isActive ? 'bg-brand/10 shadow-[0_0_10px_rgba(16,185,129,0.2)] scale-110' : 'active:bg-white/5'}`}>
+                <div className={`p-2 rounded-full transition-all duration-300 ease-out ${ring}`}>
                   {item.icon}
                 </div>
                 {isActive && <span className="text-[11px] font-bold mt-1">{item.label}</span>}
