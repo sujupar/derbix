@@ -12,6 +12,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useSubscription } from '../../contexts/SubscriptionContext';
 import { isHistoricalDate, getAllowedPickCount } from '../../utils/planAccessUtils';
 import { cleanPlanLabel } from '../../utils/planDisplay';
+import { getCurrentDateInBogota } from '../../utils/dateUtils';
 import { TrophyIcon, ChartBarIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, LockClosedIcon, ChartUpIcon } from '../icons/Icons';
 import { usePresentationMode } from '../../hooks/usePresentationMode';
 import { isAgencyRole } from '../../utils/roles';
@@ -35,6 +36,8 @@ interface HighProbPick {
     result?: string;
     verified_at?: string;
     actual_score?: string;
+    match_time?: string;   // hora de inicio (daily_matches.match_time)
+    match_status?: string; // estado (NS, 1H, 2H, HT, FT...) para detectar EN VIVO
 }
 
 interface HighProbPicksProps {
@@ -63,6 +66,8 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
     const [statusFilter, setStatusFilter] = useState<'all' | 'finished'>('all'); // chips Todos / Finalizados
     const [matchScores, setMatchScores] = useState<Record<number, string>>({});
     const [analysisHealth, setAnalysisHealth] = useState<{ permanentFailed: number; pendingRetry: number }>({ permanentFailed: 0, pendingRetry: 0 });
+    // Rail "Próximos": partidos próximos ya analizados (fechas futuras)
+    const [proximos, setProximos] = useState<{ id: string; job_id: string; fixture_id: number; home_team: string; away_team: string; p_model: number; match_time?: string }[]>([]);
 
     // Transparencia historica: fechas anteriores = todo visible
     const isHistorical = isHistoricalDate(date);
@@ -129,7 +134,7 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                         const fids = [...new Set(persisted.map(p => p.fixture_id))];
                         const { data: matches } = await supabase
                             .from('daily_matches')
-                            .select('api_fixture_id, home_team, away_team, league_name, home_team_logo, away_team_logo')
+                            .select('api_fixture_id, home_team, away_team, league_name, home_team_logo, away_team_logo, match_time, match_status')
                             .in('api_fixture_id', fids);
                         const mmap = new Map<number, any>();
                         (matches || []).forEach((m: any) => mmap.set(m.api_fixture_id, m));
@@ -153,6 +158,8 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                                 result: p.result || 'PENDING',
                                 verified_at: p.verified_at,
                                 actual_score: p.actual_score,
+                                match_time: m?.match_time,
+                                match_status: m?.match_status,
                             };
                         });
                         setSingles(picks);
@@ -271,6 +278,62 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
         return () => { cancelled = true; };
     }, [date]);
 
+    // Rail "Próximos": partidos próximos YA analizados (fechas futuras). Read-only.
+    // TODO: usar is_opportunity para próximos cuando el motor marque fechas futuras.
+    useEffect(() => {
+        let cancelled = false;
+        const loadProximos = async () => {
+            try {
+                const today = getCurrentDateInBogota();
+                const to = new Date(today + 'T12:00:00');
+                to.setDate(to.getDate() + 3);
+                const toStr = to.toISOString().slice(0, 10);
+
+                const { data: futureMatches } = await supabase
+                    .from('daily_matches')
+                    .select('api_fixture_id, home_team, away_team, match_time')
+                    .gt('match_date', today)
+                    .lte('match_date', toStr)
+                    .order('match_time', { ascending: true })
+                    .limit(50);
+
+                const fids = [...new Set((futureMatches || []).map((m: any) => m.api_fixture_id))];
+                if (fids.length === 0) { if (!cancelled) setProximos([]); return; }
+                const mmap = new Map<number, any>();
+                (futureMatches || []).forEach((m: any) => mmap.set(m.api_fixture_id, m));
+
+                const { data: futurePicks } = await supabase
+                    .from('value_picks_v2')
+                    .select('id, job_id, fixture_id, p_model')
+                    .in('fixture_id', fids)
+                    .gte('p_model', OPPORTUNITIES_THRESHOLD); // catches 0–1 (>=0.8) y 0–100 (todas >= 0.8)
+
+                // Normalizar p_model y quedarse con el mejor pick por fixture
+                const byFixture = new Map<number, { id: string; job_id: string; fixture_id: number; p_model: number }>();
+                (futurePicks || []).forEach((p: any) => {
+                    const prob = p.p_model > 1 ? p.p_model / 100 : p.p_model;
+                    if (prob < OPPORTUNITIES_THRESHOLD) return;
+                    const cur = byFixture.get(p.fixture_id);
+                    if (!cur || prob > cur.p_model) byFixture.set(p.fixture_id, { id: p.id, job_id: p.job_id || '', fixture_id: p.fixture_id, p_model: prob });
+                });
+
+                const list = [...byFixture.values()]
+                    .map(p => {
+                        const m = mmap.get(p.fixture_id);
+                        return { ...p, home_team: m?.home_team || 'Equipo', away_team: m?.away_team || 'Equipo', match_time: m?.match_time };
+                    })
+                    .sort((a, b) => (a.match_time || '').localeCompare(b.match_time || ''))
+                    .slice(0, 4);
+
+                if (!cancelled) setProximos(list);
+            } catch (err) {
+                console.warn('[HighProbPicks] próximos load failed:', err);
+            }
+        };
+        loadProximos();
+        return () => { cancelled = true; };
+    }, [date]);
+
     // Filtering Logic: picks with odds >= 1.40 are "main", odds < 1.40 OR no odds are "low/complementary"
     const allMainPicks = singles.filter(p => p.odds && p.odds >= 1.40);
     const lowOddsPicks = singles.filter(p => !p.odds || p.odds < 1.40);
@@ -348,11 +411,18 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
     });
     const featured = [...visiblePicks].sort((a, b) => b.p_model - a.p_model)[0];
     const railLeagues = leagueGroups.map(g => ({ league: g.league, count: g.picks.length }));
-    const proximos = visiblePicks.filter(p => !featured || p.id !== featured.id).slice(0, 4); // TODO: sin datos de hora/próximos reales
     const crest = (name?: string) => (name || '?').replace(/[^A-Za-z0-9 ]/g, '').slice(0, 3).toUpperCase();
-    const probOf = (p: HighProbPick) => Math.round(p.p_model * 100);
+    const probOf = (p: { p_model: number }) => Math.round(p.p_model * 100);
     const oddOf = (p: HighProbPick) => (p.odds && p.odds >= 1.01 ? `@${p.odds.toFixed(2)}` : '—');
     const betOf = (p: HighProbPick) => translatePick(p.market || '', p.selection || '').selectionEs;
+    const LIVE_STATUSES = ['1H', '2H', 'HT', 'ET', 'BT', 'P', 'LIVE', 'INT'];
+    const isLive = (p: { match_status?: string }) => LIVE_STATUSES.includes(p.match_status || '');
+    const kickoffOf = (p: { match_time?: string }): string => {
+        if (!p.match_time) return '';
+        try {
+            return new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' }).format(new Date(p.match_time));
+        } catch { return ''; }
+    };
     const hasPicks = visiblePicks.length > 0 || hasLockedPicks;
 
     return (
@@ -398,16 +468,18 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                                     return (
                                         <div key={pick.id}>
                                             <button className="dxj-pick" style={lost ? { opacity: 0.6 } : undefined} onClick={() => onViewReport?.(pick.job_id, pick.fixture_id)}>
-                                                <span className="dxj-star" aria-hidden>
-                                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
-                                                </span>
                                                 <span className="dxj-crests">
                                                     <b>{pick.logo_home ? <img src={pick.logo_home} alt="" /> : crest(pick.home_team)}</b>
                                                     <b>{pick.logo_away ? <img src={pick.logo_away} alt="" /> : crest(pick.away_team)}</b>
                                                 </span>
                                                 <span className="dxj-pinfo">
                                                     <span className="mt">{pick.home_team} — {pick.away_team}</span>
-                                                    <span className="mk">{betOf(pick)}</span>
+                                                    <span className="mk">
+                                                        {betOf(pick)}
+                                                        {isLive(pick)
+                                                            ? <> · <span className="lv">EN VIVO</span></>
+                                                            : kickoffOf(pick) ? ` · ${kickoffOf(pick)}` : ''}
+                                                    </span>
                                                 </span>
                                                 <span className="dxj-pmeta">
                                                     <span className="prob" style={lost ? { color: 'var(--dx-live)' } : undefined}>{probOf(pick)}%<small>PROB</small></span>
@@ -479,10 +551,11 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                         <div className="dxj-rc">
                             <div className="dxj-rc-t"><ChartBarIcon /> Próximos</div>
                             {proximos.map((p) => (
-                                <div key={p.id} className="dxj-nrow">
+                                <button key={p.id} type="button" className="dxj-nrow" style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid var(--dx-border)', cursor: 'pointer' }} onClick={() => onViewReport?.(p.job_id || '', p.fixture_id)}>
                                     <span className="truncate" style={{ fontSize: '12.5px' }}>{p.home_team} — {p.away_team}</span>
+                                    {kickoffOf(p) && <span className="dx-num" style={{ fontSize: '11px', color: 'var(--dx-text-mute)' }}>{kickoffOf(p)}</span>}
                                     <span className="nt dx-num">{probOf(p)}%</span>
-                                </div>
+                                </button>
                             ))}
                         </div>
                     )}

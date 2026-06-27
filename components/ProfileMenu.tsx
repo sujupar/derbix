@@ -74,6 +74,7 @@ export const ProfileMenu: React.FC<ProfileMenuProps> = ({
                     </div>
 
                     {/* Opciones */}
+                    {/* TODO: enlazar ruta de perfil dedicada cuando exista (hoy va a Configuración) */}
                     <button
                         onClick={() => { setOpen(false); onSettings(); }}
                         className="w-full flex items-center gap-3 px-4 py-3 text-sm text-dx-text-soft hover:bg-dx-surface-2 hover:text-white transition-colors"

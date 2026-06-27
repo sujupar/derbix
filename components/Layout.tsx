@@ -31,8 +31,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
   const { isImpersonating, stopImpersonation, currentOrg } = useOrganization();
   const { plan } = useSubscription();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  // Vista previa del tema por plan (SOLO visual; no cambia el plan real del usuario)
-  const [planPreview, setPlanPreview] = useState<'base' | 'premium' | 'elite' | null>(null);
   // Conteos para los badges del sidebar (oportunidades de hoy + partidos en vivo)
   const [oppCount, setOppCount] = useState(0);
   const [liveCount, setLiveCount] = useState(0);
@@ -72,10 +70,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
 
   const accountInitials = (profile?.full_name || 'U')
     .split(' ').map(w => w.charAt(0)).slice(0, 2).join('').toUpperCase();
-  // Tema por plan: premium → dorado, pro/élite → plata. Resto → verde (default).
+  // Tema por plan REAL: premium → dorado, pro/élite → plata. Resto → verde (default).
+  // Refleja también el plan del cliente cuando un admin usa "Ver como cliente" (impersonación).
   const planThemeAttr = plan.plan_name === 'premium' ? 'premium' : plan.plan_name === 'pro' ? 'elite' : undefined;
-  // Si hay vista previa activa, ésta manda (sidebar + perfil). 'base' = verde (sin atributo).
-  const planScopeAttr = planPreview ? (planPreview === 'base' ? undefined : planPreview) : planThemeAttr;
+  const planScopeAttr = planThemeAttr;
 
   // Roles: agency (full access) vs client (view only per plan)
   const isAgencySuperadmin = isAgencyRole(profile?.role);
@@ -169,43 +167,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
 
         {/* Pie del sidebar — SOLO admins (clientes no ven nada aquí) */}
         {isAgencySuperadmin && (
-          <div className="p-4 border-t border-white/5 space-y-3">
-            {/* Vista previa de tema por plan (no cambia el plan real) */}
-            <div className="rounded-xl border border-dx-border p-2.5">
-              <p className="text-[10px] uppercase tracking-wider text-dx-text-mute mb-2 px-0.5">Vista previa de plan</p>
-              <div className="grid grid-cols-3 gap-1.5">
-                {([
-                  { k: 'base', label: 'Base', c: '#1DE782' },
-                  { k: 'premium', label: 'Premium', c: '#E7B84F' },
-                  { k: 'elite', label: 'Élite', c: '#C2CDD8' },
-                ] as const).map((opt) => {
-                  const active = planPreview === opt.k;
-                  return (
-                    <button
-                      key={opt.k}
-                      onClick={() => setPlanPreview(active ? null : opt.k)}
-                      className="flex flex-col items-center gap-1 py-1.5 rounded-lg border transition-all"
-                      style={{
-                        borderColor: active ? opt.c : 'rgba(255,255,255,0.07)',
-                        background: active ? opt.c + '1f' : 'transparent',
-                      }}
-                    >
-                      <span className="w-3.5 h-3.5 rounded-full" style={{ background: opt.c }} />
-                      <span className="text-[10px] font-bold" style={{ color: active ? opt.c : 'rgba(255,255,255,0.58)' }}>{opt.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              {planPreview && (
-                <p className="text-[9px] text-dx-text-mute mt-1.5 px-0.5">Solo vista previa · tu plan real no cambia</p>
-              )}
-            </div>
-
-            {/* Ver como cliente (selector de cuenta — abre hacia arriba) */}
-            <div>
-              <p className="dx-sidelabel mb-2">Ver como cliente</p>
-              <OrganizationSwitcher onCreateClick={() => setIsCreateModalOpen(true)} openUpward />
-            </div>
+          <div className="p-4 border-t border-white/5">
+            {/* Ver como cliente (impersonación admin — abre hacia arriba) */}
+            <p className="dx-sidelabel mb-2">Ver como cliente</p>
+            <OrganizationSwitcher onCreateClick={() => setIsCreateModalOpen(true)} openUpward />
           </div>
         )}
       </aside>
