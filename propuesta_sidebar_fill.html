@@ -1,60 +1,56 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Derbix — resumen de hoy + plan</title>
+<title>Derbix — resumen + adquirir plan</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Archivo:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
-  :root{--bg:#000;--surf:#0C1310;--surf2:#101A15;--bd:rgba(255,255,255,.08);--bda:rgba(29,231,130,.32);
-    --ac:#1DE782;--ac2:#22E5C0;--ink:#04140C;--tx:#fff;--txs:rgba(255,255,255,.56);--txm:rgba(255,255,255,.32);
-    --gold:#E7B84F;--live:#FF3B30;}
+  :root{--bg:#000;--surf:#0C1310;--surf2:#101A15;--bd:rgba(255,255,255,.08);
+    --ac:#1DE782;--ink:#04140C;--tx:#fff;--txs:rgba(255,255,255,.56);--txm:rgba(255,255,255,.32);
+    --gold:#E7B84F;--live:#FF3B30;--purple:#8B5CF6;--purple2:#A78BFA;}
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:#050505;color:#fff;font-family:Inter,system-ui,sans-serif;padding:30px}
   h1{font-size:18px;margin:0 0 4px;font-family:Archivo}
-  p.s{color:var(--txm);font-size:13px;margin:0 0 24px}
+  p.s{color:var(--txm);font-size:13px;margin:0 0 24px;max-width:760px;line-height:1.5}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
   .row{display:flex;gap:26px;flex-wrap:wrap}
   .col{display:flex;flex-direction:column;gap:12px}
   .tag{font-weight:800;font-size:13px}.tag b{color:var(--ac)}
-  .side{width:248px;background:var(--surf);border:1px solid var(--bd);border-radius:18px;display:flex;flex-direction:column;height:560px;overflow:hidden}
+  .side{width:250px;background:var(--surf);border:1px solid var(--bd);border-radius:18px;display:flex;flex-direction:column;height:540px;overflow:hidden}
   .logo{display:flex;align-items:center;gap:8px;padding:16px;border-bottom:1px solid rgba(255,255,255,.05);font-family:Archivo;font-weight:700;letter-spacing:.13em;font-size:15px}
   .logo svg{color:var(--ac)}
   nav{padding:14px 11px;display:flex;flex-direction:column;gap:4px}
   .lbl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--txm);padding:6px 11px 4px}
   .it{position:relative;display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;color:var(--txs);font-weight:600;font-size:14px}
-  .it.on{background:var(--surf2);color:var(--ac)}
-  .it.on::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:2px;background:var(--ac)}
-  .it.live{color:var(--live)}
-  .it .dot{margin-left:auto;width:6px;height:6px;border-radius:50%}
+  .it.on{background:var(--surf2);color:var(--ac)} .it.on::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:2px;background:var(--ac)}
+  .it.live{color:var(--live)} .it .dot{margin-left:auto;width:6px;height:6px;border-radius:50%}
   .it.on .dot{background:var(--ac)} .it.live .dot{background:var(--live)}
   .fill{margin-top:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
   .card{background:var(--surf2);border:1px solid var(--bd);border-radius:14px;padding:14px}
-  .ct{display:flex;align-items:center;gap:7px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--txm);font-weight:700;margin-bottom:10px}
-  .ct .lv{width:6px;height:6px;border-radius:50%;background:var(--ac);animation:pulse 1.4s infinite}
-  .ct .lvtx{color:var(--ac)}
+  .ct{display:flex;align-items:center;gap:7px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--txm);font-weight:700;margin-bottom:10px}
+  .ct .lv{width:6px;height:6px;border-radius:50%;background:var(--ac);animation:pulse 1.4s infinite}.ct .lvtx{color:var(--ac)}
   .big{display:flex;align-items:baseline;gap:8px}
-  .big .n{font-family:Archivo;font-weight:800;font-size:32px;color:var(--ac);font-variant-numeric:tabular-nums;line-height:1}
+  .big .n{font-family:Archivo;font-weight:800;font-size:34px;color:var(--ac);font-variant-numeric:tabular-nums;line-height:1}
   .big .u{font-size:12px;color:var(--txs)}
-  .acc{margin-top:10px;display:flex;align-items:baseline;justify-content:space-between}
-  .acc .k{font-size:12.5px;color:var(--txs)} .acc .v{font-family:Archivo;font-weight:800;font-size:18px;color:var(--ac);font-variant-numeric:tabular-nums}
-  .mini{display:flex;gap:8px}
-  .mini .b{flex:1;background:var(--surf2);border:1px solid var(--bd);border-radius:12px;padding:11px 6px;text-align:center}
-  .mini .b .v{font-family:Archivo;font-weight:800;font-size:20px;color:var(--ac);font-variant-numeric:tabular-nums}
-  .mini .b .k{font-size:9px;color:var(--txm);text-transform:uppercase;letter-spacing:.04em;margin-top:3px}
-  .planc{background:var(--surf);border:1px solid color-mix(in srgb,var(--gold) 28%,var(--bd));border-radius:14px;padding:13px}
+  .acc{margin-top:11px;display:flex;align-items:baseline;justify-content:space-between}
+  .acc .k{font-size:12px;color:var(--txs)} .acc .v{font-family:Archivo;font-weight:800;font-size:18px;color:var(--ac);font-variant-numeric:tabular-nums}
+  .acc .v.gold{color:var(--gold)}
+  .link{display:inline-flex;align-items:center;gap:5px;margin-top:11px;font-size:12px;color:var(--ac);font-weight:700}
+  /* plan card con CTA morado */
+  .planc{background:var(--surf);border:1px solid color-mix(in srgb,var(--purple) 30%,var(--bd));border-radius:14px;padding:13px}
   .planc .pn{display:flex;align-items:center;gap:7px;font-weight:800;font-size:13.5px}
-  .planc .pn .sh{color:var(--gold)}
+  .planc .pn .sh{color:var(--purple2)}
   .planc .sub{font-size:11px;color:var(--txm);margin:3px 0 11px}
-  .btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:10px;border-radius:10px;background:linear-gradient(180deg,#F6D27A,var(--gold));color:#1A1305;font-weight:800;font-size:13px;border:none;cursor:pointer}
-  .cap{color:var(--txm);font-size:12px;max-width:248px;text-align:center;line-height:1.45}
+  .btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:11px;border-radius:10px;background:linear-gradient(180deg,var(--purple2),var(--purple));color:#fff;font-weight:800;font-size:13px;border:none;cursor:pointer;box-shadow:0 8px 22px -10px rgba(139,92,246,.6)}
+  .cap{color:var(--txm);font-size:12px;max-width:250px;text-align:center;line-height:1.45}
 </style></head>
 <body>
-<h1>Resumen de hoy (en vivo) + botón para adquirir plan</h1>
-<p class="s">Sin ROI, sin "Configuración" duplicado. Dime <b>A</b>, <b>B</b> o <b>C</b>.</p>
+<h1>Stat de arriba (3 versiones) + botón "Adquirir plan" en morado</h1>
+<p class="s">"Hoy" = nº de pronósticos (siempre positivo). El % o $ de abajo es <b>histórico verificado</b> (estable, no del día). El botón morado se distingue de los colores de plan (verde/dorado/plata).</p>
 
 <div class="row">
 
-  <!-- A: número grande + aciertos -->
+  <!-- A1: pronósticos + aciertos verificados -->
   <div class="col">
-    <div class="tag"><b>A</b> · Número grande</div>
+    <div class="tag"><b>A1</b> · Hoy + Aciertos verificados</div>
     <div class="side">
       <div class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg>DERBIX</div>
       <nav>
@@ -65,23 +61,23 @@
       </nav>
       <div class="fill">
         <div class="card">
-          <div class="ct"><span class="lv"></span><span class="lvtx">En vivo</span> · Resumen de hoy</div>
-          <div class="big"><span class="n">12</span><span class="u">pronósticos hoy</span></div>
-          <div class="acc"><span class="k">Aciertos</span><span class="v">64%</span></div>
+          <div class="ct"><span class="lv"></span><span class="lvtx">En vivo</span> · Hoy</div>
+          <div class="big"><span class="n">12</span><span class="u">pronósticos</span></div>
+          <div class="acc"><span class="k">Aciertos verificados</span><span class="v">65%</span></div>
         </div>
         <div class="planc">
-          <div class="pn"><span class="sh">🛡</span> Plan Explorador</div>
+          <div class="pn"><span class="sh">⬆</span> Plan Explorador</div>
           <div class="sub">Desbloquea todas las oportunidades</div>
           <button class="btn">Adquirir plan →</button>
         </div>
       </div>
     </div>
-    <div class="cap">"12" grande llama la atención. Aciertos debajo. Plan + botón a la página de planes.</div>
+    <div class="cap">Nº de hoy + % verificado histórico (estable). El más confiable.</div>
   </div>
 
-  <!-- B: dos cajitas -->
+  <!-- A2: pronósticos + rendimiento en u -->
   <div class="col">
-    <div class="tag"><b>B</b> · Dos cajitas</div>
+    <div class="tag"><b>A2</b> · Hoy + Rendimiento (u)</div>
     <div class="side">
       <div class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg>DERBIX</div>
       <nav>
@@ -91,24 +87,24 @@
         <div class="it live"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"/></svg>En vivo<span class="dot"></span></div>
       </nav>
       <div class="fill">
-        <div class="ct" style="padding:0 2px"><span class="lv"></span><span class="lvtx">En vivo</span> · Resumen de hoy</div>
-        <div class="mini">
-          <div class="b"><div class="v">12</div><div class="k">Pronósticos hoy</div></div>
-          <div class="b"><div class="v">64%</div><div class="k">Aciertos</div></div>
+        <div class="card">
+          <div class="ct"><span class="lv"></span><span class="lvtx">En vivo</span> · Hoy</div>
+          <div class="big"><span class="n">12</span><span class="u">pronósticos</span></div>
+          <div class="acc"><span class="k">Ganancia (30d)</span><span class="v gold">+22u</span></div>
         </div>
         <div class="planc">
-          <div class="pn"><span class="sh">🛡</span> Plan Explorador</div>
+          <div class="pn"><span class="sh">⬆</span> Plan Explorador</div>
           <div class="sub">Mejora para ver todo</div>
           <button class="btn">Mejorar mi plan →</button>
         </div>
       </div>
     </div>
-    <div class="cap">Dos cajitas parejas (pronósticos / aciertos). Más compacto y simétrico.</div>
+    <div class="cap">Nº de hoy + ganancia en unidades (30d). Enfocado en plata/$.</div>
   </div>
 
-  <!-- C: todo en una tarjeta -->
+  <!-- A3: solo pronósticos + ver historial -->
   <div class="col">
-    <div class="tag"><b>C</b> · Una sola tarjeta</div>
+    <div class="tag"><b>A3</b> · Hoy + Ver historial (sin %)</div>
     <div class="side">
       <div class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg>DERBIX</div>
       <nav>
@@ -118,16 +114,19 @@
         <div class="it live"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"/></svg>En vivo<span class="dot"></span></div>
       </nav>
       <div class="fill">
-        <div class="card" style="border-color:color-mix(in srgb,var(--gold) 22%,var(--bd))">
-          <div class="ct"><span class="lv"></span><span class="lvtx">En vivo</span> · Resumen de hoy</div>
-          <div class="big"><span class="n">12</span><span class="u">pronósticos</span></div>
-          <div class="acc" style="border-bottom:1px solid var(--bd);padding-bottom:11px"><span class="k">Aciertos</span><span class="v">64%</span></div>
-          <div class="pn" style="display:flex;align-items:center;gap:7px;font-weight:800;font-size:13px;margin-top:12px"><span style="color:var(--gold)">🛡</span> Plan Explorador</div>
-          <button class="btn" style="margin-top:10px">Adquirir plan →</button>
+        <div class="card">
+          <div class="ct"><span class="lv"></span><span class="lvtx">En vivo</span> · Hoy</div>
+          <div class="big"><span class="n">12</span><span class="u">pronósticos de valor</span></div>
+          <span class="link">Ver mi historial verificado →</span>
+        </div>
+        <div class="planc">
+          <div class="pn"><span class="sh">⬆</span> Plan Explorador</div>
+          <div class="sub">Adquiere el plan que prefieras</div>
+          <button class="btn">Adquirir plan →</button>
         </div>
       </div>
     </div>
-    <div class="cap">Todo junto en una sola tarjeta (resumen + plan). La más ordenada/limpia.</div>
+    <div class="cap">Sin número de riesgo: solo el conteo de hoy + enlace al historial.</div>
   </div>
 
 </div>
