@@ -500,8 +500,8 @@ body {
 .dxj-feat .fbtn { transition: filter .18s, box-shadow .18s, transform .14s; }
 .dxj-feat .fbtn:hover { filter: brightness(1.08); box-shadow: 0 0 22px var(--dx-accent-glow); transform: translateY(-1px); }
 
-/* Botón recargar en la fila de chips (Todos/Finalizados) */
-.dxj-chip-refresh { width:34px; height:34px; flex-shrink:0; border-radius:9px; border:1px solid var(--dx-border); background:var(--dx-surface); display:flex; align-items:center; justify-content:center; color:var(--dx-text-mute); cursor:pointer; transition:.15s; }
+/* Botón recargar en la fila de chips — SOLO móvil (en PC va junto al calendario) */
+.dxj-chip-refresh { display:none; width:34px; height:34px; flex-shrink:0; border-radius:9px; border:1px solid var(--dx-border); background:var(--dx-surface); align-items:center; justify-content:center; color:var(--dx-text-mute); cursor:pointer; transition:.15s; }
 .dxj-chip-refresh:hover { color:var(--dx-accent); border-color:var(--dx-border-active); }
 
 /* Pick: el mercado salta a su propia línea abajo (sólo móvil) */
@@ -552,6 +552,8 @@ body {
   .dxj-rightc { flex-shrink: 0; }
   .dxj-date { padding: 8px 10px; gap: 6px; }
   .dxj-date .dx-dateinput { width: 96px; }   /* más angosto en móvil para que quepa junto a los tabs */
+  .dxj-refresh { display: none; }            /* en móvil la recarga vive en la fila de chips */
+  .dxj-chip-refresh { display: flex; }       /* recarga móvil junto a Todos/Finalizados */
   .dxj-chips { margin-top: 12px; }
   .dxj-pick { gap: 11px; padding: 12px 13px; flex-wrap: wrap; }
   .dxj-crests b { width: 28px; height: 28px; }

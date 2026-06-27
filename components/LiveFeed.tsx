@@ -819,8 +819,6 @@ export const FixturesFeed: React.FC<{ initialLive?: boolean }> = ({ initialLive 
                 </button>
             </div>
             <div className="dxj-rightc">
-                {/* La recarga se movió a la fila de chips (junto a Todos/Finalizados) para
-                    darle aire a la fecha en móvil. */}
                 <label className="dxj-date relative cursor-pointer">
                     <input
                         type="date"
@@ -830,6 +828,13 @@ export const FixturesFeed: React.FC<{ initialLive?: boolean }> = ({ initialLive 
                     />
                     <span className="cal"><CalendarDaysIcon className="w-[18px] h-[18px]" /></span>
                 </label>
+                {/* Recarga: en PC va junto al calendario (oculta en móvil vía CSS; en
+                    móvil la recarga vive en la fila de chips Todos/Finalizados). */}
+                {viewMode === 'top-picks' && (
+                    <button onClick={() => setRefreshSignal(s => s + 1)} title="Actualizar oportunidades" className="dxj-refresh">
+                        <RefreshIcon className="w-[18px] h-[18px]" />
+                    </button>
+                )}
             </div>
         </div>
     );
@@ -847,12 +852,7 @@ export const FixturesFeed: React.FC<{ initialLive?: boolean }> = ({ initialLive 
                         ].filter(g => LIVE_ST.includes(g.fixture.status.short));
                         return (
                             <div className="animate-fade-in">
-                                <div className="dxj-livehead">
-                                    <span className="dot" />
-                                    <span className="lt">En vivo</span>
-                                    {liveGames.length > 0 && <span className="lc">{liveGames.length} {liveGames.length === 1 ? 'partido' : 'partidos'}</span>}
-                                </div>
-                                <div className="dxj-livediv" />
+                                {/* El título "Partidos en vivo" sale arriba (barra superior / encabezado móvil). */}
                                 {isLoading ? (
                                     <LoadingState text="Cargando partidos en vivo..." />
                                 ) : liveGames.length === 0 ? (

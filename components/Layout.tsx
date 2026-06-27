@@ -93,8 +93,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
   const menuPlanName = isAgencySuperadmin ? 'Acceso total' : cleanPlanLabel(plan.display_name);
   // Primer nombre para el saludo móvil ("Hola, Johann")
   const firstName = (profile?.full_name || 'Usuario').trim().split(/\s+/)[0];
-  // Título de la barra superior. 'live-now' (En vivo) muestra su propio header rojo dentro de FixturesFeed.
-  const pageTitle = currentPage === 'live' ? 'Jornadas Deportivas' : '';
+  // Título de la barra superior (al lado del nombre), consistente en todas las páginas.
+  const pageTitle =
+    currentPage === 'live' ? 'Jornadas Deportivas'
+    : currentPage === 'results' ? 'Resultados Generales'
+    : currentPage === 'live-now' ? 'Partidos en vivo'
+    : '';
 
   // Opciones del sidebar (agrupadas por sección — Composición 1)
   const navItems = [

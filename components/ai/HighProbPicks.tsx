@@ -13,7 +13,7 @@ import { useSubscription } from '../../contexts/SubscriptionContext';
 import { isHistoricalDate, getAllowedPickCount } from '../../utils/planAccessUtils';
 import { cleanPlanLabel } from '../../utils/planDisplay';
 import { getCurrentDateInBogota } from '../../utils/dateUtils';
-import { TrophyIcon, ChartBarIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, LockClosedIcon, ChartUpIcon } from '../icons/Icons';
+import { TrophyIcon, ChartBarIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, LockClosedIcon, ChartUpIcon, RefreshIcon } from '../icons/Icons';
 import { usePresentationMode } from '../../hooks/usePresentationMode';
 import { isAgencyRole } from '../../utils/roles';
 import { useOrganization } from '../../contexts/OrganizationContext';
@@ -437,7 +437,7 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                     <div className="ml-auto flex items-center gap-2.5">
                         {mainPicks.length > 0 && <span className="text-xs text-dx-text-mute dx-num">{mainPicks.length} hoy</span>}
                         <button onClick={() => loadPicks(true)} title="Actualizar oportunidades" className="dxj-chip-refresh">
-                            <ArrowPathIcon className="w-[17px] h-[17px]" />
+                            <RefreshIcon className="w-[18px] h-[18px]" />
                         </button>
                     </div>
                 </div>
