@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Derbix — rellenar el sidebar</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Archivo:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#000;--surf:#0C1310;--surf2:#101A15;--bd:rgba(255,255,255,.08);--bda:rgba(29,231,130,.32);
+    --ac:#1DE782;--ac2:#22E5C0;--ink:#04140C;--tx:#fff;--txs:rgba(255,255,255,.56);--txm:rgba(255,255,255,.32);
+    --gold:#E7B84F;--live:#FF3B30;--loss:#F4584E;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#050505;color:#fff;font-family:Inter,system-ui,sans-serif;padding:30px}
+  h1{font-size:18px;margin:0 0 4px;font-family:Archivo}
+  p.s{color:var(--txm);font-size:13px;margin:0 0 24px}
+  .row{display:flex;gap:26px;flex-wrap:wrap}
+  .col{display:flex;flex-direction:column;gap:12px}
+  .tag{font-weight:800;font-size:13px}.tag b{color:var(--ac)}
+  /* sidebar */
+  .side{width:248px;background:var(--surf);border:1px solid var(--bd);border-radius:18px;display:flex;flex-direction:column;height:560px;overflow:hidden}
+  .logo{display:flex;align-items:center;gap:8px;padding:16px;border-bottom:1px solid rgba(255,255,255,.05);font-family:Archivo;font-weight:700;letter-spacing:.13em;font-size:15px}
+  .logo svg{color:var(--ac)}
+  nav{padding:14px 11px;display:flex;flex-direction:column;gap:4px}
+  .lbl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--txm);padding:6px 11px 4px}
+  .it{position:relative;display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;color:var(--txs);font-weight:600;font-size:14px}
+  .it.on{background:var(--surf2);color:var(--ac)}
+  .it.on::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:2px;background:var(--ac)}
+  .it.live{color:var(--live)}
+  .it .dot{margin-left:auto;width:6px;height:6px;border-radius:50%}
+  .it.on .dot{background:var(--ac)} .it.live .dot{background:var(--live)}
+  .fill{margin-top:auto;padding:12px}
+  /* cards */
+  .card{background:var(--surf2);border:1px solid var(--bd);border-radius:14px;padding:14px}
+  .card .ct{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--txm);font-weight:700;margin-bottom:10px}
+  .stat{display:flex;align-items:baseline;justify-content:space-between;padding:5px 0}
+  .stat .k{font-size:12.5px;color:var(--txs)}
+  .stat .v{font-family:Archivo;font-weight:800;font-size:17px;font-variant-numeric:tabular-nums}
+  .v.g{color:var(--ac)} .v.gold{color:var(--gold)}
+  .planc{background:var(--surf);border:1px solid color-mix(in srgb,var(--gold) 28%,var(--bd));border-radius:14px;padding:14px}
+  .planc .pn{font-weight:800;font-size:14px}
+  .planc .sub{font-size:11.5px;color:var(--txs);margin:3px 0 11px}
+  .btn{display:block;width:100%;text-align:center;padding:10px;border-radius:10px;background:linear-gradient(180deg,#5BFFAC,var(--ac));color:var(--ink);font-weight:800;font-size:13px;border:none;cursor:pointer}
+  .btn.gold{background:linear-gradient(180deg,#F6D27A,var(--gold))}
+  .wa{display:flex;align-items:center;gap:11px;background:var(--surf2);border:1px solid var(--bd);border-radius:14px;padding:13px}
+  .wa .ic{width:38px;height:38px;border-radius:10px;background:rgba(29,231,130,.12);display:flex;align-items:center;justify-content:center;color:var(--ac)}
+  .wa .t{font-weight:700;font-size:13px}.wa .d{font-size:11px;color:var(--txm)}
+  .mini{display:flex;gap:8px}
+  .mini .b{flex:1;background:var(--surf2);border:1px solid var(--bd);border-radius:11px;padding:9px 6px;text-align:center}
+  .mini .b .v{font-family:Archivo;font-weight:800;font-size:16px;font-variant-numeric:tabular-nums}
+  .mini .b .k{font-size:9px;color:var(--txm);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+  .cap{color:var(--txm);font-size:12px;max-width:248px;text-align:center;line-height:1.45}
+</style></head>
+<body>
+<h1>¿Con qué llenamos el espacio del sidebar?</h1>
+<p class="s">Sin el "Configuración" duplicado (ya vive en el menú de perfil). Dime <b>1</b>, <b>2</b> o <b>3</b> (o combinamos).</p>
+
+<div class="row">
+
+  <!-- OPCIÓN 1 -->
+  <div class="col">
+    <div class="tag"><b>1</b> · Tu resumen (track record)</div>
+    <div class="side">
+      <div class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg>DERBIX</div>
+      <nav>
+        <div class="lbl">Menú</div>
+        <div class="it on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Jornadas<span class="dot"></span></div>
+        <div class="it"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Resultados</div>
+        <div class="it live"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"/></svg>En vivo<span class="dot"></span></div>
+      </nav>
+      <div class="fill">
+        <div class="card">
+          <div class="ct">Tu resumen · 7 días</div>
+          <div class="stat"><span class="k">Oportunidades hoy</span><span class="v g">12</span></div>
+          <div class="stat"><span class="k">Aciertos</span><span class="v g">64%</span></div>
+          <div class="stat"><span class="k">Rentabilidad</span><span class="v g">+18%</span></div>
+          <div class="stat"><span class="k">Cuota prom.</span><span class="v gold">@1.78</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="cap">Datos reales del sistema. Refuerza la confianza (track record visible siempre).</div>
+  </div>
+
+  <!-- OPCIÓN 2 -->
+  <div class="col">
+    <div class="tag"><b>2</b> · Mejora tu plan (conversión)</div>
+    <div class="side">
+      <div class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg>DERBIX</div>
+      <nav>
+        <div class="lbl">Menú</div>
+        <div class="it on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Jornadas<span class="dot"></span></div>
+        <div class="it"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Resultados</div>
+        <div class="it live"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"/></svg>En vivo<span class="dot"></span></div>
+      </nav>
+      <div class="fill">
+        <div class="planc">
+          <div class="pn">Plan Explorador <span style="color:var(--txm);font-weight:500;font-size:11px">· Gratis</span></div>
+          <div class="sub">Estás viendo 1 de 12 oportunidades de hoy. Desbloquéalas todas.</div>
+          <button class="btn gold">Mejorar mi plan</button>
+        </div>
+      </div>
+    </div>
+    <div class="cap">Empuja a free → pago. Para usuarios premium muestra "Plan Máquina · Acceso total".</div>
+  </div>
+
+  <!-- OPCIÓN 3 -->
+  <div class="col">
+    <div class="tag"><b>3</b> · Combo (resumen mini + comunidad)</div>
+    <div class="side">
+      <div class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg>DERBIX</div>
+      <nav>
+        <div class="lbl">Menú</div>
+        <div class="it on"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Jornadas<span class="dot"></span></div>
+        <div class="it"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Resultados</div>
+        <div class="it live"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"/></svg>En vivo<span class="dot"></span></div>
+      </nav>
+      <div class="fill" style="display:flex;flex-direction:column;gap:10px">
+        <div class="mini">
+          <div class="b"><div class="v g">12</div><div class="k">Hoy</div></div>
+          <div class="b"><div class="v g">64%</div><div class="k">Aciertos</div></div>
+          <div class="b"><div class="v g">+18%</div><div class="k">ROI 7d</div></div>
+        </div>
+        <div class="wa">
+          <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></div>
+          <div><div class="t">Comunidad</div><div class="d">Únete por WhatsApp</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="cap">Mezcla: mini-stats arriba + acceso a la comunidad. Equilibrado.</div>
+  </div>
+
+</div>
+</body></html>
