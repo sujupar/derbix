@@ -64,6 +64,16 @@ const FALLBACK_PLANS = [
     { name: 'premium', display_name: 'Máquina', price_cents: 14999, annual_price_cents: 143990, description: 'El sistema completo. Sin límites.' },
 ];
 
+// --- Color por plan (idéntico al interior de la plataforma) ---
+//   Ventaja (starter) → verde · Élite (pro) → plateado · Máquina (premium) → oro
+type PlanTheme = { base: string; bright: string; deep: string; ink: string; gradientText: boolean };
+const PLAN_THEME: Record<string, PlanTheme> = {
+    starter: { base: '#1DE782', bright: '#5BFFAC', deep: '#0BA35A', ink: '#04140C', gradientText: false },
+    pro:     { base: '#C2CDD8', bright: '#E8EEF3', deep: '#8A97A4', ink: '#10151A', gradientText: true },
+    premium: { base: '#E7B84F', bright: '#F6D27A', deep: '#B8902E', ink: '#1A1304', gradientText: true },
+};
+const DEFAULT_THEME: PlanTheme = PLAN_THEME.starter;
+
 export const LandingPricing: React.FC = () => {
     const navigate = useNavigate();
     const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
@@ -113,15 +123,15 @@ export const LandingPricing: React.FC = () => {
                 <div className={`max-w-2xl mx-auto mb-12 transition-all duration-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
                     }`} style={{ transitionDelay: '50ms' }}>
                     <div className="grid grid-cols-3 gap-3">
-                        <div className="text-center p-3 bg-slate-900/60 backdrop-blur-sm rounded-xl border border-white/5">
+                        <div className="text-center p-3 bg-[#0C1310] backdrop-blur-sm rounded-xl border border-white/5">
                             <div className="text-xl md:text-2xl font-black text-brand">65.1%</div>
                             <div className="text-xs text-white font-medium mt-0.5">Win Rate</div>
                         </div>
-                        <div className="text-center p-3 bg-slate-900/60 backdrop-blur-sm rounded-xl border border-white/5">
+                        <div className="text-center p-3 bg-[#0C1310] backdrop-blur-sm rounded-xl border border-white/5">
                             <div className="text-xl md:text-2xl font-black text-brand">91.7%</div>
                             <div className="text-xs text-white font-medium mt-0.5">Alta Confianza</div>
                         </div>
-                        <div className="text-center p-3 bg-slate-900/60 backdrop-blur-sm rounded-xl border border-white/5">
+                        <div className="text-center p-3 bg-[#0C1310] backdrop-blur-sm rounded-xl border border-white/5">
                             <div className="text-xl md:text-2xl font-black text-brand">+29.3%</div>
                             <div className="text-xs text-white font-medium mt-0.5">ROI</div>
                         </div>
@@ -174,17 +184,38 @@ export const LandingPricing: React.FC = () => {
                             const bonuses = PLAN_BONUSES[plan.name] || [];
                             const savingsPercent = perceivedValue ? Math.round((1 - (plan.price_cents / 100) / perceivedValue) * 100) : null;
 
+                            // Color por plan: Ventaja→verde, Élite→plateado, Máquina→oro
+                            const theme = PLAN_THEME[plan.name] || DEFAULT_THEME;
+                            const featured = isPro; // Élite (plateado) es el plan destacado
+                            const accentStyle: React.CSSProperties = theme.gradientText
+                                ? { background: `linear-gradient(90deg, ${theme.bright}, ${theme.base})`, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }
+                                : { color: theme.base };
+                            const cardStyle = {
+                                ['--pc']: theme.base,
+                                ['--pci']: theme.ink,
+                                ['--pc-tint']: `color-mix(in srgb, ${theme.base} 12%, transparent)`,
+                                ['--pc-bd']: `color-mix(in srgb, ${theme.base} 35%, transparent)`,
+                                background: featured
+                                    ? `linear-gradient(180deg, color-mix(in srgb, ${theme.base} 7%, #0C1310), #0C1310)`
+                                    : '#0C1310',
+                                borderColor: featured
+                                    ? `color-mix(in srgb, ${theme.base} 42%, transparent)`
+                                    : `color-mix(in srgb, ${theme.base} 20%, rgba(255,255,255,0.06))`,
+                                boxShadow: featured ? `0 0 50px -10px color-mix(in srgb, ${theme.base} 34%, transparent)` : undefined,
+                            } as React.CSSProperties;
+
                             return (
                                 <div
                                     key={plan.name}
-                                    className={`relative rounded-3xl border transition-all duration-500 ${isPro
-                                        ? 'bg-slate-900/80 border-brand/30 shadow-[0_0_40px_rgba(16,185,129,0.1)] scale-[1.02] lg:scale-105'
-                                        : 'bg-slate-900/50 border-white/5 hover:border-white/10'
-                                        }`}
+                                    style={cardStyle}
+                                    className={`relative rounded-3xl border transition-all duration-500 hover:-translate-y-1 ${featured ? 'scale-[1.02] lg:scale-105' : 'hover:shadow-[0_24px_60px_-28px_var(--pc)]'}`}
                                 >
                                     {/* Popular badge */}
-                                    {isPro && (
-                                        <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-gradient-to-r from-brand to-emerald-600 text-white text-xs font-bold rounded-full uppercase tracking-wider flex items-center gap-1.5">
+                                    {featured && (
+                                        <div
+                                            className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 text-xs font-bold rounded-full uppercase tracking-wider flex items-center gap-1.5"
+                                            style={{ background: `linear-gradient(90deg, ${theme.bright}, ${theme.deep})`, color: theme.ink }}
+                                        >
                                             <SparklesIcon className="w-3.5 h-3.5" />
                                             Más Popular
                                         </div>
@@ -192,7 +223,7 @@ export const LandingPricing: React.FC = () => {
 
                                     <div className="p-8">
                                         {/* Plan name */}
-                                        <h3 className="text-xl font-bold text-white mb-1">{plan.display_name}</h3>
+                                        <h3 className="text-xl font-display font-bold mb-1" style={accentStyle}>{plan.display_name}</h3>
                                         <p className="text-sm text-slate-400 mb-6">{plan.description || ''}</p>
 
                                         {/* Price */}
@@ -203,7 +234,7 @@ export const LandingPricing: React.FC = () => {
                                                 </div>
                                             )}
                                             <div className="flex items-baseline gap-1">
-                                                <span className={`text-4xl font-display font-bold ${isPro ? 'text-brand' : 'text-white'}`}>
+                                                <span className="text-4xl font-display font-bold" style={accentStyle}>
                                                     {billingPeriod === 'annual' && annualCents > 0
                                                         ? `$${(annualCents / 12 / 100).toFixed(2)}`
                                                         : `$${(plan.price_cents / 100).toFixed(2)}`}
@@ -239,7 +270,7 @@ export const LandingPricing: React.FC = () => {
                                             <ul className="space-y-3 mb-6">
                                                 {getFeatures(plan as SubscriptionPlan).map((feat, fi) => (
                                                     <li key={fi} className="flex items-start gap-3">
-                                                        <CheckIcon className="w-5 h-5 text-brand flex-shrink-0 mt-0.5" />
+                                                        <CheckIcon className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: theme.base }} />
                                                         <span className="text-sm text-slate-300">{feat}</span>
                                                     </li>
                                                 ))}
@@ -264,15 +295,22 @@ export const LandingPricing: React.FC = () => {
                                         )}
 
                                         {/* CTA */}
-                                        <button
-                                            onClick={() => handleSelect(plan.name)}
-                                            className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all ${isPro
-                                                ? 'bg-brand text-white hover:bg-brand-hover shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)]'
-                                                : 'bg-white/5 text-white hover:bg-white/10 border border-white/10'
-                                                }`}
-                                        >
-                                            {cta}
-                                        </button>
+                                        {featured ? (
+                                            <button
+                                                onClick={() => handleSelect(plan.name)}
+                                                className="w-full py-3.5 rounded-xl font-bold text-sm transition-all hover:brightness-110"
+                                                style={{ background: `linear-gradient(90deg, ${theme.bright}, ${theme.base})`, color: theme.ink, boxShadow: `0 0 24px -2px color-mix(in srgb, ${theme.base} 45%, transparent)` }}
+                                            >
+                                                {cta}
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => handleSelect(plan.name)}
+                                                className="w-full py-3.5 rounded-xl font-bold text-sm transition-all border bg-[var(--pc-tint)] text-[var(--pc)] border-[var(--pc-bd)] hover:bg-[var(--pc)] hover:text-[var(--pci)]"
+                                            >
+                                                {cta}
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             );

@@ -27,7 +27,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
   }, [session]);
 
   return (
-    <div className="min-h-screen bg-slate-950 font-sans text-slate-200 selection:bg-brand selection:text-white overflow-x-hidden">
+    <div className="min-h-screen bg-black font-sans text-slate-200 selection:bg-brand selection:text-white overflow-x-hidden">
       <LandingNavbar onGetStarted={onGetStarted} onLoginClick={onLoginClick} />
       <LandingHero onGetStarted={onGetStarted} />
       <TrustSignals />

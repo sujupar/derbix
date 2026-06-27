@@ -20,16 +20,16 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onGetStarted, onLo
     <>
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
         scrolled
-          ? 'bg-slate-950/95 backdrop-blur-xl shadow-2xl shadow-black/20 border-b border-white/5'
+          ? 'bg-black/90 backdrop-blur-xl shadow-2xl shadow-black/40 border-b border-white/5'
           : 'bg-transparent'
       }`}>
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           {/* Logo */}
-          <a href="/" className="flex items-center gap-2.5 animate-fade-in">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand to-emerald-600 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.4)]">
-              <ChartBarIcon className="w-6 h-6 text-white" />
+          <a href="/" className="flex items-center gap-2 animate-fade-in">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-brand to-emerald-600 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.4)]">
+              <ChartBarIcon className="w-7 h-7 text-black" />
             </div>
-            <span className="text-xl font-display font-bold text-white tracking-tight">
+            <span className="text-xl font-display font-bold text-white tracking-[-0.03em]">
               Der<span className="text-brand">bix</span>
             </span>
           </a>
@@ -98,7 +98,7 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onGetStarted, onLo
       <div className={`fixed inset-0 z-40 transition-all duration-300 md:hidden ${
         menuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
       }`}>
-        <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-xl" onClick={() => setMenuOpen(false)} />
+        <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setMenuOpen(false)} />
         <div className={`relative pt-24 px-6 flex flex-col gap-2 transition-all duration-500 ${
           menuOpen ? 'translate-y-0 opacity-100' : '-translate-y-8 opacity-0'
         }`}>

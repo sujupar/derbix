@@ -69,8 +69,8 @@ export const FAQSection: React.FC = () => {
               key={i}
               className={`rounded-2xl border transition-all duration-500 ${
                 openIndex === i
-                  ? 'bg-slate-900/80 border-brand/20'
-                  : 'bg-slate-900/30 border-white/5 hover:border-white/10'
+                  ? 'bg-[#121E18] border-brand/20'
+                  : 'bg-[#0C1310] border-white/5 hover:border-white/10'
               } ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
               style={{ transitionDelay: `${200 + i * 50}ms` }}
             >

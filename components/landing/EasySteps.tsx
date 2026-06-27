@@ -77,7 +77,7 @@ export const EasySteps: React.FC = () => {
                 </div>
 
                 {/* Icon + Content */}
-                <div className="group p-6 rounded-2xl bg-slate-900/40 border border-white/5 hover:border-brand/20 hover:bg-slate-900/70 transition-all duration-500">
+                <div className="group p-6 rounded-2xl bg-[#0C1310] border border-white/5 hover:border-brand/20 hover:bg-[#121E18] transition-all duration-500">
                   <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center mx-auto mb-4">
                     <Icon className="w-5 h-5 text-brand" />
                   </div>

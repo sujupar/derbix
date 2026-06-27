@@ -64,7 +64,7 @@ export const ProblemSection: React.FC = () => {
   const { ref, isVisible } = useScrollReveal();
 
   return (
-    <section className="py-24 md:py-32 px-6 bg-slate-950 relative overflow-hidden">
+    <section className="py-24 md:py-32 px-6 bg-black relative overflow-hidden">
       {/* Subtle background accent */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-red-600/3 rounded-full blur-[120px] pointer-events-none" />
 
@@ -91,7 +91,7 @@ export const ProblemSection: React.FC = () => {
             return (
               <div
                 key={i}
-                className={`group relative p-8 rounded-2xl bg-slate-900/50 border border-white/5 ${problem.border} transition-all duration-500 hover:bg-slate-900/80 ${
+                className={`group relative p-8 rounded-2xl bg-[#0C1310] border border-white/5 ${problem.border} transition-all duration-500 hover:bg-[#121E18] ${
                   isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
                 }`}
                 style={{ transitionDelay: `${200 + i * 100}ms` }}

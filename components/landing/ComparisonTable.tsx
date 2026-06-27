@@ -127,7 +127,7 @@ export const ComparisonTable: React.FC = () => {
         </div>
 
         {/* Table */}
-        <div className={`overflow-x-auto rounded-2xl border border-white/5 bg-slate-900/40 backdrop-blur-sm transition-all duration-700 ${
+        <div className={`overflow-x-auto rounded-2xl border border-white/5 bg-[#0C1310] backdrop-blur-sm transition-all duration-700 ${
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
         }`} style={{ transitionDelay: '200ms' }}>
           <table className="w-full min-w-[700px]">

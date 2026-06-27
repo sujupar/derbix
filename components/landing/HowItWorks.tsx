@@ -89,7 +89,7 @@ const StepCard: React.FC<{
       <div className={`hidden lg:flex w-full items-center gap-8 ${isEven ? '' : 'flex-row-reverse'}`}>
         {/* Content side */}
         <div className={`flex-1 ${isEven ? 'text-right' : 'text-left'}`}>
-          <div className={`group inline-block p-8 rounded-3xl bg-slate-900/60 border border-white/5 hover:border-white/10 transition-all duration-500 hover:scale-[1.02] ${step.glow} hover:shadow-xl max-w-lg ${isEven ? 'ml-auto' : 'mr-auto'}`}>
+          <div className={`group inline-block p-8 rounded-3xl bg-[#0C1310] border border-white/5 hover:border-white/10 transition-all duration-500 hover:scale-[1.02] ${step.glow} hover:shadow-xl max-w-lg ${isEven ? 'ml-auto' : 'mr-auto'}`}>
             <div className={`flex items-center gap-4 mb-4 ${isEven ? 'justify-end' : ''}`}>
               <div className={`w-11 h-11 rounded-xl ${step.bg} flex items-center justify-center flex-shrink-0 ${isEven ? 'order-2' : ''}`}>
                 <Icon className={`w-5 h-5 ${step.color}`} />
@@ -102,7 +102,7 @@ const StepCard: React.FC<{
 
         {/* Center number + line */}
         <div className="relative flex flex-col items-center flex-shrink-0">
-          <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${step.gradientFrom} to-slate-900 flex items-center justify-center border border-white/10 shadow-lg z-10`}>
+          <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${step.gradientFrom} to-black flex items-center justify-center border border-white/10 shadow-lg z-10`}>
             <span className="text-lg font-display font-bold text-white">{step.number}</span>
           </div>
           {index < steps.length - 1 && (
@@ -118,7 +118,7 @@ const StepCard: React.FC<{
       <div className="lg:hidden flex gap-5 w-full">
         {/* Number + line */}
         <div className="relative flex flex-col items-center flex-shrink-0">
-          <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${step.gradientFrom} to-slate-900 flex items-center justify-center border border-white/10 shadow-lg z-10`}>
+          <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${step.gradientFrom} to-black flex items-center justify-center border border-white/10 shadow-lg z-10`}>
             <span className="text-base font-display font-bold text-white">{step.number}</span>
           </div>
           {index < steps.length - 1 && (
@@ -127,7 +127,7 @@ const StepCard: React.FC<{
         </div>
 
         {/* Content */}
-        <div className="group flex-1 p-6 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-white/10 transition-all duration-500 mb-4">
+        <div className="group flex-1 p-6 rounded-2xl bg-[#0C1310] border border-white/5 hover:border-white/10 transition-all duration-500 mb-4">
           <div className="flex items-center gap-3 mb-3">
             <div className={`w-10 h-10 rounded-xl ${step.bg} flex items-center justify-center flex-shrink-0`}>
               <Icon className={`w-5 h-5 ${step.color}`} />
