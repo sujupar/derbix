@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CalendarDaysIcon, ShieldCheckIcon, CogIcon, TrendingUpIcon, SignalIcon } from './icons/Icons';
+import { CalendarDaysIcon, ShieldCheckIcon, TrendingUpIcon, SignalIcon } from './icons/Icons';
 import { cleanPlanLabel } from '../utils/planDisplay';
 import { supabase } from '../services/supabaseService';
 import { getCurrentDateInBogota } from '../utils/dateUtils';
@@ -95,8 +95,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
     { id: 'live-now', label: 'En vivo', section: 'Menú', icon: <SignalIcon className="w-5 h-5" />, live: true, forAgency: true, forAccount: true, forUser: true },
 
     // Solo SUPERADMIN de AGENCIA (platform_owner, agency_admin)
+    // Configuración se quitó del menú: ya vive en el menú de perfil (arriba-derecha).
     { id: 'admin', label: 'Admin', section: 'Gestión', icon: <ShieldCheckIcon className="w-5 h-5" />, forAgency: true, forAccount: false, forUser: false },
-    { id: 'settings', label: 'Configuración', section: 'Gestión', icon: <CogIcon className="w-5 h-5" />, forAgency: true, forAccount: true, forUser: true },
   ];
 
   const availableNavItems = navItems.filter(item => {
@@ -165,12 +165,42 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
           />
         )}
 
-        {/* Pie del sidebar — SOLO admins (clientes no ven nada aquí) */}
-        {isAgencySuperadmin && (
+        {/* Pie del sidebar */}
+        {isAgencySuperadmin ? (
+          /* Admins: impersonación (clientes NO ven esto) */
           <div className="p-4 border-t border-white/5">
-            {/* Ver como cliente (impersonación admin — abre hacia arriba) */}
             <p className="dx-sidelabel mb-2">Ver como cliente</p>
             <OrganizationSwitcher onCreateClick={() => setIsCreateModalOpen(true)} openUpward />
+          </div>
+        ) : (
+          /* Usuarios: resumen de hoy (en vivo) + adquirir plan */
+          <div className="p-4 border-t border-white/5 space-y-3">
+            <div className="rounded-xl border border-dx-border bg-dx-surface-2 p-3.5">
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-dx-green" style={{ animation: 'dxpulse 1.4s ease-in-out infinite' }} />
+                <span className="text-[10px] uppercase tracking-wider font-bold text-dx-green">En vivo</span>
+                <span className="text-[10px] uppercase tracking-wider font-bold text-dx-text-mute">· Hoy</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="font-display font-extrabold text-3xl text-dx-green dx-num leading-none">{oppCount}</span>
+                <span className="text-xs text-dx-text-soft">oportunidades</span>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <ShieldCheckIcon className="w-3.5 h-3.5" style={{ color: '#A78BFA' }} />
+                <span className="text-xs font-bold text-dx-text-soft truncate">Plan {cleanPlanLabel(plan.display_name)}</span>
+              </div>
+              <button
+                onClick={() => setCurrentPage('pricing')}
+                className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl font-extrabold text-sm text-white transition-all hover:brightness-110 active:scale-[0.98]"
+                style={{ background: 'linear-gradient(180deg, #7C3AED, #6D28D9)', boxShadow: '0 8px 22px -10px rgba(109,40,217,0.55)' }}
+              >
+                {plan.plan_name === 'free' ? 'Adquirir plan' : plan.plan_name === 'premium' ? 'Gestionar plan' : 'Mejorar mi plan'}
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              </button>
+            </div>
           </div>
         )}
       </aside>
