@@ -43,9 +43,10 @@ interface HighProbPicksProps {
     onPickOverridden?: () => void;
     onAccessibleFixturesChange?: (fixtureIds: Set<number>) => void;
     refreshSignal?: number;
+    toolbar?: React.ReactNode; // toolrow (toggle + fecha + recargar) inyectado por LiveFeed
 }
 
-const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPickOverridden, onAccessibleFixturesChange, refreshSignal }) => {
+const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPickOverridden, onAccessibleFixturesChange, refreshSignal, toolbar }) => {
     const { profile } = useAuth();
     const { plan, isAdmin: isSubAdmin, trackUsage } = useSubscription();
     const { presentationMode } = usePresentationMode();
@@ -59,6 +60,7 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
     const [inProgress, setInProgress] = useState(0);
     const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
     const [verificationFilter, setVerificationFilter] = useState<'all' | 'pending' | 'verified'>('all');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'finished'>('all'); // chips Todos / Finalizados
     const [matchScores, setMatchScores] = useState<Record<number, string>>({});
     const [analysisHealth, setAnalysisHealth] = useState<{ permanentFailed: number; pendingRetry: number }>({ permanentFailed: 0, pendingRetry: 0 });
 
@@ -320,166 +322,191 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
     if (isLoading) return <LoadingState />;
     if (error) return <ErrorState error={error} onRetry={() => loadPicks(true)} />;
 
+    // --- Datos derivados para el layout de 2 columnas ---
+    const overridePick = async (pick: HighProbPick, result: 'WON' | 'LOST' | 'VOID') => {
+        try {
+            await manualOverridePick(pick.id, result, {
+                fixture_id: pick.fixture_id, market: pick.market, selection: pick.selection,
+                p_model: pick.p_model, odds: pick.odds, job_id: pick.job_id,
+            });
+            setSingles(prev => prev.map(p => p.id === pick.id
+                ? { ...p, result, actual_score: `Manual: ${result}`, verified_at: new Date().toISOString() } : p));
+            onPickOverridden?.();
+        } catch (err: any) {
+            console.error('[HighProbPicks] Override error:', err);
+            alert(`Error: ${err.message}`);
+        }
+    };
+    const isFinishedPick = (p: HighProbPick) => !!p.result && p.result !== 'PENDING';
+    const displayPicks = statusFilter === 'finished' ? visiblePicks.filter(isFinishedPick) : visiblePicks;
+    const leagueGroups: { league: string; picks: HighProbPick[] }[] = [];
+    displayPicks.forEach((p) => {
+        const lg = p.league || 'Otras ligas';
+        let g = leagueGroups.find(x => x.league === lg);
+        if (!g) { g = { league: lg, picks: [] }; leagueGroups.push(g); }
+        g.picks.push(p);
+    });
+    const featured = [...visiblePicks].sort((a, b) => b.p_model - a.p_model)[0];
+    const railLeagues = leagueGroups.map(g => ({ league: g.league, count: g.picks.length }));
+    const proximos = visiblePicks.filter(p => !featured || p.id !== featured.id).slice(0, 4); // TODO: sin datos de hora/próximos reales
+    const crest = (name?: string) => (name || '?').replace(/[^A-Za-z0-9 ]/g, '').slice(0, 3).toUpperCase();
+    const probOf = (p: HighProbPick) => Math.round(p.p_model * 100);
+    const oddOf = (p: HighProbPick) => (p.odds && p.odds >= 1.01 ? `@${p.odds.toFixed(2)}` : '—');
+    const betOf = (p: HighProbPick) => translatePick(p.market || '', p.selection || '').selectionEs;
+    const hasPicks = visiblePicks.length > 0 || hasLockedPicks;
+
     return (
-        <div className="space-y-6">
-            {/* Cabecera del panel \u2014 icono verde + titulo + subtitulo + meta (dato real) */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-dx-border">
-                <div className="flex items-center gap-3">
-                    <div className="w-14 h-14 shrink-0 flex items-center justify-center bg-gradient-to-br from-dx-green-deep to-dx-green rounded-2xl shadow-lg shadow-dx-green-glow">
-                        <ChartUpIcon className="w-8 h-8 text-[#04140C]" />
-                    </div>
-                    <div>
-                        <h3 className="text-xl sm:text-2xl font-display font-bold text-white tracking-tight">Oportunidades de Valor</h3>
-                        <p className="text-sm text-dx-text-soft">{'Pron\u00f3sticos individuales \u00b7 Prob \u2265 '}{OPPORTUNITIES_THRESHOLD_PERCENT}%</p>
-                    </div>
+        <div className="dxj-body">
+            {/* ===== COLUMNA IZQUIERDA ===== */}
+            <div className="dxj-colmain">
+                {toolbar}
+
+                <div className="dxj-chips">
+                    <button className={`dxj-chip ${statusFilter === 'all' ? 'on' : ''}`} onClick={() => setStatusFilter('all')}>Todos</button>
+                    <button className={`dxj-chip ${statusFilter === 'finished' ? 'on' : ''}`} onClick={() => setStatusFilter('finished')}>Finalizados</button>
+                    {mainPicks.length > 0 && <span className="ml-auto self-center text-xs text-dx-text-mute dx-num">{mainPicks.length} hoy</span>}
                 </div>
 
-                <div className="flex items-center gap-3">
-                    {/* Admin verification filter (pills) */}
-                    {isAdmin && allMainPicks.length > 0 && (
-                        <div className="flex items-center bg-dx-surface-2 rounded-lg border border-dx-border p-0.5">
-                            <button
-                                onClick={() => setVerificationFilter('all')}
-                                className={`px-3 py-2 sm:px-2.5 sm:py-1.5 rounded-md text-xs min-h-[44px] sm:min-h-0 font-bold transition-all ${
-                                    verificationFilter === 'all' ? 'bg-dx-green/15 text-dx-green' : 'text-dx-text-soft hover:text-white'
-                                }`}
-                            >
-                                Todos ({allMainPicks.length})
-                            </button>
-                            <button
-                                onClick={() => setVerificationFilter('pending')}
-                                className={`px-3 py-2 sm:px-2.5 sm:py-1.5 rounded-md text-xs min-h-[44px] sm:min-h-0 font-bold transition-all ${
-                                    verificationFilter === 'pending' ? 'bg-dx-gold/20 text-dx-gold border border-dx-gold/30' : 'text-dx-text-soft hover:text-white'
-                                }`}
-                            >
-                                Pendientes ({pendingCount})
-                            </button>
-                            <button
-                                onClick={() => setVerificationFilter('verified')}
-                                className={`px-3 py-2 sm:px-2.5 sm:py-1.5 rounded-md text-xs min-h-[44px] sm:min-h-0 font-bold transition-all ${
-                                    verificationFilter === 'verified' ? 'bg-dx-green/15 text-dx-green border border-dx-green/30' : 'text-dx-text-soft hover:text-white'
-                                }`}
-                            >
-                                Verificados ({verifiedCount})
-                            </button>
-                        </div>
-                    )}
+                {(analysisHealth.pendingRetry > 0 || analysisHealth.permanentFailed > 0) && (
+                    <div className="space-y-2 mt-4">
+                        {analysisHealth.pendingRetry > 0 && (
+                            <div className="flex items-center gap-3 bg-dx-surface-2 border border-dx-border rounded-lg px-4 py-3">
+                                <div className="w-5 h-5 border-2 border-dx-green border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+                                <p className="text-sm text-dx-text-soft"><span className="font-bold text-white">{analysisHealth.pendingRetry} partidos</span> en análisis. Las oportunidades aparecerán cuando terminen.</p>
+                            </div>
+                        )}
+                        {analysisHealth.permanentFailed > 0 && (
+                            <div className="flex items-center gap-3 bg-dx-gold/10 border border-dx-gold/30 rounded-lg px-4 py-3">
+                                <span className="text-dx-gold text-lg flex-shrink-0">⚠</span>
+                                <p className="text-sm text-dx-text-soft"><span className="font-bold text-dx-gold">{analysisHealth.permanentFailed} partidos</span> no pudieron analizarse (datos incompletos).</p>
+                            </div>
+                        )}
+                    </div>
+                )}
 
-                    {/* Meta de contexto \u2014 solo si el dato existe */}
-                    {mainPicks.length > 0 && (
-                        <p className="text-sm font-display font-bold text-dx-green dx-num whitespace-nowrap">{mainPicks.length} hoy</p>
-                    )}
-                </div>
+                {hasPicks ? (
+                    <div className="mt-5">
+                        {leagueGroups.map((g) => (
+                            <div key={g.league}>
+                                <div className="dxj-lghead">
+                                    <span className="fl">{crest(g.league).slice(0, 2)}</span>
+                                    <span className="nm">{g.league}</span>
+                                    <span className="ct dx-num">{g.picks.length} {g.picks.length === 1 ? 'oportunidad' : 'oportunidades'}</span>
+                                </div>
+                                {g.picks.map((pick) => {
+                                    const lost = !presentationMode && pick.result === 'LOST';
+                                    return (
+                                        <div key={pick.id}>
+                                            <button className="dxj-pick" style={lost ? { opacity: 0.6 } : undefined} onClick={() => onViewReport?.(pick.job_id, pick.fixture_id)}>
+                                                <span className="dxj-star" aria-hidden>
+                                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+                                                </span>
+                                                <span className="dxj-crests">
+                                                    <b>{pick.logo_home ? <img src={pick.logo_home} alt="" /> : crest(pick.home_team)}</b>
+                                                    <b>{pick.logo_away ? <img src={pick.logo_away} alt="" /> : crest(pick.away_team)}</b>
+                                                </span>
+                                                <span className="dxj-pinfo">
+                                                    <span className="mt">{pick.home_team} — {pick.away_team}</span>
+                                                    <span className="mk">{betOf(pick)}</span>
+                                                </span>
+                                                <span className="dxj-pmeta">
+                                                    <span className="prob" style={lost ? { color: 'var(--dx-live)' } : undefined}>{probOf(pick)}%<small>PROB</small></span>
+                                                    {oddOf(pick) !== '—' && <span className="odd">{oddOf(pick)}</span>}
+                                                    <span className="go">›</span>
+                                                </span>
+                                            </button>
+                                            {isAdmin && (
+                                                <div className="flex items-center gap-1.5 mb-2 -mt-1 pl-1 flex-wrap">
+                                                    {matchScores[pick.fixture_id] && (!pick.result || pick.result === 'PENDING') && (
+                                                        <span className="text-[10px] text-dx-text-mute dx-num mr-1">Score {matchScores[pick.fixture_id]}</span>
+                                                    )}
+                                                    <button onClick={() => overridePick(pick, 'WON')} className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-dx-green/15 text-dx-green border border-dx-green/30 hover:bg-dx-green/25">GANADA</button>
+                                                    <button onClick={() => overridePick(pick, 'LOST')} className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-dx-loss/15 text-dx-loss border border-dx-loss/30 hover:bg-dx-loss/25">PERDIDA</button>
+                                                    <button onClick={() => overridePick(pick, 'VOID')} className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-white/5 text-dx-text-soft border border-dx-border hover:bg-white/10">NULA</button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ))}
+
+                        {hasLockedPicks && (
+                            <button onClick={() => setShowUpgradePrompt(true)} className="dxj-pick justify-center" style={{ borderStyle: 'dashed', marginTop: '4px' }}>
+                                <span className="text-sm font-bold text-dx-gold flex items-center gap-2">
+                                    <LockClosedIcon className="w-4 h-4" /> {lockedPicks.length} oportunidades premium — Desbloquear
+                                </span>
+                            </button>
+                        )}
+                    </div>
+                ) : (
+                    <div className="mt-5"><EmptyState onRetry={() => loadPicks(true)} message={infoMessage} inProgress={inProgress} /></div>
+                )}
             </div>
 
-            {/* Analysis health banners (visible to all users for transparency) */}
-            {(analysisHealth.pendingRetry > 0 || analysisHealth.permanentFailed > 0) && (
-                <div className="space-y-2">
-                    {analysisHealth.pendingRetry > 0 && (
-                        <div className="flex items-center gap-3 bg-blue-900/20 border border-blue-500/30 rounded-lg px-4 py-3">
-                            <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
-                            <p className="text-sm text-blue-200">
-                                <span className="font-bold">{analysisHealth.pendingRetry} partidos</span> en análisis o reintento automático. Las oportunidades aparecerán cuando terminen.
-                            </p>
+            {/* ===== COLUMNA DERECHA (rail) ===== */}
+            {hasPicks && featured && (
+                <aside className="dxj-rail">
+                    <div className="dxj-rc dxj-feat">
+                        <div className="dxj-rc-t"><TrophyIcon /> Destacado del día</div>
+                        <div className="fteams">
+                            <b>{featured.logo_home ? <img src={featured.logo_home} alt="" /> : crest(featured.home_team)}</b>
+                            <b>{featured.logo_away ? <img src={featured.logo_away} alt="" /> : crest(featured.away_team)}</b>
+                        </div>
+                        <div className="fmt">{featured.home_team} — {featured.away_team}</div>
+                        <div className="fmk">{betOf(featured)}</div>
+                        <div className="frow">
+                            <div className="fprob">{probOf(featured)}%<small>PROBABILIDAD</small></div>
+                            <div className="fodd">{oddOf(featured)}</div>
+                        </div>
+                        <button className="fbtn" onClick={() => onViewReport?.(featured.job_id, featured.fixture_id)}>Ver análisis completo</button>
+                    </div>
+
+                    {railLeagues.length > 0 && (
+                        <div className="dxj-rc">
+                            <div className="dxj-rc-t"><ChartBarIcon /> Ligas</div>
+                            {railLeagues.map((l) => (
+                                <button key={l.league} className="dxj-lrow" onClick={() => setStatusFilter('all')}>
+                                    <span className="lf">{crest(l.league).slice(0, 2)}</span>
+                                    <span className="truncate">{l.league}</span>
+                                    <span className="lc dx-num">{l.count}</span>
+                                </button>
+                            ))}
                         </div>
                     )}
-                    {analysisHealth.permanentFailed > 0 && (
-                        <div className="flex items-center gap-3 bg-amber-900/20 border border-amber-500/30 rounded-lg px-4 py-3">
-                            <span className="text-amber-400 text-lg flex-shrink-0">⚠</span>
-                            <p className="text-sm text-amber-200">
-                                <span className="font-bold">{analysisHealth.permanentFailed} partidos</span> no pudieron analizarse tras múltiples intentos (datos incompletos o fallo técnico).
-                            </p>
+
+                    {proximos.length > 0 && (
+                        <div className="dxj-rc">
+                            <div className="dxj-rc-t"><ChartBarIcon /> Próximos</div>
+                            {proximos.map((p) => (
+                                <div key={p.id} className="dxj-nrow">
+                                    <span className="truncate" style={{ fontSize: '12.5px' }}>{p.home_team} — {p.away_team}</span>
+                                    <span className="nt dx-num">{probOf(p)}%</span>
+                                </div>
+                            ))}
                         </div>
                     )}
-                </div>
-            )}
-
-            {/* Plan info banner for non-historical dates */}
-            {!isHistorical && !isAdmin && mainPicks.length > 0 && (
-                <div className="flex items-center justify-between bg-dx-surface-2 rounded-lg px-4 py-2 border border-dx-border">
-                    <span className="text-sm text-dx-text-soft">
-                        Mostrando <span className="text-white font-bold dx-num">{visiblePicks.length}</span> de <span className="text-white font-bold dx-num">{mainPicks.length}</span> oportunidades
-                        {plan.plan_name !== 'free' && (
-                            <span className="text-dx-text-mute"> ({plan.predictions_percentage}% de tu plan {cleanPlanLabel(plan.display_name)})</span>
-                        )}
-                    </span>
-                    {hasLockedPicks && (
-                        <button
-                            onClick={() => setShowUpgradePrompt(true)}
-                            className="text-xs text-dx-green hover:text-dx-green-bright font-bold transition-colors"
-                        >
-                            Desbloquear todas
-                        </button>
-                    )}
-                </div>
-            )}
-
-            {visiblePicks.length > 0 || hasLockedPicks ? (
-                <div className="flex flex-col">
-                    {/* Picks visibles */}
-                    {visiblePicks.map((pick) => (
-                        <SinglePickCard
-                            key={pick.id}
-                            pick={pick}
-                            translateMarket={translateMarket}
-                            onView={() => onViewReport?.(pick.job_id, pick.fixture_id)}
-                            isAdmin={!!isAdmin}
-                            presentationMode={presentationMode}
-                            matchScore={matchScores[pick.fixture_id]}
-                            onOverride={async (result) => {
-                                try {
-                                    await manualOverridePick(pick.id, result, {
-                                        fixture_id: pick.fixture_id,
-                                        market: pick.market,
-                                        selection: pick.selection,
-                                        p_model: pick.p_model,
-                                        odds: pick.odds,
-                                        job_id: pick.job_id,
-                                    });
-                                    setSingles(prev => prev.map(p =>
-                                        p.id === pick.id ? { ...p, result, actual_score: `Manual: ${result}`, verified_at: new Date().toISOString() } : p
-                                    ));
-                                    onPickOverridden?.();
-                                } catch (err: any) {
-                                    console.error('[HighProbPicks] Override error:', err);
-                                    alert(`Error: ${err.message}`);
-                                }
-                            }}
-                        />
-                    ))}
-
-                    {/* Picks bloqueados (con blur) */}
-                    {lockedPicks.map((pick) => (
-                        <LockedPickCard
-                            key={pick.id}
-                            pick={pick}
-                            translateMarket={translateMarket}
-                            onUpgrade={() => setShowUpgradePrompt(true)}
-                        />
-                    ))}
-                </div>
-            ) : (
-                <EmptyState onRetry={() => loadPicks(true)} message={infoMessage} inProgress={inProgress} />
+                </aside>
             )}
 
             {/* Upgrade prompt modal */}
             {showUpgradePrompt && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowUpgradePrompt(false)}>
-                    <div className="bg-slate-900 border border-white/10 rounded-2xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-xl font-bold text-white mb-2">Desbloquea Todas las Oportunidades</h3>
-                        <p className="text-slate-400 text-sm mb-4">
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowUpgradePrompt(false)}>
+                    <div className="bg-dx-surface border border-dx-border rounded-2xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-xl font-display font-bold text-white mb-2">Desbloquea Todas las Oportunidades</h3>
+                        <p className="text-dx-text-soft text-sm mb-4">
                             Tienes {lockedPicks.length} oportunidades adicionales disponibles. Actualiza tu plan para acceder al {plan.predictions_percentage < 35 ? '35%' : plan.predictions_percentage < 80 ? '80%' : '100%'} o mas de los pronosticos.
                         </p>
                         <div className="flex gap-3">
                             <button
                                 onClick={() => { setShowUpgradePrompt(false); window.location.href = '/app/pricing'; }}
-                                className="flex-1 py-2.5 bg-brand text-white font-bold rounded-xl hover:bg-brand/80 transition-all"
+                                className="flex-1 py-2.5 bg-gradient-to-r from-dx-green to-dx-cyan text-[#04140C] font-bold rounded-xl hover:shadow-lg hover:shadow-dx-green-glow transition-all"
                             >
                                 Ver Planes
                             </button>
                             <button
                                 onClick={() => setShowUpgradePrompt(false)}
-                                className="px-4 py-2.5 bg-slate-800 text-slate-300 font-bold rounded-xl hover:bg-slate-700 transition-all"
+                                className="px-4 py-2.5 bg-dx-surface-2 text-dx-text-soft font-bold rounded-xl border border-dx-border hover:text-white transition-all"
                             >
                                 Cerrar
                             </button>

@@ -800,72 +800,60 @@ export const FixturesFeed: React.FC<{ initialLive?: boolean }> = ({ initialLive 
         setViewingResult(null);
     };
 
+    // Toolrow (toggle + fecha + recargar) — mismos handlers; se inserta dentro de la columna izquierda
+    const toolbar = (
+        <div className="dxj-toolrow">
+            <div className="dxj-seg">
+                <button
+                    onClick={() => setViewMode('top-picks')}
+                    data-onboarding="tab-opportunities"
+                    className={viewMode === 'top-picks' ? 'on' : ''}
+                >
+                    <TrophyIcon /> Oportunidades
+                </button>
+                <button
+                    onClick={() => setViewMode('fixtures')}
+                    className={viewMode === 'fixtures' ? 'on' : ''}
+                >
+                    <ListBulletIcon /> Partidos
+                </button>
+            </div>
+            <div className="dxj-rightc">
+                <label className="dxj-date relative cursor-pointer">
+                    <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="dx-dateinput bg-transparent border-none outline-none text-white dx-num w-[118px] [color-scheme:dark]"
+                    />
+                    <span className="cal"><CalendarDaysIcon className="w-[18px] h-[18px]" /></span>
+                </label>
+                {viewMode === 'top-picks' && (
+                    <button onClick={() => setRefreshSignal(s => s + 1)} title="Actualizar oportunidades" className="dxj-refresh">
+                        <RefreshIcon className="w-[18px] h-[18px]" />
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+
     return (
-        <div className="space-y-8 pb-24">
-            <div className="flex flex-col space-y-6">
-                {/* Header */}
-                <div>
-                    <h2 className="text-2xl sm:text-3xl font-display font-bold text-white tracking-tight">Jornadas Deportivas</h2>
-                    <p className="text-dx-text-soft mt-1">Explora los encuentros y potencia tus decisiones con IA.</p>
-                </div>
-
-                {/* Barra de controles — toggle a la izquierda · fecha (+ En vivo) a la derecha (Composición 1) */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                    {/* Toggle Oportunidades/Partidos — el seleccionado se ve totalmente verde */}
-                    <div className="inline-flex w-full sm:w-auto bg-dx-surface border border-dx-border rounded-xl p-1 gap-1">
-                        <button
-                            onClick={() => setViewMode('top-picks')}
-                            data-onboarding="tab-opportunities"
-                            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${viewMode === 'top-picks' ? 'text-[#04140C] bg-gradient-to-r from-dx-green to-dx-cyan shadow-[0_0_18px_rgba(29,231,130,0.40)]' : 'text-dx-text-soft hover:text-white hover:bg-white/5'}`}
-                        >
-                            <TrophyIcon className="w-5 h-5" /> <span className="hidden sm:inline">Oportunidades</span>
-                        </button>
-                        <button
-                            onClick={() => setViewMode('fixtures')}
-                            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${viewMode === 'fixtures' ? 'text-[#04140C] bg-gradient-to-r from-dx-green to-dx-cyan shadow-[0_0_18px_rgba(29,231,130,0.40)]' : 'text-dx-text-soft hover:text-white hover:bg-white/5'}`}
-                        >
-                            <ListBulletIcon className="w-5 h-5" /> <span className="hidden sm:inline">Partidos</span>
-                        </button>
-                    </div>
-
-                    {/* Fecha (un solo calendario, §3.3) — el botón EN VIVO se eliminó (§3.2): el en vivo vive solo en el menú izquierdo */}
-                    <div className="flex items-center gap-3 w-full sm:w-auto">
-                        <div className="relative flex-1 sm:flex-none">
-                            <input
-                                type="date"
-                                value={selectedDate}
-                                onChange={(e) => setSelectedDate(e.target.value)}
-                                className="dx-dateinput w-full bg-dx-surface border border-dx-border text-white text-sm rounded-xl px-4 py-3 pr-10 outline-none transition-all focus:border-dx-green focus:ring-2 focus:ring-dx-green/30 [color-scheme:dark] dx-num"
-                            />
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-dx-green">
-                                <CalendarDaysIcon className="w-5 h-5" />
-                            </div>
-                        </div>
-
-                        {/* Actualizar Oportunidades (mismo handler, reubicado a la barra) */}
-                        {viewMode === 'top-picks' && (
-                            <button
-                                onClick={() => setRefreshSignal(s => s + 1)}
-                                title="Actualizar oportunidades"
-                                className="flex items-center justify-center w-11 h-11 rounded-xl border border-dx-border bg-dx-surface text-dx-text-soft hover:text-dx-green hover:border-dx-border-active transition-all shrink-0"
-                            >
-                                <RefreshIcon className="w-5 h-5" />
-                            </button>
-                        )}
-                    </div>
-                </div>
-
+        <div className="pb-24">
+            <div className="flex flex-col">
                 {viewMode === 'top-picks' ? (
-                    <div className="bg-dx-surface rounded-2xl p-3 sm:p-4 md:p-6 min-h-[500px] animate-fade-in border border-dx-border">
+                    <div className="animate-fade-in">
                         <HighProbPicks
                             date={selectedDate}
                             onViewReport={handleViewReport}
                             onPickOverridden={handlePickOverridden}
                             onAccessibleFixturesChange={setPickBasedAccessibleIds}
                             refreshSignal={refreshSignal}
+                            toolbar={toolbar}
                         />
                     </div>
                 ) : (
+                    <div className="space-y-6">
+                    {toolbar}
                     <>
                         {isLoading && <LoadingState text="Sincronizando fixture..." />}
                         {!isLoading && (
@@ -942,6 +930,7 @@ export const FixturesFeed: React.FC<{ initialLive?: boolean }> = ({ initialLive 
                             </div>
                         )}
                     </>
+                    </div>
                 )}
             </div>
 

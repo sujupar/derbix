@@ -87,6 +87,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
     : profile?.role === 'org_owner' ? 'Admin' : 'Usuario';
   // Nombre del plan para el menú de perfil (sin etiquetas internas)
   const menuPlanName = isAgencySuperadmin ? 'Acceso total' : cleanPlanLabel(plan.display_name);
+  // Título de la barra superior (solo Jornadas lo usa; el resto mantiene su propio header)
+  const pageTitle = (currentPage === 'live' || currentPage === 'live-now') ? 'Jornadas Deportivas' : '';
 
   // Opciones del sidebar (agrupadas por sección — Composición 1)
   const navItems = [
@@ -114,7 +116,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden text-slate-200 font-sans selection:bg-brand selection:text-white bg-dx-bg">
+    <div data-plan={planScopeAttr} className="flex h-screen overflow-hidden text-slate-200 font-sans selection:bg-brand selection:text-white bg-dx-bg">
 
       {/* --- DESKTOP SIDEBAR --- */}
       <aside data-plan={planScopeAttr} className="dx-sidebar dx-planscope hidden md:flex flex-col w-64 h-full bg-dx-surface backdrop-blur-xl border-r border-[color:var(--color-dx-border)] fixed left-0 top-0 z-30 transition-transform duration-300">
@@ -223,19 +225,23 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
           </div>
         )}
 
-        {/* Desktop Top Bar — perfil arriba-derecha */}
-        <header className="hidden md:flex items-center justify-end h-16 px-8 border-b border-[color:var(--color-dx-border)] shrink-0">
-          <ProfileMenu
-            fullName={profile?.full_name || 'Usuario'}
-            initials={accountInitials}
-            roleLabel={roleLabel}
-            planName={menuPlanName}
-            planThemeAttr={planScopeAttr}
-            email={profile?.email}
-            dataOnboarding="plan-badge"
-            onSettings={() => setCurrentPage('settings')}
-            onSignOut={signOut}
-          />
+        {/* Desktop Top Bar — título + perfil arriba-derecha + línea animada (color por plan) */}
+        <header className="hidden md:block px-8 pt-5 shrink-0">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            {pageTitle ? <h1 className="dxj-h1">{pageTitle}</h1> : <div />}
+            <ProfileMenu
+              fullName={profile?.full_name || 'Usuario'}
+              initials={accountInitials}
+              roleLabel={roleLabel}
+              planName={menuPlanName}
+              planThemeAttr={planScopeAttr}
+              email={profile?.email}
+              dataOnboarding="plan-badge"
+              onSettings={() => setCurrentPage('settings')}
+              onSignOut={signOut}
+            />
+          </div>
+          <div className="dxj-divider" />
         </header>
 
         {/* Mobile Header */}
