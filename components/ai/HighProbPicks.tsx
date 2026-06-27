@@ -434,7 +434,12 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                 <div className="dxj-chips">
                     <button className={`dxj-chip ${statusFilter === 'all' ? 'on' : ''}`} onClick={() => setStatusFilter('all')}>Todos</button>
                     <button className={`dxj-chip ${statusFilter === 'finished' ? 'on' : ''}`} onClick={() => setStatusFilter('finished')}>Finalizados</button>
-                    {mainPicks.length > 0 && <span className="ml-auto self-center text-xs text-dx-text-mute dx-num">{mainPicks.length} hoy</span>}
+                    <div className="ml-auto flex items-center gap-2.5">
+                        {mainPicks.length > 0 && <span className="text-xs text-dx-text-mute dx-num">{mainPicks.length} hoy</span>}
+                        <button onClick={() => loadPicks(true)} title="Actualizar oportunidades" className="dxj-chip-refresh">
+                            <ArrowPathIcon className="w-[17px] h-[17px]" />
+                        </button>
+                    </div>
                 </div>
 
                 {(analysisHealth.pendingRetry > 0 || analysisHealth.permanentFailed > 0) && (
@@ -454,6 +459,26 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                     </div>
                 )}
 
+                {/* Destacado del día — versión móvil (el rail está oculto < 1100px) */}
+                {hasPicks && featured && (
+                    <div className="dxj-mfeat-wrap">
+                        <div className="dxj-rc dxj-feat">
+                            <div className="dxj-rc-t"><TrophyIcon /> Destacado del día</div>
+                            <div className="fteams">
+                                <b>{featured.logo_home ? <img src={featured.logo_home} alt="" /> : crest(featured.home_team)}</b>
+                                <b>{featured.logo_away ? <img src={featured.logo_away} alt="" /> : crest(featured.away_team)}</b>
+                            </div>
+                            <div className="fmt">{featured.home_team} — {featured.away_team}</div>
+                            <div className="fmk">{betOf(featured)}</div>
+                            <div className="frow">
+                                <div className="fprob">{probOf(featured)}%<small>PROBABILIDAD</small></div>
+                                {oddOf(featured) !== '—' && <div className="fodd">{oddOf(featured)}</div>}
+                            </div>
+                            <button className="fbtn" onClick={() => onViewReport?.(featured.job_id, featured.fixture_id)}>Ver análisis completo</button>
+                        </div>
+                    </div>
+                )}
+
                 {hasPicks ? (
                     <div className="mt-5">
                         {leagueGroups.map((g) => (
@@ -465,6 +490,15 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                                 </div>
                                 {g.picks.map((pick) => {
                                     const lost = !presentationMode && pick.result === 'LOST';
+                                    // Mercado + estado/hora: se muestra inline en PC y full-width abajo en móvil
+                                    const mkContent = (
+                                        <>
+                                            {betOf(pick)}
+                                            {isLive(pick)
+                                                ? <> · <span className="lv">EN VIVO</span></>
+                                                : kickoffOf(pick) ? ` · ${kickoffOf(pick)}` : ''}
+                                        </>
+                                    );
                                     return (
                                         <div key={pick.id}>
                                             <button className="dxj-pick" style={lost ? { opacity: 0.6 } : undefined} onClick={() => onViewReport?.(pick.job_id, pick.fixture_id)}>
@@ -474,18 +508,14 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                                                 </span>
                                                 <span className="dxj-pinfo">
                                                     <span className="mt">{pick.home_team} — {pick.away_team}</span>
-                                                    <span className="mk">
-                                                        {betOf(pick)}
-                                                        {isLive(pick)
-                                                            ? <> · <span className="lv">EN VIVO</span></>
-                                                            : kickoffOf(pick) ? ` · ${kickoffOf(pick)}` : ''}
-                                                    </span>
+                                                    <span className="mk mk-inline">{mkContent}</span>
                                                 </span>
                                                 <span className="dxj-pmeta">
                                                     <span className="prob" style={lost ? { color: 'var(--dx-live)' } : undefined}>{probOf(pick)}%<small>PROB</small></span>
                                                     {oddOf(pick) !== '—' && <span className="odd">{oddOf(pick)}</span>}
                                                     <span className="go">›</span>
                                                 </span>
+                                                <span className="dxj-pmk">{mkContent}</span>
                                             </button>
                                             {isAdmin && (
                                                 <div className="flex items-center gap-1.5 mb-2 -mt-1 pl-1 flex-wrap">
@@ -513,6 +543,24 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                     </div>
                 ) : (
                     <div className="mt-5"><EmptyState onRetry={() => loadPicks(true)} message={infoMessage} inProgress={inProgress} /></div>
+                )}
+
+                {/* Próximos — versión móvil (deslizar con el dedo, sin flecha) */}
+                {proximos.length > 0 && (
+                    <div className="dxj-mprox-wrap">
+                        <div className="dxj-mprox-h">Próximos</div>
+                        <div className="dxj-mprox">
+                            {proximos.map((p) => (
+                                <button key={p.id} type="button" className="pc" onClick={() => onViewReport?.(p.job_id || '', p.fixture_id)}>
+                                    <div className="pt">{p.home_team} — {p.away_team}</div>
+                                    <div className="pr">
+                                        <span className="ph">{kickoffOf(p) || ''}</span>
+                                        <span className="pp dx-num">{probOf(p)}%</span>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 )}
             </div>
 

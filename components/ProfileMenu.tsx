@@ -16,10 +16,11 @@ interface ProfileMenuProps {
     dataOnboarding?: string;
     onSettings: () => void;
     onSignOut: () => void;
+    onUpgrade?: () => void; // "Mejorar plan" — se muestra en el menú móvil (donde no hay sidebar)
 }
 
 export const ProfileMenu: React.FC<ProfileMenuProps> = ({
-    fullName, initials, roleLabel, planName, planThemeAttr, email, dataOnboarding, onSettings, onSignOut,
+    fullName, initials, roleLabel, planName, planThemeAttr, email, dataOnboarding, onSettings, onSignOut, onUpgrade,
 }) => {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
@@ -72,6 +73,19 @@ export const ProfileMenu: React.FC<ProfileMenuProps> = ({
                         <p className="text-sm font-semibold text-white truncate">{fullName}</p>
                         <p className="text-xs text-dx-text-mute truncate">{email || roleLabel}</p>
                     </div>
+
+                    {/* Mejorar plan (verde, flecha negra hacia arriba) — solo si onUpgrade está presente */}
+                    {onUpgrade && (
+                        <div className="px-3 py-3 border-b border-dx-border">
+                            <button
+                                onClick={() => { setOpen(false); onUpgrade(); }}
+                                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-extrabold text-[#04140C] bg-gradient-to-r from-dx-green to-dx-cyan hover:brightness-110 active:scale-[0.98] transition-all"
+                            >
+                                Mejorar plan
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
+                            </button>
+                        </div>
+                    )}
 
                     {/* Opciones */}
                     {/* TODO: enlazar ruta de perfil dedicada cuando exista (hoy va a Configuración) */}

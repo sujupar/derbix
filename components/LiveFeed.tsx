@@ -819,6 +819,8 @@ export const FixturesFeed: React.FC<{ initialLive?: boolean }> = ({ initialLive 
                 </button>
             </div>
             <div className="dxj-rightc">
+                {/* La recarga se movió a la fila de chips (junto a Todos/Finalizados) para
+                    darle aire a la fecha en móvil. */}
                 <label className="dxj-date relative cursor-pointer">
                     <input
                         type="date"
@@ -828,11 +830,6 @@ export const FixturesFeed: React.FC<{ initialLive?: boolean }> = ({ initialLive 
                     />
                     <span className="cal"><CalendarDaysIcon className="w-[18px] h-[18px]" /></span>
                 </label>
-                {viewMode === 'top-picks' && (
-                    <button onClick={() => setRefreshSignal(s => s + 1)} title="Actualizar oportunidades" className="dxj-refresh">
-                        <RefreshIcon className="w-[18px] h-[18px]" />
-                    </button>
-                )}
             </div>
         </div>
     );
@@ -840,7 +837,53 @@ export const FixturesFeed: React.FC<{ initialLive?: boolean }> = ({ initialLive 
     return (
         <div className="pb-24">
             <div className="flex flex-col">
-                {viewMode === 'top-picks' ? (
+                {initialLive ? (
+                    /* ===== Vista "En vivo" LIMPIA: solo partidos en vivo, clic → informe ===== */
+                    (() => {
+                        const LIVE_ST = ['LIVE', '1H', 'HT', '2H', 'ET', 'BT', 'PEN_LIVE', 'BREAK', 'INT', 'P'];
+                        const liveGames = [
+                            ...data.importantLeagues.flatMap(l => l.games),
+                            ...data.countryLeagues.flatMap(c => c.leagues.flatMap(l => l.games)),
+                        ].filter(g => LIVE_ST.includes(g.fixture.status.short));
+                        return (
+                            <div className="animate-fade-in">
+                                <div className="dxj-livehead">
+                                    <span className="dot" />
+                                    <span className="lt">En vivo</span>
+                                    {liveGames.length > 0 && <span className="lc">{liveGames.length} {liveGames.length === 1 ? 'partido' : 'partidos'}</span>}
+                                </div>
+                                <div className="dxj-livediv" />
+                                {isLoading ? (
+                                    <LoadingState text="Cargando partidos en vivo..." />
+                                ) : liveGames.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                                        <div className="w-20 h-20 rounded-full bg-dx-surface border border-dx-border flex items-center justify-center mb-5 text-dx-text-mute">
+                                            <SignalIcon className="w-9 h-9" />
+                                        </div>
+                                        <h3 className="text-lg font-display font-bold text-white mb-1.5">No hay partidos en vivo</h3>
+                                        <p className="text-dx-text-soft text-sm max-w-xs">Te avisaremos cuando empiece un partido con oportunidad activa.</p>
+                                    </div>
+                                ) : (
+                                    <div className="dxj-livelist">
+                                        {liveGames.map(g => (
+                                            <button key={g.fixture.id} className="dxj-livecard" onClick={() => handleViewReport(g.fixture.id)}>
+                                                <span className="min">
+                                                    <span className="m">{g.fixture.status.elapsed ? `${g.fixture.status.elapsed}'` : g.fixture.status.short}</span>
+                                                    <span className="sc">{g.goals.home ?? 0}-{g.goals.away ?? 0}</span>
+                                                </span>
+                                                <span className="lt2">
+                                                    <span className="tm">{g.teams.home.logo && <img src={g.teams.home.logo} alt="" />}{g.teams.home.name}</span>
+                                                    <span className="tm">{g.teams.away.logo && <img src={g.teams.away.logo} alt="" />}{g.teams.away.name}</span>
+                                                </span>
+                                                <span className="go">›</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()
+                ) : viewMode === 'top-picks' ? (
                     <div className="animate-fade-in">
                         <HighProbPicks
                             date={selectedDate}

@@ -91,8 +91,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
     : profile?.role === 'org_owner' ? 'Admin' : 'Usuario';
   // Nombre del plan para el menú de perfil (sin etiquetas internas)
   const menuPlanName = isAgencySuperadmin ? 'Acceso total' : cleanPlanLabel(plan.display_name);
-  // Título de la barra superior (solo Jornadas lo usa; el resto mantiene su propio header)
-  const pageTitle = (currentPage === 'live' || currentPage === 'live-now') ? 'Jornadas Deportivas' : '';
+  // Primer nombre para el saludo móvil ("Hola, Johann")
+  const firstName = (profile?.full_name || 'Usuario').trim().split(/\s+/)[0];
+  // Título de la barra superior. 'live-now' (En vivo) muestra su propio header rojo dentro de FixturesFeed.
+  const pageTitle = currentPage === 'live' ? 'Jornadas Deportivas' : '';
 
   // Opciones del sidebar (agrupadas por sección — Composición 1)
   const navItems = [
@@ -265,9 +267,19 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, setCurren
               email={profile?.email}
               onSettings={() => setCurrentPage('settings')}
               onSignOut={signOut}
+              onUpgrade={isAgencySuperadmin ? undefined : () => setCurrentPage('pricing')}
             />
           </div>
         </header>
+
+        {/* Bloque de título móvil: saludo + "Jornadas Deportivas" + línea animada (color por plan) */}
+        {pageTitle && (
+          <div className="md:hidden px-4 pt-3 sm:px-6">
+            <p className="text-xs text-dx-text-soft">Hola, <span className="font-bold text-white">{firstName}</span></p>
+            <h1 className="dxj-h1 mt-0.5">{pageTitle}</h1>
+            <div className="dxj-divider" />
+          </div>
+        )}
 
         {/* Scrollable Content */}
         <main className="flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-6 md:px-8 md:py-8 scroll-smooth relative z-10 overscroll-behavior-contain">
