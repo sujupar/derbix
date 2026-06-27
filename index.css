@@ -268,7 +268,7 @@
   color: #04140C; border: none; border-radius: 13px; padding: 15px; font-weight: 700; cursor: pointer;
   box-shadow: 0 10px 26px -12px var(--color-dx-green-glow);
   transition: box-shadow .25s ease, transform .16s ease; }
-.dx-btn:hover { transform: translateY(-2px);
+.dx-btn:hover { transform: translateY(-2px); filter: brightness(1.08);
   box-shadow: 0 12px 30px -10px rgba(29,231,130,0.5), 0 0 22px rgba(34,229,192,0.4); }
 .dx-btn:active { transform: scale(.98); }
 
@@ -492,3 +492,24 @@ body {
 .dxj-nrow { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--dx-border); font-size:13px; color:var(--dx-text); }
 .dxj-nrow:last-child { border-bottom:none; }
 .dxj-nrow .nt { margin-left:auto; font-family:'Archivo',sans-serif; font-variant-numeric:tabular-nums; font-size:12px; color:var(--dx-accent); background:var(--dx-accent-soft); padding:3px 9px; border-radius:7px; }
+
+/* Brillo extra al pasar el cursor sobre botones de acento */
+.dxj-seg button { transition: background .2s, color .2s, filter .18s; }
+.dxj-seg button.on:hover { filter: brightness(1.08); }
+.dxj-feat .fbtn { transition: filter .18s, box-shadow .18s, transform .14s; }
+.dxj-feat .fbtn:hover { filter: brightness(1.08); box-shadow: 0 0 22px var(--dx-accent-glow); transform: translateY(-1px); }
+
+/* ===== Responsive — celular ===== */
+@media (max-width: 640px) {
+  .dxj-toolrow { gap: 10px; }
+  .dxj-seg button { padding: 9px 12px; font-size: 12.5px; }
+  .dxj-chips { margin-top: 12px; }
+  .dxj-pick { gap: 11px; padding: 12px 13px; }
+  .dxj-crests b { width: 28px; height: 28px; }
+  .dxj-pmeta { gap: 10px; }
+  .dxj-pmeta .prob { font-size: 17px; }
+  .dxj-pmeta .odd { font-size: 13px; padding: 4px 7px; }
+  .dxj-pinfo .mt { font-size: 13.5px; }
+  .dxj-pinfo .mk { font-size: 11.5px; }
+  .dxj-h1 { font-size: 22px; }
+}

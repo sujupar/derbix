@@ -632,8 +632,8 @@ const EmptyState: React.FC<{ onRetry: () => void; message?: string | null; inPro
                 </>
             )}
         </p>
-        <button onClick={onRetry} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-[#04140C] bg-gradient-to-r from-dx-green to-dx-cyan shadow-[0_8px_22px_-10px_rgba(29,231,130,0.6)] hover:shadow-[0_10px_28px_-8px_rgba(34,229,192,0.6)] hover:-translate-y-0.5 transition-all">
-            <ArrowPathIcon className="w-4 h-4" /> {inProgress && inProgress > 0 ? 'Verificar de Nuevo' : 'Actualizar'}
+        <button onClick={onRetry} className="inline-flex items-center justify-center px-6 py-2.5 rounded-xl font-bold text-[#04140C] bg-gradient-to-r from-dx-green to-dx-cyan shadow-[0_8px_22px_-10px_rgba(29,231,130,0.6)] hover:shadow-[0_10px_28px_-8px_rgba(34,229,192,0.6)] hover:brightness-110 hover:-translate-y-0.5 transition-all">
+            {inProgress && inProgress > 0 ? 'Verificar de Nuevo' : 'Actualizar'}
         </button>
     </div>
 );
