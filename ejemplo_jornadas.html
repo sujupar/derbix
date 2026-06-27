@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Derbix — ejemplo Jornadas con datos</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --dx-bg:#000;--dx-surface:#0C1310;--dx-surface-2:#101A15;--dx-border:rgba(255,255,255,0.08);
+    --dx-border-active:rgba(29,231,130,0.32);--dx-accent:#1DE782;--dx-accent-bright:#5BFFAC;
+    --dx-accent-glow:rgba(29,231,130,0.22);--dx-accent-soft:rgba(29,231,130,0.12);--dx-ink:#04140C;
+    --dx-text:#fff;--dx-text-soft:rgba(255,255,255,0.56);--dx-text-mute:rgba(255,255,255,0.32);
+    --dx-gold:#E7B84F;--dx-live:#FF3B30;
+    --dx-plan-bright:var(--dx-accent-bright);--dx-plan-glow:var(--dx-accent-glow);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#000;color:#fff;font-family:Inter,system-ui,sans-serif;padding:24px}
+  .h1{font-family:'Archivo';font-size:26px;font-weight:800;letter-spacing:-.02em}
+  .divider{position:relative;height:2px;margin:13px 0 22px;border-radius:2px;background:rgba(255,255,255,0.07);overflow:hidden}
+  .divider::after{content:"";position:absolute;top:0;bottom:0;left:0;width:30%;border-radius:2px;background:linear-gradient(90deg,transparent,var(--dx-plan-bright),transparent);box-shadow:0 0 14px var(--dx-plan-glow);animation:ld 2s cubic-bezier(.45,.05,.55,.95) infinite}
+  @keyframes ld{0%{transform:translateX(-130%)}100%{transform:translateX(460%)}}
+  .toolrow{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .seg{display:inline-flex;gap:4px;background:var(--dx-surface);border:1px solid var(--dx-border);border-radius:13px;padding:5px}
+  .seg button{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;padding:9px 15px;border:none;background:transparent;color:var(--dx-text-soft);font-weight:600;font-size:13px;border-radius:9px;cursor:pointer}
+  .seg button.on{background:linear-gradient(180deg,var(--dx-accent-bright),var(--dx-accent));color:var(--dx-ink);box-shadow:0 8px 22px -8px var(--dx-accent-glow)}
+  .rightc{display:flex;align-items:center;gap:10px}
+  .date{display:inline-flex;align-items:center;gap:10px;background:var(--dx-surface);border:1px solid var(--dx-border);border-radius:11px;padding:9px 13px;font-family:'Archivo';font-variant-numeric:tabular-nums;font-size:13px}
+  .date .cal{color:var(--dx-accent)}
+  .refresh{width:32px;height:32px;border-radius:9px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;color:var(--dx-text-mute);cursor:pointer}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .chip{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:10px;font-size:12.5px;font-weight:600;color:var(--dx-text-soft);background:var(--dx-surface);border:1px solid var(--dx-border);cursor:pointer}
+  .chip.on{background:var(--dx-accent-soft);border-color:var(--dx-border-active);color:var(--dx-accent)}
+  .body{display:flex;gap:18px;margin-top:20px}
+  .colmain{flex:1;min-width:0}
+  .rail{width:300px;flex-shrink:0;display:flex;flex-direction:column;gap:16px}
+  .lghead{display:flex;align-items:center;gap:10px;margin:6px 2px 10px}
+  .lghead:not(:first-child){margin-top:22px}
+  .lghead .fl{width:22px;height:22px;border-radius:5px;background:var(--dx-surface-2);border:1px solid var(--dx-border);display:flex;align-items:center;justify-content:center;font-size:11px}
+  .lghead .nm{font-family:'Archivo';font-weight:600;font-size:13.5px}
+  .lghead .ct{font-size:11.5px;color:var(--dx-text-mute);background:var(--dx-surface);padding:2px 8px;border-radius:20px}
+  .pick{display:flex;align-items:center;gap:14px;background:var(--dx-surface);border:1px solid var(--dx-border);border-radius:13px;padding:13px 15px;margin-bottom:9px;cursor:pointer;transition:.16s}
+  .pick:hover{border-color:var(--dx-border-active);background:var(--dx-surface-2)}
+  .star{color:var(--dx-text-mute)}
+  .crests{display:flex}
+  .crests b{width:30px;height:30px;border-radius:50%;border:2px solid var(--dx-bg);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:'Archivo';background:var(--dx-surface-2);color:var(--dx-text-soft)}
+  .crests b:nth-child(2){margin-left:-10px}
+  .pinfo{flex:1;min-width:0}
+  .pinfo .mt{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pinfo .mk{font-size:12px;color:var(--dx-text-soft);margin-top:2px}
+  .pinfo .mk .lv{color:var(--dx-live);font-weight:600}
+  .pmeta{display:flex;align-items:center;gap:16px}
+  .pmeta .prob{font-family:'Archivo';font-variant-numeric:tabular-nums;font-weight:700;font-size:19px;color:var(--dx-accent);line-height:1;text-align:right}
+  .pmeta .prob small{display:block;font-size:9.5px;font-weight:500;color:var(--dx-text-mute);letter-spacing:.04em;margin-top:3px}
+  .pmeta .odd{font-family:'Archivo';font-variant-numeric:tabular-nums;font-weight:600;font-size:14px;color:var(--dx-gold);background:rgba(231,184,79,.08);border:1px solid rgba(231,184,79,.2);padding:5px 9px;border-radius:8px}
+  .pmeta .go{color:var(--dx-text-mute)}
+  .rc{background:var(--dx-surface);border:1px solid var(--dx-border);border-radius:15px;padding:16px}
+  .rc-t{display:flex;align-items:center;gap:8px;font-family:'Archivo';font-weight:600;font-size:13px;color:var(--dx-text-soft);margin-bottom:13px;text-transform:uppercase;letter-spacing:.06em}
+  .rc-t svg{width:15px;height:15px;color:var(--dx-accent)}
+  .feat{background:linear-gradient(160deg,rgba(29,231,130,.1),var(--dx-surface) 55%);border:1px solid var(--dx-border-active)}
+  .feat .fteams{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .feat .fteams b{width:32px;height:32px;border-radius:50%;border:2px solid var(--dx-bg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Archivo';background:var(--dx-surface-2);color:var(--dx-text-soft)}
+  .feat .fteams b:nth-child(2){margin-left:-12px}
+  .feat .fmt{font-family:'Archivo';font-weight:700;font-size:15px}
+  .feat .fmk{font-size:12.5px;color:var(--dx-text-soft);margin:8px 0 14px}
+  .feat .frow{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .feat .fprob{font-family:'Archivo';font-variant-numeric:tabular-nums;font-weight:700;font-size:30px;color:var(--dx-accent);line-height:1}
+  .feat .fprob small{font-size:11px;color:var(--dx-text-mute);font-weight:500;display:block}
+  .feat .fodd{font-family:'Archivo';font-variant-numeric:tabular-nums;font-weight:700;font-size:18px;color:var(--dx-gold)}
+  .feat .fbtn{width:100%;padding:11px;border:none;border-radius:10px;background:linear-gradient(180deg,var(--dx-accent-bright),var(--dx-accent));color:var(--dx-ink);font-weight:700;font-size:13.5px;cursor:pointer}
+  .lrow{display:flex;align-items:center;gap:10px;padding:9px 6px;border-radius:9px;cursor:pointer;font-size:13px}
+  .lrow:hover{background:var(--dx-surface-2)}
+  .lrow .lf{width:20px;height:20px;border-radius:5px;background:var(--dx-surface-2);border:1px solid var(--dx-border);display:flex;align-items:center;justify-content:center;font-size:10px}
+  .lrow .lc{margin-left:auto;font-family:'Archivo';font-variant-numeric:tabular-nums;font-size:12px;color:var(--dx-text-mute);background:var(--dx-bg);padding:2px 8px;border-radius:20px}
+  .nrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--dx-border);font-size:13px}
+  .nrow:last-child{border-bottom:none}
+  .nrow .nt{margin-left:auto;font-family:'Archivo';font-variant-numeric:tabular-nums;font-size:12px;color:var(--dx-accent);background:var(--dx-accent-soft);padding:3px 9px;border-radius:7px}
+  .note{margin-top:26px;color:var(--dx-text-mute);font-size:12.5px;max-width:760px;line-height:1.5}
+</style></head>
+<body>
+  <div class="h1">Jornadas Deportivas</div>
+  <div class="divider"></div>
+
+  <div class="toolrow">
+    <div class="seg">
+      <button class="on">🏆 Oportunidades</button>
+      <button>☰ Partidos</button>
+    </div>
+    <div class="rightc">
+      <div class="date">21/06/2026 <span class="cal">📅</span></div>
+      <button class="refresh">↻</button>
+    </div>
+  </div>
+  <div class="chips"><div class="chip on">Todos</div><div class="chip">Finalizados</div></div>
+
+  <div class="body">
+    <!-- IZQUIERDA: picks agrupados por liga -->
+    <div class="colmain">
+      <div class="lghead"><span class="fl">🇪🇸</span><span class="nm">LaLiga</span><span class="ct">2 oportunidades</span></div>
+      <div class="pick">
+        <span class="star">★</span>
+        <span class="crests"><b>RMA</b><b>GET</b></span>
+        <span class="pinfo"><span class="mt">Real Madrid — Getafe</span><span class="mk">Más de 2.5 goles</span></span>
+        <span class="pmeta"><span class="prob">88%<small>PROB</small></span><span class="odd">@1.55</span><span class="go">›</span></span>
+      </div>
+      <div class="pick">
+        <span class="star">★</span>
+        <span class="crests"><b>BAR</b><b>SEV</b></span>
+        <span class="pinfo"><span class="mt">Barcelona — Sevilla</span><span class="mk">Gana Barcelona</span></span>
+        <span class="pmeta"><span class="prob">83%<small>PROB</small></span><span class="odd">@1.48</span><span class="go">›</span></span>
+      </div>
+
+      <div class="lghead"><span class="fl">🏴</span><span class="nm">Premier League</span><span class="ct">2 oportunidades</span></div>
+      <div class="pick">
+        <span class="star">★</span>
+        <span class="crests"><b>MCI</b><b>BRE</b></span>
+        <span class="pinfo"><span class="mt">Man City — Brentford</span><span class="mk">Gana City + Más 1.5</span></span>
+        <span class="pmeta"><span class="prob">84%<small>PROB</small></span><span class="odd">@1.62</span><span class="go">›</span></span>
+      </div>
+      <div class="pick">
+        <span class="star">★</span>
+        <span class="crests"><b>LIV</b><b>WOL</b></span>
+        <span class="pinfo"><span class="mt">Liverpool — Wolves</span><span class="mk"><span class="lv">● 67'</span> · Ambos anotan: Sí</span></span>
+        <span class="pmeta"><span class="prob">81%<small>PROB</small></span><span class="odd">@1.70</span><span class="go">›</span></span>
+      </div>
+
+      <div class="lghead"><span class="fl">🇮🇹</span><span class="nm">Serie A</span><span class="ct">1 oportunidad</span></div>
+      <div class="pick">
+        <span class="star">★</span>
+        <span class="crests"><b>INT</b><b>TOR</b></span>
+        <span class="pinfo"><span class="mt">Inter — Torino</span><span class="mk">Menos de 3.5 goles</span></span>
+        <span class="pmeta"><span class="prob">86%<small>PROB</small></span><span class="odd">@1.50</span><span class="go">›</span></span>
+      </div>
+    </div>
+
+    <!-- DERECHA: rail -->
+    <div class="rail">
+      <div class="rc feat">
+        <div class="rc-t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg> Destacado del día</div>
+        <div class="fteams"><b>RMA</b><b>GET</b></div>
+        <div class="fmt">Real Madrid — Getafe</div>
+        <div class="fmk">Más de 2.5 goles</div>
+        <div class="frow"><div class="fprob">88%<small>PROBABILIDAD</small></div><div class="fodd">@1.55</div></div>
+        <button class="fbtn">Ver análisis completo</button>
+      </div>
+
+      <div class="rc">
+        <div class="rc-t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/></svg> Ligas</div>
+        <div class="lrow"><span class="lf">🇪🇸</span><span>LaLiga</span><span class="lc">2</span></div>
+        <div class="lrow"><span class="lf">🏴</span><span>Premier League</span><span class="lc">2</span></div>
+        <div class="lrow"><span class="lf">🇮🇹</span><span>Serie A</span><span class="lc">1</span></div>
+      </div>
+
+      <div class="rc">
+        <div class="rc-t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/></svg> Próximos</div>
+        <div class="nrow"><span>Barcelona — Sevilla</span><span class="nt">83%</span></div>
+        <div class="nrow"><span>Man City — Brentford</span><span class="nt">84%</span></div>
+        <div class="nrow"><span>Inter — Torino</span><span class="nt">86%</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">↑ Así se ve <b>con oportunidades reales</b>: a la izquierda los picks <b>agrupados por liga</b> (LaLiga, Premier, Serie A…) y a la derecha el rail (<b>Destacado del día</b>, <b>Ligas</b> con contador, <b>Próximos</b>). En tu app esto aparece automáticamente cuando hay picks para la fecha; hoy estás viendo el estado vacío porque no hay oportunidades en ese día.</div>
+</body></html>
