@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../services/supabaseService';
 import { ComputerDesktopIcon, BoltIcon, CheckCircleIcon, ChartBarIcon, EyeSlashIcon, BrainIcon, LightBulbIcon, PaperAirplaneIcon, CalendarDaysIcon } from '../icons/Icons';
+import { DailyAnalysisImport } from './DailyAnalysisImport';
 
 interface BatchMatch {
     fixture_id: number;
@@ -416,6 +417,9 @@ export const OperationsCenter: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* Importar Análisis del Día (archivo JSON de Claude Code) */}
+            <DailyAnalysisImport />
 
             {/* Modo Presentación */}
             <div className="glass p-4 sm:p-6 rounded-xl border border-white/5 shadow-2xl bg-gradient-to-br from-slate-900 to-slate-800">

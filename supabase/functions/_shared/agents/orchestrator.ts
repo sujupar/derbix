@@ -7,6 +7,7 @@
 import { buildDataFoundation, type ETLRawData } from './stage0-data-foundation.ts';
 import { runMegaStage, megaToV9Shape } from './stage-mega.ts';
 import { runStage5 } from './stage5-validation-gate.ts';
+import { reconcilePicksWithMath } from './math-reconciler.ts';
 import type { MatchContext, PipelineRunResult } from './types.ts';
 
 export type { ETLRawData } from './stage0-data-foundation.ts';
@@ -29,6 +30,25 @@ export async function runPipeline(
   const mega = await runMegaStage(data_foundation, context, organizedOdds);
   const mega_ms = Date.now() - megaStart;
   console.log(`[orchestrator] Stage MEGA done in ${mega_ms}ms — verdict=${mega.veredicto}, ${mega.picks.length} picks`);
+
+  // Stage MEGA+ — reconcile LLM probabilities against the mathematical models
+  // (Dixon-Coles + Elo + Monte Carlo). Blends covered-market probabilities with
+  // the model baseline and downgrades/flags large disagreements. Markets the
+  // models don't cover (córners, tarjetas, hándicap) keep the LLM estimate but
+  // are capped in confidence. Env MATH_BLEND_WEIGHT (default 0.5) tunes trust.
+  const blendWeight = Number(Deno.env.get('MATH_BLEND_WEIGHT') ?? '0.5');
+  const reconciled = reconcilePicksWithMath(mega, context.math, isFinite(blendWeight) ? blendWeight : 0.5);
+  if (reconciled.notes.length > 0) {
+    console.log(`[orchestrator] Math reconcile: ${reconciled.notes.length} adjustment(s)`);
+    for (const a of reconciled.audit) {
+      if (a.action === 'flagged') {
+        console.log(`[orchestrator]   ⚖ ${a.market}/${a.selection}: LLM ${a.llm_prob}% ↔ math ${a.math_prob}% → ${a.blended_prob}%`);
+      }
+    }
+  }
+  mega.picks = reconciled.picks;
+  // Surface reconciliation notes as risks so the modal/PDF explain the adjustment.
+  mega.riesgos_identificados = [...(mega.riesgos_identificados || []), ...reconciled.notes];
 
   // Adapt to V9 shape (so persistence layer doesn't change)
   const { statistical_foundation, specialists, skeptic, synthesizer } = megaToV9Shape(mega, data_foundation);
