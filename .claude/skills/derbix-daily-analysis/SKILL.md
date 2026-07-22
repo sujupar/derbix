@@ -38,8 +38,14 @@ vivo (o cuando `resolve_ids_on_first_run: true`):
 - Ensemble 1X2: MC*0.5 + DC*0.3 + Elo*0.2 ; Over2.5/BTTS: MC*0.6 + DC*0.4
 - Injury xG loss: min(0.6, n_ausentes*0.15)
 - Blend con mercado: w=0.5 (rango 0.3-0.6)
-- Gates: p_model>=0.80 ; 1.20<=odds<=4.50 ; edge>=0.03 ; tabla coherencia:
-  0.95->1.25, 0.90->1.35, 0.85->1.50, 0.83->1.55, 0.80->1.60
+- MODO VALOR (Opción B): el objetivo son picks que PAGUEN (cuota >= 1.40), no favoritos de
+  cuota baja. Gates:
+  - **p_final >= 0.72** (probabilidad mínima; ya NO 0.80).
+  - **1.40 <= odds <= 4.50** (piso 1.40 = lo que la plataforma muestra y contabiliza; nada por debajo).
+  - **edge >= 0.05** (5% — exige valor real, no cuota justa).
+  - Tabla de coherencia (cap de cuota por banda de prob):
+    0.95->1.25, 0.90->1.35, 0.85->1.50, 0.83->1.55, 0.80->1.60, 0.78->1.70, 0.75->1.78, 0.72->1.85.
+  - Efecto: la banda publicable real es ~cuota 1.40-1.85 con prob 72-85% (ej. "74% @ 1.60").
 - Límites: <=5 picks/partido, <=15 oportunidades/día
 - **CUOTA DE REFERENCIA = CASA COLOMBIANA** (configurable). `BOOKMAKER_REF="BetPlay"`
   (alternativas: Wplay, Rushbet, Betsson, Codere). La cuota publicada DEBE ser la que un
@@ -153,10 +159,12 @@ De-vig del conjunto de cuotas de esa casa por 'power' (o multiplicativo) para ob
 p_market_devig. p_final = 0.5*p_model_ajustada + 0.5*p_market_devig.
 edge = (p_final - 1/odds)/(1/odds) con odds = cuota colombiana. p_implied=1/max(odds,1.01).
 
-### 7. Selección + gates (en orden)
-1) p_final>=0.80  2) cuota existe en catálogo (match por tokens, mismo número; DNB solo a
-Empate No Acción)  3) 1.20<=odds<=4.50  4) coherencia (tabla)  5) edge>=0.03.
-Máx 5 picks/partido, 15 oportunidades/día, prioriza diversidad de categorías.
+### 7. Selección + gates (en orden) — MODO VALOR
+1) **p_final>=0.72**  2) cuota (colombiana, paso 2b) existe realmente; DNB solo a Empate No
+Acción  3) **1.40<=odds<=4.50** (nada por debajo de 1.40; la plataforma lo oculta y no lo
+contabiliza)  4) coherencia (tabla extendida 0.72-0.95)  5) **edge>=0.05**.
+Objetivo: picks que paguen (banda real ~1.40-1.85 @ prob 72-85%, ej. "74% @ 1.60"), NO
+favoritos de cuota <1.40. Máx 5 picks/partido, 15 oportunidades/día, prioriza diversidad.
 
 ### 8. Confianza + staking
 ALTA/MEDIA/BAJA según reglas (modelado, consistencia>=0.6, muestra>=15, sin divergencia

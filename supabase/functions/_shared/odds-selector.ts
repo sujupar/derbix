@@ -440,12 +440,18 @@ export function oddsWithinTolerance(llmOdds: number | null, realOdds: number, to
 //   prob 0.85, odds 1.50 → edge 28%
 //   prob 0.83, odds 1.55 → edge 29%
 //   prob 0.80, odds 1.60 → edge 28%
+// 2026-07-22 — bandas 0.72-0.78 añadidas para el modo "valor" (Opción B): picks de
+// cuota >= 1.40 con probabilidad 72-80%. El cap de cuota por banda mantiene el edge
+// implícito acotado (~33%) para rechazar prob/cuota infladas también en este rango.
 const PROB_ODDS_SANITY_TABLE: Array<[number, number]> = [
     [0.95, 1.25],
     [0.90, 1.35],
     [0.85, 1.50],
     [0.83, 1.55],
     [0.80, 1.60],
+    [0.78, 1.70],
+    [0.75, 1.78],
+    [0.72, 1.85],
 ];
 
 export interface ProbOddsCoherenceResult {
