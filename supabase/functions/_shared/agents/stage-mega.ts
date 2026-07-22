@@ -26,6 +26,12 @@ REGLAS DURAS:
 - "consejos_apostador" 3-4 bullets educativos sobre cómo pensar este tipo de partidos.
 - Picks: probability >= ${OPPORTUNITIES_THRESHOLD_PERCENT}, odds [1.50-3.50], 0-5 picks máx.
 
+BASELINE MATEMÁTICO — ANCLA OBLIGATORIA:
+- En el input verás un bloque "MODELOS MATEMÁTICOS" con probabilidades calculadas por Dixon-Coles, Elo y Monte Carlo (10.000 simulaciones) para los mercados principales (1X2, doble oportunidad, goles, BTTS, goles por equipo).
+- Estas probabilidades son tu ANCLA. Tu probability para un mercado cubierto NO debe alejarse del modelo sin una razón concreta citada (lesión de titular, alineación confirmada, clima, contexto Perplexity).
+- Si tu juicio difiere del modelo en más de 15 puntos, EXPLICA por qué en el "reasoning". Si no tienes una razón sólida, acércate al modelo.
+- Para córners, tarjetas, hándicap asiático y mitades NO hay modelo matemático: sé más conservador y usa confidence MEDIA o BAJA.
+
 DIVERSIDAD DE MERCADOS — CRÍTICO:
 - DEBES considerar EXPLÍCITAMENTE estas 7 categorías de mercado y emitir picks de las que tengan valor:
   1. RESULTADO (1X2): Local / Empate / Visitante
@@ -143,7 +149,34 @@ export async function runMegaStage(
     oddsCatalog = safeTruncate(context.odds || '', 2500);
   }
 
+  // Build the MATHEMATICAL BASELINE block from the models the pipeline already
+  // computed (Dixon-Coles + Elo + Monte Carlo). Before V10 this was discarded;
+  // now it anchors the LLM's probabilities so picks are statistically grounded.
+  let mathBlock = 'No disponible (se usará solo el juicio del analista).';
+  const math = context.math;
+  if (math?.monte_carlo?.market_probabilities) {
+    const mc = math.monte_carlo.market_probabilities;
+    const ens = math.ensemble_probabilities;
+    const pct = (x: number | undefined | null) => (x == null ? '—' : `${Math.round(x * 100)}%`);
+    const dcTop = math.dixon_coles?.probabilities?.most_likely_scorelines?.slice(0, 3)
+      .map((s) => `${s.score} (${pct(s.probability)})`).join(', ') || '—';
+    const diag = math.diagnostics;
+    mathBlock = [
+      `1X2 (ensemble): Local ${pct(ens?.home_win)} | Empate ${pct(ens?.draw)} | Visitante ${pct(ens?.away_win)}`,
+      `Doble oportunidad: 1X ${pct(mc.home_or_draw)} | X2 ${pct(mc.away_or_draw)} | 12 ${pct(mc.home_or_away)}`,
+      `Goles (over): +0.5 ${pct(mc.over_05)} | +1.5 ${pct(mc.over_15)} | +2.5 ${pct(ens?.over_25 ?? mc.over_25)} | +3.5 ${pct(mc.over_35)}`,
+      `BTTS: Sí ${pct(ens?.btts_yes ?? mc.btts_yes)} | No ${pct(mc.btts_no)}`,
+      `Goles equipo — Local: +0.5 ${pct(mc.home_over_05)} +1.5 ${pct(mc.home_over_15)} | Visitante: +0.5 ${pct(mc.away_over_05)} +1.5 ${pct(mc.away_over_15)}`,
+      `λ esperados: Local ${math.dixon_coles?.lambdaHome ?? '?'} / Visitante ${math.dixon_coles?.lambdaAway ?? '?'} (total ${math.dixon_coles?.expected_total_goals ?? '?'} goles)`,
+      `Marcadores más probables (Dixon-Coles): ${dcTop}`,
+      `Elo: ${math.elo?.homeElo ?? '?'} vs ${math.elo?.awayElo ?? '?'} | Confianza modelo: ${diag?.elo_confidence ?? '?'} | Consistencia entre modelos: ${diag?.model_consistency ?? '?'} | Muestra: ${diag?.home_sample_size ?? 0}/${diag?.away_sample_size ?? 0} partidos`,
+    ].join('\n');
+  }
+
   const prompt = `Datos del partido: ${JSON.stringify(dfCompact)}
+
+MODELOS MATEMÁTICOS (ancla obligatoria — Dixon-Coles + Elo + Monte Carlo 10k sims):
+${mathBlock}
 
 CATÁLOGO DE CUOTAS REALES (Bet365/Pinnacle):
 ${oddsCatalog}
@@ -160,6 +193,7 @@ INSTRUCCIONES:
 3. En "evaluacion_mercados" reporta brevemente por qué descartaste o incluiste cada una de las 7 categorías.
 4. NO te limites a Over/Under de goles. Si encuentras valor en córners, tarjetas, doble oportunidad o handicaps, EMÍTELO.
 5. Escribe explicacion_detallada con prosa interpretativa larga (mínimo 800 caracteres) en español, didáctica.
+6. Para cada pick de un mercado cubierto por MODELOS MATEMÁTICOS, tu "probability" debe estar anclada a ese baseline. Si te alejas >15 puntos, justifica la razón concreta en "reasoning". Sin razón sólida, acércate al modelo.
 
 Devuelve JSON único.`;
 
