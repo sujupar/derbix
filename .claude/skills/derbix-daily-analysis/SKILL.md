@@ -15,12 +15,20 @@ description: >
 ## Prerrequisitos
 - Variable de entorno/secreto **SPORTMONKS_API_KEY** disponible en la sesión.
 - Acceso de red saliente a **api.sportmonks.com** (HTTPS) y a la web para búsquedas.
-- Placeholder configurable **LEAGUE_IDS**: lista de IDs de liga de SportMonks a analizar
-  hoy. EDITA esta línea cada corrida si cambia:
-  ```
-  LEAGUE_IDS="8,564,384"   # ej: 8=Premier, 564=LaLiga, 384=Serie A. Variable por día.
-  ```
+- **Ligas objetivo**: definidas en `leagues.json` (junto a este SKILL.md). NO se editan
+  cada día — el método analiza SOLO las ligas de esa lista que TENGAN partidos el día
+  objetivo y salta las que no jueguen (la mayoría de los días solo juegan unas pocas).
 - Timezone de negocio: **América/Bogotá (UTC−5)**.
+
+## Resolución de IDs de liga (primera corrida)
+`leagues.json` trae `sportmonks_league_id: null` para cada liga. En la PRIMERA corrida en
+vivo (o cuando `resolve_ids_on_first_run: true`):
+1. Descarga el catálogo de ligas: `GET /v3/football/leagues?api_token=KEY&per_page=200` (pagina).
+2. Empareja cada `name`+`country` de `leagues.json` con la liga real de SportMonks
+   (nombre y país). Ante duda entre varias, elige la de la máxima categoría del país.
+3. Escribe los `sportmonks_league_id` resueltos de vuelta en `leagues.json` y commitea el
+   cambio (o repórtalos para fijarlos). En corridas siguientes usa los IDs ya fijados.
+`LEAGUE_IDS` = el conjunto de `sportmonks_league_id` no nulos de `leagues.json`.
 
 ## Constantes del método (no cambiar sin recalibrar)
 - leagueAvgGoalsHome=1.5, leagueAvgGoalsAway=1.1
@@ -34,6 +42,10 @@ description: >
   0.95->1.25, 0.90->1.35, 0.85->1.50, 0.83->1.55, 0.80->1.60
 - Límites: <=5 picks/partido, <=15 oportunidades/día
 - Bookmakers por prioridad: bet365(2)>Pinnacle(6)>Unibet(5)>10bet(25)>1xBet(27)>WilliamHill(28)>Betway(32)
+- **Copas y supercopas (type='cup'/'supercup' en leagues.json)**: los equipos ROTAN titulares.
+  Si `rotation_risk` es 'high' (supercopas), exige alineación CONFIRMED o PROBABLE fiable antes
+  de emitir picks; sin ella, topa confianza en BAJA y reduce el número de picks. Con
+  'medium' (Champions/Libertadores), topa confianza en MEDIA salvo alineación confirmada.
 
 ## Procedimiento
 

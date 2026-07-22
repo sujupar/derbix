@@ -1,0 +1,32 @@
+{
+  "_comment": "Ligas objetivo del análisis diario de Derbix. sportmonks_league_id se resuelve/verifica en la PRIMERA corrida en vivo contra GET /v3/football/leagues (los IDs de SportMonks difieren de allowed_leagues de Derbix). El método SOLO analiza las ligas de esta lista que TENGAN partidos el día objetivo; las que no jueguen se saltan. Para type='cup'/'supercup', rotation_risk='high': exigir alineación CONFIRMED/PROBABLE y topar confianza (los equipos rotan titulares).",
+  "resolve_ids_on_first_run": true,
+  "leagues": [
+    { "name": "Premier League",        "country": "England",   "division": 1, "type": "league",   "sportmonks_league_id": null },
+    { "name": "Championship",          "country": "England",   "division": 2, "type": "league",   "sportmonks_league_id": null },
+    { "name": "LaLiga",                "country": "Spain",     "division": 1, "type": "league",   "sportmonks_league_id": null },
+    { "name": "LaLiga2",               "country": "Spain",     "division": 2, "type": "league",   "sportmonks_league_id": null },
+    { "name": "Serie A",               "country": "Italy",     "division": 1, "type": "league",   "sportmonks_league_id": null },
+    { "name": "Serie B",               "country": "Italy",     "division": 2, "type": "league",   "sportmonks_league_id": null },
+    { "name": "Bundesliga",            "country": "Germany",   "division": 1, "type": "league",   "sportmonks_league_id": null },
+    { "name": "2. Bundesliga",         "country": "Germany",   "division": 2, "type": "league",   "sportmonks_league_id": null },
+    { "name": "Ligue 1",               "country": "France",    "division": 1, "type": "league",   "sportmonks_league_id": null },
+    { "name": "Ligue 2",               "country": "France",    "division": 2, "type": "league",   "sportmonks_league_id": null },
+
+    { "name": "UEFA Champions League", "country": "Europe",    "division": 1, "type": "cup",      "sportmonks_league_id": null, "rotation_risk": "medium" },
+    { "name": "Copa Libertadores",     "country": "South America","division": 1,"type": "cup",     "sportmonks_league_id": null, "rotation_risk": "medium" },
+
+    { "name": "Supercopa de España",   "country": "Spain",     "division": 1, "type": "supercup", "sportmonks_league_id": null, "rotation_risk": "high" },
+    { "name": "FA Community Shield",   "country": "England",   "division": 1, "type": "supercup", "sportmonks_league_id": null, "rotation_risk": "high" },
+    { "name": "Supercoppa Italiana",   "country": "Italy",     "division": 1, "type": "supercup", "sportmonks_league_id": null, "rotation_risk": "high" },
+    { "name": "DFL-Supercup",          "country": "Germany",   "division": 1, "type": "supercup", "sportmonks_league_id": null, "rotation_risk": "high" },
+    { "name": "Trophée des Champions", "country": "France",    "division": 1, "type": "supercup", "sportmonks_league_id": null, "rotation_risk": "high" },
+
+    { "name": "Categoría Primera A",   "country": "Colombia",  "division": 1, "type": "league",   "sportmonks_league_id": null },
+    { "name": "Brasileirão Série A",   "country": "Brazil",    "division": 1, "type": "league",   "sportmonks_league_id": null },
+    { "name": "Liga Profesional",      "country": "Argentina", "division": 1, "type": "league",   "sportmonks_league_id": null },
+    { "name": "Major League Soccer",   "country": "USA",       "division": 1, "type": "league",   "sportmonks_league_id": null },
+    { "name": "Süper Lig",             "country": "Turkey",    "division": 1, "type": "league",   "sportmonks_league_id": null },
+    { "name": "Primeira Liga",         "country": "Portugal",  "division": 1, "type": "league",   "sportmonks_league_id": null }
+  ]
+}
