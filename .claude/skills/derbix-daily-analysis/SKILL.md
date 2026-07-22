@@ -41,7 +41,11 @@ vivo (o cuando `resolve_ids_on_first_run: true`):
 - Gates: p_model>=0.80 ; 1.20<=odds<=4.50 ; edge>=0.03 ; tabla coherencia:
   0.95->1.25, 0.90->1.35, 0.85->1.50, 0.83->1.55, 0.80->1.60
 - Límites: <=5 picks/partido, <=15 oportunidades/día
-- Bookmakers por prioridad: bet365(2)>Pinnacle(6)>Unibet(5)>10bet(25)>1xBet(27)>WilliamHill(28)>Betway(32)
+- **CUOTA DE REFERENCIA = CASA COLOMBIANA** (configurable). `BOOKMAKER_REF="BetPlay"`
+  (alternativas: Wplay, Rushbet, Betsson, Codere). La cuota publicada DEBE ser la que un
+  apostador ve en esta casa en Colombia — las cuotas europeas de SportMonks NO sirven como
+  referencia (son inexactas para Colombia) y solo se usan como respaldo marcado. Ver paso 2b.
+- Bookmakers SportMonks (SOLO respaldo/descubrimiento de mercados): bet365(2)>Pinnacle(6)>Unibet(5)>10bet(25)>1xBet(27)>WilliamHill(28)>Betway(32)
 - **Copas y supercopas (type='cup'/'supercup' en leagues.json)**: los equipos ROTAN titulares.
   Si `rotation_risk` es 'high' (supercopas), exige alineación CONFIRMED o PROBABLE fiable antes
   de emitir picks; sin ella, topa confianza en BAJA y reduce el número de picks. Con
@@ -89,7 +93,8 @@ Standings:
 ```bash
 curl -s "$API/standings/seasons/${SEASON_ID}?api_token=${SPORTMONKS_API_KEY}&include=participant;details"
 ```
-Odds pre-match (cuotas REALES — obligatorio):
+Odds pre-match de SportMonks — SOLO para DESCUBRIR qué mercados existen y como RESPALDO
+(NO es la cuota de referencia; ver paso 2b para la cuota colombiana real):
 ```bash
 curl -s "$API/odds/pre-match/fixtures/${FID}?api_token=${SPORTMONKS_API_KEY}&include=market;bookmaker"
 ```
@@ -100,6 +105,28 @@ curl -s "$API/predictions/probabilities/fixtures/${FID}?api_token=${SPORTMONKS_A
 Scores en historial: hay DOS entradas description=CURRENT (una por participante);
 lee score.participant=='home'/'away' -> score.goals. Stats por type_id:
 34 córners, 84 amarillas, 83 rojas, 86 remates a puerta, xGFixture=xG.
+
+### 2b. Cuotas de referencia — CASA COLOMBIANA (fuente PRINCIPAL de cuotas)
+Las cuotas de SportMonks son de bookmakers europeos y NO representan lo que un apostador
+paga en Colombia. La cuota publicada de cada pick DEBE ser la de `BOOKMAKER_REF` (casa
+colombiana). Por cada partido, en orden hasta obtener la cuota de los mercados de interés
+(1X2, Doble Oportunidad, Más/Menos Goles, Ambos Anotan, y los demás que evalúes):
+1. **Navegador headless** (Chromium+Playwright YA instalado — NO ejecutar "playwright install";
+   usar el binario en /opt/pw-browsers). Abre la página del partido en el sitio de la casa
+   (p.ej. betplay.com.co / wplay.co), acepta cookies, y lee la cuota decimal de cada mercado.
+   Guarda mercado + selección + cuota exactos.
+2. **Comparador de cuotas** si el sitio geobloquea o no carga (la IP de la nube no es de
+   Colombia): busca en la web "cuotas {Local} vs {Visitante} {BOOKMAKER_REF}" o usa un
+   comparador que incluya casas colombianas, y toma la cuota de la casa objetivo.
+3. **Último recurso:** si NO consigues una cuota colombiana fiable para un mercado, NO
+   publiques ese pick con una cuota europea inventada. Preferible OMITIR el pick. Solo si
+   quieres conservarlo, usa la de SportMonks marcando `bookmaker:"SportMonks (respaldo)"` y
+   bajando la confianza — pero omitir es lo preferido.
+Registra por pick: `odds` = cuota colombiana decimal, `bookmaker` = BOOKMAKER_REF, `odds_source:"real"`.
+
+> Nota práctica: desde el entorno de nube (IP fuera de Colombia) algunas casas pueden
+> geobloquear o pedir verificación. La primera corrida nos dirá si funciona; si no, pasamos
+> al comparador o configuramos un acceso adecuado. Reporta qué método funcionó.
 
 ### 3. Investigación web (SIN Perplexity)
 Por partido, busca: alineación probable/confirmada, lesiones/suspensiones (goleador,
@@ -120,10 +147,11 @@ p_model_base = ensemble. Ajusta ±15 pts MÁX por contexto verificable (cita raz
 reasoning). Mercados no modelados (córners/tarjetas/hándicap/mitades) -> conservador,
 confianza tope MEDIA.
 
-### 6. De-vig + edge
-Del catálogo de odds: mediana entre bookmakers priorizados, descarta fuera de [1.01,50].
-De-vig por 'power' (o multiplicativo). p_final = 0.5*p_model_ajustada + 0.5*p_market_devig.
-edge = (p_final - 1/odds)/(1/odds). p_implied=1/max(odds,1.01).
+### 6. De-vig + edge  (contra la CUOTA COLOMBIANA del paso 2b)
+Usa la cuota de `BOOKMAKER_REF` obtenida en 2b como la cuota real del pick (NO la de SportMonks).
+De-vig del conjunto de cuotas de esa casa por 'power' (o multiplicativo) para obtener
+p_market_devig. p_final = 0.5*p_model_ajustada + 0.5*p_market_devig.
+edge = (p_final - 1/odds)/(1/odds) con odds = cuota colombiana. p_implied=1/max(odds,1.01).
 
 ### 7. Selección + gates (en orden)
 1) p_final>=0.80  2) cuota existe en catálogo (match por tokens, mismo número; DNB solo a
@@ -139,17 +167,21 @@ Genera derbix-analysis-<TARGET_DATE>.json siguiendo EXACTAMENTE el esquema de la
 del documento maestro. Usa el vocabulario EXACTO de mercados (Resultado 1X2, Más/Menos Goles,
 Ambos Anotan, Doble Oportunidad, Empate No Acción, Más/Menos Esquinas, Total Tarjetas,
 Asian Handicap, ...) y selecciones ("Over 2.5", "Yes", "1X", "<Equipo> (Local)", "Empate").
-Campos obligatorios por pick: market, selection, p_model (0-1), p_implied, odds, odds_source:"real",
-edge, confidence (int), decision:"BET", is_opportunity, reasoning (STRING). meta con
-engine_version="COWORK-V1", prompt_version="COWORK-V1", target_date, generated_at_utc,
-leagues_included, total_matches, total_picks.
+Campos obligatorios por pick: market, selection, p_model (0-1), p_implied, odds (=cuota
+colombiana), odds_source:"real", bookmaker (=BOOKMAKER_REF), edge, confidence (int),
+decision:"BET", is_opportunity, reasoning (STRING). meta con engine_version="COWORK-V1",
+prompt_version="COWORK-V1", target_date, generated_at_utc, leagues_included, total_matches,
+total_picks.
 
 ### 10. Entregar
 Guarda el archivo y repórtalo (ruta + resumen: nº partidos, nº picks, ligas). El usuario
 lo sube manualmente en Admin -> Importar Análisis del Día.
 
 ## Reglas duras
-- NUNCA publicar una cuota que no exista en el catálogo real de SportMonks.
+- La cuota publicada DEBE ser de la casa colombiana (BOOKMAKER_REF), obtenida en vivo (paso 2b).
+  NUNCA usar una cuota europea de SportMonks como referencia (solo respaldo marcado, y de
+  preferencia omitir el pick si no hay cuota colombiana fiable).
+- NUNCA publicar una cuota que no hayas obtenido realmente (nada inventado).
 - NUNCA violar el gate de coherencia prob<->odds.
 - El blend con mercado SOLO reduce el edge, nunca lo infla.
 - Mercados no modelados topan confianza en MEDIA.
