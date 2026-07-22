@@ -15,9 +15,13 @@ import { requirePlatformAdmin, authErrorResponse } from "../_shared/auth-guard.t
 import { checkProbOddsCoherence } from "../_shared/odds-selector.ts";
 
 const ENGINE_FALLBACK = "COWORK-V1";
-const MIN_ODDS = 1.20;
+// Modo "valor" (Opción B, 2026-07-22): la cuota publicable debe ser >= 1.40 (piso de
+// display + ROI de la plataforma) y la probabilidad de oportunidad baja a 0.72, para
+// que salgan picks que paguen más (ej. 72-80% @ cuota 1.40-1.85) en vez de favoritos
+// de cuota < 1.40 que la plataforma oculta.
+const MIN_ODDS = 1.40;
 const MAX_ODDS = 4.50;
-const OPP_THRESHOLD = 0.80;
+const OPP_THRESHOLD = 0.72;
 const MAX_OPPORTUNITY_RANK = 20;
 
 // Vocabulario EXACTO de mercados permitidos (sportmonks-normalizer MARKET_DICT).

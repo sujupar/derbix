@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../services/supabaseService';
 import { manualOverridePick } from '../../services/resultsService';
-import { OPPORTUNITIES_THRESHOLD, OPPORTUNITIES_THRESHOLD_PERCENT, MAX_OPPORTUNITIES_PER_DAY } from '../../constants/opportunities';
+import { OPPORTUNITIES_THRESHOLD, MAX_OPPORTUNITIES_PER_DAY } from '../../constants/opportunities';
 import { translatePick } from '../../services/marketTranslator';
 import { useAuth } from '../../hooks/useAuth';
 import { useSubscription } from '../../contexts/SubscriptionContext';
@@ -673,7 +673,7 @@ const EmptyState: React.FC<{ onRetry: () => void; message?: string | null; inPro
         <p className="text-dx-text-soft max-w-md mb-6 leading-relaxed">
             {message || (
                 <>
-                    No encontramos picks con <span className="text-amber-400 font-bold">Probabilidad {'\u2265'} {OPPORTUNITIES_THRESHOLD_PERCENT}%</span> y cuota real del mercado para esta fecha.
+                    No encontramos picks de <span className="text-amber-400 font-bold">alta probabilidad con valor</span> y cuota real del mercado para esta fecha.
                     <span className="block mt-2 text-xs text-dx-text-mute">
                         Las oportunidades se publican solo cuando los bookmakers han emitido cuotas — si aún no están disponibles, vuelve en unos minutos.
                     </span>
