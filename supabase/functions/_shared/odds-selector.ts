@@ -440,18 +440,23 @@ export function oddsWithinTolerance(llmOdds: number | null, realOdds: number, to
 //   prob 0.85, odds 1.50 → edge 28%
 //   prob 0.83, odds 1.55 → edge 29%
 //   prob 0.80, odds 1.60 → edge 28%
-// 2026-07-22 — bandas 0.72-0.78 añadidas para el modo "valor" (Opción B): picks de
-// cuota >= 1.40 con probabilidad 72-80%. El cap de cuota por banda mantiene el edge
-// implícito acotado (~33%) para rechazar prob/cuota infladas también en este rango.
+// 2026-07-22 — MODO INTERPRETACIÓN: tabla RELAJADA. La interpretación táctica de Claude
+// puede detectar valor real que el mercado no pondera (una cuota 2.0 "fácil"). Esta tabla
+// ya NO ancla las probabilidades hacia el mercado — solo actúa como backstop contra lo
+// ABSURDO (edge implícito >~65% o errores de catálogo tipo "88% @ 2.02"). El control de
+// calidad real es la auto-crítica adversarial del método (SKILL 6b), no esta tabla.
+// La zona de alta probabilidad se mantiene relativamente estricta (ahí viven los errores
+// de catálogo); la zona media (0.60-0.75) permite cuotas 2.0-3.0 cuando hay tesis.
 const PROB_ODDS_SANITY_TABLE: Array<[number, number]> = [
-    [0.95, 1.25],
-    [0.90, 1.35],
-    [0.85, 1.50],
-    [0.83, 1.55],
-    [0.80, 1.60],
-    [0.78, 1.70],
-    [0.75, 1.78],
-    [0.72, 1.85],
+    [0.90, 1.45],
+    [0.85, 1.72],
+    [0.80, 2.00],
+    [0.75, 2.25],
+    [0.70, 2.50],
+    [0.65, 2.75],
+    [0.60, 3.00],
+    [0.55, 3.25],
+    [0.50, 3.50],
 ];
 
 export interface ProbOddsCoherenceResult {

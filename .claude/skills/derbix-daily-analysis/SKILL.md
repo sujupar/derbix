@@ -37,15 +37,22 @@ vivo (o cuando `resolve_ids_on_first_run: true`):
 - Monte Carlo: 10000 simulaciones
 - Ensemble 1X2: MC*0.5 + DC*0.3 + Elo*0.2 ; Over2.5/BTTS: MC*0.6 + DC*0.4
 - Injury xG loss: min(0.6, n_ausentes*0.15)
-- Blend con mercado: w=0.5 (rango 0.3-0.6)
-- MODO VALOR (Opción B): el objetivo son picks que PAGUEN (cuota >= 1.40), no favoritos de
-  cuota baja. Gates:
-  - **p_final >= 0.72** (probabilidad mínima; ya NO 0.80).
-  - **1.40 <= odds <= 4.50** (piso 1.40 = lo que la plataforma muestra y contabiliza; nada por debajo).
-  - **edge >= 0.05** (5% — exige valor real, no cuota justa).
-  - Tabla de coherencia (cap de cuota por banda de prob):
-    0.95->1.25, 0.90->1.35, 0.85->1.50, 0.83->1.55, 0.80->1.60, 0.78->1.70, 0.75->1.78, 0.72->1.85.
-  - Efecto: la banda publicable real es ~cuota 1.40-1.85 con prob 72-85% (ej. "74% @ 1.60").
+- **FILOSOFÍA — LA INTERPRETACIÓN LIDERA (no la matemática):** las casas de apuestas son
+  eficientes en lo cuantitativo, pero NO ponderan bien el ajuste TÁCTICO (choque de estilos,
+  duelos individuales, cómo una formación explota a otra, cómo una ausencia rompe un plan).
+  Ahí está el valor real y las cuotas altas "fáciles". El razonamiento táctico de Claude es
+  la FUENTE de alfa; la matemática es una REFERENCIA/prior y un chequeo de cordura, NO un
+  ancla. **NO se promedia hacia el mercado** (eso mataba la interpretación).
+- **CONTROL DE CALIDAD = AUTO-CRÍTICA ADVERSARIAL** (reemplaza al ancla matemática): cada pick
+  debe tener un MECANISMO táctico concreto y SOBREVIVIR a su propia refutación (paso 6b). Sin
+  mecanismo articulable o si el contra-argumento gana → no es pick.
+- MODO VALOR — objetivo: picks que PAGUEN, **priorizando cuota >= 1.70**. Gates:
+  - **1.50 <= odds <= 4.50**, priorizando **odds >= 1.70** (la zona donde la interpretación paga).
+  - **edge >= 0.08** (8% — valor real vs el mercado, ya sin blend).
+  - Coherencia prob↔odds RELAJADA (permite alta prob a cuota alta cuando hay tesis; solo
+    rechaza lo absurdo, edge implícito >~65%): 0.90->1.45, 0.85->1.72, 0.80->2.00, 0.75->2.25,
+    0.70->2.50, 0.65->2.75, 0.60->3.00.
+  - Efecto: aparecen picks tipo "72% @ 2.10" o "65% @ 2.60" cuando la tesis táctica lo respalda.
 - Límites: <=5 picks/partido, <=15 oportunidades/día
 - **CUOTA DE REFERENCIA = CASA COLOMBIANA** (configurable). `BOOKMAKER_REF="BetPlay"`
   (alternativas: Wplay, Rushbet, Betsson, Codere). La cuota publicada DEBE ser la que un
@@ -141,34 +148,64 @@ creador, portero), rotación por calendario europeo, motivación de fin de tempo
 - UNAVAILABLE o fuente única no fiable -> ajuste contextual = 0 y confianza tope MEDIA.
 - Registra fuentes y ausencias en research.*.
 
-### 4. Baseline matemático
-Calcula features (streak 5, descanso default 7, promedios 5/10 con xG si hay,
-injury xG loss). Corre Dixon-Coles (lambda_home=attack_home*defense_away*1.5,
-lambda_away=attack_away*defense_home*1.1, piso 0.1, time-decay xi=0.0025, rho=-0.08,
-matriz 8x8). Corre Elo (1X2). Corre Monte Carlo 10000 sims con esos lambda.
-Ensemble con los pesos de arriba. Guarda math_baseline por partido.
+### 4. Baseline matemático (REFERENCIA, no ancla)
+Calcula features (streak 5, descanso default 7, promedios 5/10 con xG si hay, injury xG loss).
+Corre Dixon-Coles (lambda_home=attack_home*defense_away*1.5, lambda_away=attack_away*defense_home*1.1,
+piso 0.1, time-decay xi=0.0025, rho=-0.08, matriz 8x8), Elo (1X2) y Monte Carlo 10000 sims.
+Ensemble → math_baseline. **Úsalo como prior y chequeo de cordura, NO como la probabilidad final.**
+Su rol: darte un punto de partida y avisarte cuando tu lectura táctica se aleje MUCHO (>30-35 pts)
+del baseline — en ese caso, tu tesis debe ser extraordinaria y explícita.
 
-### 5. Probabilidad anclada + ajuste
-p_model_base = ensemble. Ajusta ±15 pts MÁX por contexto verificable (cita razón en
-reasoning). Mercados no modelados (córners/tarjetas/hándicap/mitades) -> conservador,
-confianza tope MEDIA.
+### 5. ANÁLISIS TÁCTICO PROFUNDO (el corazón — aquí manda el razonamiento)
+Esta es la fuente de valor. Analiza a fondo CÓMO juegan los equipos y cómo se enfrentan:
+- **Estilo de cada equipo**: posesión / pressing alto / bloque bajo / directo / contragolpe / transiciones.
+- **Formaciones y su CHOQUE**: dónde una crea superioridad (ej. 3 mediocampistas vs 2; extremos
+  contra laterales adelantados; hombre libre entre líneas).
+- **Duelos individuales clave**: extremo veloz vs lateral lento; '9' aéreo vs central bajito;
+  creador vs mediocentro destructor; portero flojo por abajo.
+- **Mecanismos concretos**: línea defensiva alta vs velocidad rival; balón parado (córners/faltas);
+  cómo una AUSENCIA rompe un plan (no "falta X" sino "sin su único pivote no salen jugando ante
+  un pressing alto" → forzarán largos → perderán el mediocampo).
+- **Escenario probable del partido**: ¿quién impone su juego?, ¿se abre o se cierra?, ¿goles o
+  cerrojo?, game-state (si A se adelanta, B se lanza y deja espacios → más goles).
+Con TODO eso, **estima tu probabilidad para cada mercado desde el análisis táctico**, usando el
+baseline como referencia (no como límite). Aquí ves lo que el mercado no pondera.
 
-### 6. De-vig + edge  (contra la CUOTA COLOMBIANA del paso 2b)
-Usa la cuota de `BOOKMAKER_REF` obtenida en 2b como la cuota real del pick (NO la de SportMonks).
-De-vig del conjunto de cuotas de esa casa por 'power' (o multiplicativo) para obtener
-p_market_devig. p_final = 0.5*p_model_ajustada + 0.5*p_market_devig.
-edge = (p_final - 1/odds)/(1/odds) con odds = cuota colombiana. p_implied=1/max(odds,1.01).
+### 6. Buscar VALOR contra el mercado (SIN promediar)
+De-vig la cuota colombiana (paso 2b) → p_market. **Ya NO se promedia 50/50.**
+- `p_model` (lo que publicas) = TU estimación táctica del paso 5 (no un blend hacia el mercado).
+- El valor nace donde `p_model > p_market` **con un MECANISMO táctico concreto** que explique por
+  qué el mercado se equivoca (ej. "el mercado sobrevalora a B por su nombre, pero su línea alta es
+  suicida ante la velocidad de A; A marca 2+ con alta probabilidad").
+- `edge = (p_model - 1/odds)/(1/odds)`; `p_implied = 1/max(odds,1.01)`.
+- Prioriza **cuota 1.70-3.50** (la interpretación rara vez aporta valor por debajo de 1.50).
 
-### 7. Selección + gates (en orden) — MODO VALOR
-1) **p_final>=0.72**  2) cuota (colombiana, paso 2b) existe realmente; DNB solo a Empate No
-Acción  3) **1.40<=odds<=4.50** (nada por debajo de 1.40; la plataforma lo oculta y no lo
-contabiliza)  4) coherencia (tabla extendida 0.72-0.95)  5) **edge>=0.05**.
-Objetivo: picks que paguen (banda real ~1.40-1.85 @ prob 72-85%, ej. "74% @ 1.60"), NO
-favoritos de cuota <1.40. Máx 5 picks/partido, 15 oportunidades/día, prioriza diversidad.
+### 6b. AUTO-CRÍTICA ADVERSARIAL (el nuevo control anti-alucinación)
+Para CADA pick candidato, ANTES de publicarlo:
+1. Escribe el **argumento MÁS FUERTE EN CONTRA**: ¿por qué el mercado podría tener razón?, ¿qué
+   escenario tumba tu tesis?, ¿qué NO estás viendo?
+2. Si el contra-argumento es convincente y no tienes respuesta sólida → **DESCARTA** o baja a BAJA.
+3. Publica SOLO si tu tesis sobrevive a su propia refutación.
+4. Exige un mecanismo articulable (cómo/por qué). "Son mejores" NO es una tesis → no es pick.
+Incluye en `reasoning`: la tesis táctica + el mecanismo + por qué sobrevive a la refutación.
 
-### 8. Confianza + staking
-ALTA/MEDIA/BAJA según reglas (modelado, consistencia>=0.6, muestra>=15, sin divergencia
->15pts). confidence entero 0-100. kelly_stake_pct = min(0.05, 0.25*kelly).
+### 7. Selección + gates (en orden) — MODO VALOR (interpretación)
+1) cuota real de la casa colombiana (paso 2b); DNB solo a Empate No Acción
+2) **1.50<=odds<=4.50**, PRIORIZANDO **odds>=1.70**
+3) coherencia prob↔odds RELAJADA (0.90->1.45, 0.85->1.72, 0.80->2.00, 0.75->2.25, 0.70->2.50,
+   0.65->2.75, 0.60->3.00) — solo rechaza lo absurdo
+4) **edge>=0.08**
+5) tesis táctica con mecanismo + SOBREVIVE la auto-crítica (6b)
+Máx 5 picks/partido, 15/día. Prioriza diversidad de mercados y de partidos. Si un partido no
+tiene una tesis táctica fuerte, NO fuerces un pick — mejor pocos y con convicción.
+
+### 8. Confianza + staking (refleja CONVICCIÓN de la tesis)
+- **ALTA**: mecanismo táctico claro, sobrevive la auto-crítica con holgura, alineación
+  PROBABLE/CONFIRMED, datos sólidos.
+- **MEDIA**: tesis razonable pero con contra-argumento parcial, o alineación incierta, o mercado
+  no modelado (córners/tarjetas/hándicap).
+- **BAJA**: tesis especulativa que apenas sobrevive, o datos flojos.
+confidence entero 0-100. kelly_stake_pct = min(0.05, 0.25*kelly) sobre p_model y la cuota.
 
 ### 9. Escribir el archivo
 Genera derbix-analysis-<TARGET_DATE>.json siguiendo EXACTAMENTE el esquema de la sección 2
@@ -187,10 +224,14 @@ lo sube manualmente en Admin -> Importar Análisis del Día.
 
 ## Reglas duras
 - La cuota publicada DEBE ser de la casa colombiana (BOOKMAKER_REF), obtenida en vivo (paso 2b).
-  NUNCA usar una cuota europea de SportMonks como referencia (solo respaldo marcado, y de
-  preferencia omitir el pick si no hay cuota colombiana fiable).
+  NUNCA una cuota europea de SportMonks como referencia (solo respaldo marcado; mejor omitir).
 - NUNCA publicar una cuota que no hayas obtenido realmente (nada inventado).
-- NUNCA violar el gate de coherencia prob<->odds.
-- El blend con mercado SOLO reduce el edge, nunca lo infla.
-- Mercados no modelados topan confianza en MEDIA.
-- Sin info de alineación fiable -> ajuste 0, confianza MEDIA.
+- Todo pick DEBE tener una TESIS TÁCTICA con MECANISMO concreto y sobrevivir la auto-crítica (6b).
+  Sin eso, no es pick — por mucho edge numérico que parezca tener.
+- La probabilidad publicada es TU lectura táctica, NO un promedio hacia el mercado. La matemática
+  es referencia, no ancla.
+- El gate de coherencia (relajado) sigue siendo la última defensa contra lo absurdo: NUNCA lo violes.
+- Mercados no modelados (córners/tarjetas/hándicap) topan confianza en MEDIA.
+- Sin alineación fiable, el análisis táctico es más débil -> confianza tope MEDIA (no BAJA automática
+  si la tesis estructural es sólida, pero nunca ALTA).
+- Prefiere POCOS picks con convicción táctica a muchos forzados.

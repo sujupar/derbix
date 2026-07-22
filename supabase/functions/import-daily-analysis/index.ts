@@ -15,13 +15,12 @@ import { requirePlatformAdmin, authErrorResponse } from "../_shared/auth-guard.t
 import { checkProbOddsCoherence } from "../_shared/odds-selector.ts";
 
 const ENGINE_FALLBACK = "COWORK-V1";
-// Modo "valor" (Opción B, 2026-07-22): la cuota publicable debe ser >= 1.40 (piso de
-// display + ROI de la plataforma) y la probabilidad de oportunidad baja a 0.72, para
-// que salgan picks que paguen más (ej. 72-80% @ cuota 1.40-1.85) en vez de favoritos
-// de cuota < 1.40 que la plataforma oculta.
+// Modo INTERPRETACIÓN (2026-07-22): las oportunidades se definen por VALOR (edge), no por
+// probabilidad alta. Un pick de "65% @ 2.60" con tesis táctica es una oportunidad. MIN_ODDS
+// se mantiene en 1.40 (piso de display + ROI de la plataforma); el método apunta a >=1.70.
+// is_opportunity honra la bandera del archivo (el método solo emite picks que quiere publicar).
 const MIN_ODDS = 1.40;
 const MAX_ODDS = 4.50;
-const OPP_THRESHOLD = 0.72;
 const MAX_OPPORTUNITY_RANK = 20;
 
 // Vocabulario EXACTO de mercados permitidos (sportmonks-normalizer MARKET_DICT).
@@ -256,7 +255,7 @@ serve(async (req) => {
         risk_notes: p.reasoning ?? "",
         is_primary_pick: p.is_primary_pick ?? idx === 0,
         rank: p.rank ?? idx + 1,
-        is_opportunity: p.p_model >= OPP_THRESHOLD,
+        is_opportunity: p.is_opportunity !== false, // por valor: el método solo emite picks publicables
         opportunity_date: targetDate,
         opportunity_rank: null, // asignado globalmente abajo
         odds_source: "real",
@@ -278,8 +277,8 @@ serve(async (req) => {
       .select("id, p_model, edge")
       .eq("opportunity_date", targetDate)
       .eq("is_opportunity", true)
-      .order("p_model", { ascending: false })
       .order("edge", { ascending: false })
+      .order("p_model", { ascending: false })
       .limit(MAX_OPPORTUNITY_RANK);
     if (opps) {
       for (let i = 0; i < opps.length; i++) {
