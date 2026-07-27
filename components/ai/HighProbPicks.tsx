@@ -49,7 +49,10 @@ interface HighProbPicksProps {
     toolbar?: React.ReactNode; // toolrow (toggle + fecha + recargar) inyectado por LiveFeed
 }
 
-const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPickOverridden, onAccessibleFixturesChange, refreshSignal, toolbar }) => {
+const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onPickOverridden, onAccessibleFixturesChange, refreshSignal, toolbar }) => {
+    // NOTA: onViewReport ya NO se usa aquí. En la pestaña Oportunidades los informes
+    // NO deben abrirse (ni al hacer clic en una oportunidad, ni desde el destacado,
+    // ni desde Próximos). Los informes solo se abren desde la pestaña Partidos.
     const { profile } = useAuth();
     const { plan, isAdmin: isSubAdmin, trackUsage } = useSubscription();
     const { presentationMode } = usePresentationMode();
@@ -482,7 +485,6 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                                 <div className="fprob">{probOf(featured)}%<small>PROBABILIDAD</small></div>
                                 {oddOf(featured) !== '—' && <div className="fodd">{oddOf(featured)}</div>}
                             </div>
-                            <button className="fbtn" onClick={() => onViewReport?.(featured.job_id, featured.fixture_id)}>Ver análisis completo</button>
                         </div>
                     </div>
                 )}
@@ -509,7 +511,9 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                                     );
                                     return (
                                         <div key={pick.id}>
-                                            <button className="dxj-pick" style={lost ? { opacity: 0.6 } : undefined} onClick={() => onViewReport?.(pick.job_id, pick.fixture_id)}>
+                                            {/* Tarjeta informativa — en Oportunidades NO abre el informe (eso es
+                                                exclusivo de la pestaña Partidos). Sin onClick ni flecha. */}
+                                            <div className="dxj-pick" style={{ cursor: 'default', ...(lost ? { opacity: 0.6 } : {}) }}>
                                                 <span className="dxj-crests">
                                                     <b>{pick.logo_home ? <img src={pick.logo_home} alt="" /> : crest(pick.home_team)}</b>
                                                     <b>{pick.logo_away ? <img src={pick.logo_away} alt="" /> : crest(pick.away_team)}</b>
@@ -521,10 +525,9 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                                                 <span className="dxj-pmeta">
                                                     <span className="prob" style={lost ? { color: 'var(--dx-live)' } : undefined}>{probOf(pick)}%<small>PROB</small></span>
                                                     {oddOf(pick) !== '—' && <span className="odd">{oddOf(pick)}</span>}
-                                                    <span className="go">›</span>
                                                 </span>
                                                 <span className="dxj-pmk">{mkContent}</span>
-                                            </button>
+                                            </div>
                                             {isAdmin && (
                                                 <div className="flex items-center gap-1.5 mb-2 -mt-1 pl-1 flex-wrap">
                                                     {matchScores[pick.fixture_id] && (!pick.result || pick.result === 'PENDING') && (
@@ -559,13 +562,13 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                         <div className="dxj-mprox-h">Próximos</div>
                         <div className="dxj-mprox">
                             {proximos.map((p) => (
-                                <button key={p.id} type="button" className="pc" onClick={() => onViewReport?.(p.job_id || '', p.fixture_id)}>
+                                <div key={p.id} className="pc" style={{ cursor: 'default' }}>
                                     <div className="pt">{p.home_team} — {p.away_team}</div>
                                     <div className="pr">
                                         <span className="ph">{kickoffOf(p) || ''}</span>
                                         <span className="pp dx-num">{probOf(p)}%</span>
                                     </div>
-                                </button>
+                                </div>
                             ))}
                         </div>
                     </div>
@@ -587,7 +590,6 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                             <div className="fprob">{probOf(featured)}%<small>PROBABILIDAD</small></div>
                             <div className="fodd">{oddOf(featured)}</div>
                         </div>
-                        <button className="fbtn" onClick={() => onViewReport?.(featured.job_id, featured.fixture_id)}>Ver análisis completo</button>
                     </div>
 
                     {railLeagues.length > 0 && (
@@ -607,11 +609,11 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                         <div className="dxj-rc">
                             <div className="dxj-rc-t"><ChartBarIcon /> Próximos</div>
                             {proximos.map((p) => (
-                                <button key={p.id} type="button" className="dxj-nrow" style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid var(--dx-border)', cursor: 'pointer' }} onClick={() => onViewReport?.(p.job_id || '', p.fixture_id)}>
+                                <div key={p.id} className="dxj-nrow">
                                     <span className="truncate" style={{ fontSize: '12.5px' }}>{p.home_team} — {p.away_team}</span>
                                     {kickoffOf(p) && <span className="dx-num" style={{ fontSize: '11px', color: 'var(--dx-text-mute)' }}>{kickoffOf(p)}</span>}
                                     <span className="nt dx-num">{probOf(p)}%</span>
-                                </button>
+                                </div>
                             ))}
                         </div>
                     )}

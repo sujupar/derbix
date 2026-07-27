@@ -16,6 +16,9 @@ interface FlashscoreLeagueGroupProps {
     onViewReport: (gameId: number) => void;
 }
 
+// Sigla de la liga cuando no hay logo (mismo criterio que Oportunidades)
+const leagueCrest = (name?: string) => (name || '?').replace(/[^A-Za-z0-9 ]/g, '').slice(0, 2).toUpperCase();
+
 const FlashscoreLeagueGroup: React.FC<FlashscoreLeagueGroupProps> = ({
     league, gameJobStatus, reportsAvailable, accessibleReports, userRole,
     onOpenDetail, onAnalyzeGame, onAnalyzeLeague, onViewReport
@@ -24,48 +27,36 @@ const FlashscoreLeagueGroup: React.FC<FlashscoreLeagueGroupProps> = ({
     const isAdmin = isAgencyRole(userRole);
 
     return (
-        <div className="rounded-lg overflow-hidden border border-white/5 bg-slate-900/40">
-            {/* League Header */}
-            <div className="flex items-center justify-between px-3 py-2.5 bg-slate-800/60 border-b border-white/5">
-                <div
-                    className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer"
-                    onClick={() => setIsExpanded(!isExpanded)}
-                >
-                    {league.logo && (
-                        <img src={league.logo} alt="" className="w-5 h-5 object-contain shrink-0" />
-                    )}
-                    <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-sm font-bold text-white truncate">{league.name}</span>
-                        <span className="text-[11px] text-slate-500">{league.country}</span>
-                    </div>
-                    <span className="text-[11px] sm:text-[10px] text-slate-500 bg-slate-700/50 px-1.5 py-0.5 rounded font-mono shrink-0">
-                        {league.games.length}
+        <div className="dxj-mgroup">
+            {/* Encabezado de liga — mismo lenguaje visual que Oportunidades (dxj-lghead) */}
+            <div className="dxj-lghead">
+                <button className="hbtn" onClick={() => setIsExpanded(!isExpanded)}>
+                    <span className="fl">
+                        {league.logo ? <img src={league.logo} alt="" /> : leagueCrest(league.name)}
                     </span>
-                </div>
-
-                <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                    <span className="nm">{league.name}</span>
+                    {league.country && <span className="cy">{league.country}</span>}
+                    <span className="ct dx-num">{league.games.length}</span>
+                </button>
+                <div className="hact">
                     {isAdmin && (
                         <button
                             onClick={(e) => { e.stopPropagation(); onAnalyzeLeague(); }}
-                            className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] sm:px-2 sm:py-1 sm:text-[10px] min-h-[36px] sm:min-h-0 font-bold text-white bg-blue-600 hover:bg-blue-500 rounded transition-all"
+                            className="batch"
                             title="Analizar Liga Completa"
                         >
-                            <SparklesIcon className="w-3 h-3" />
-                            BATCH
+                            <SparklesIcon className="w-3 h-3" /> BATCH
                         </button>
                     )}
-                    <button
-                        onClick={() => setIsExpanded(!isExpanded)}
-                        className="p-2 sm:p-1 text-slate-500 hover:text-white transition-colors"
-                    >
+                    <button className="tog" onClick={() => setIsExpanded(!isExpanded)} title={isExpanded ? 'Contraer' : 'Expandir'}>
                         {isExpanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
                     </button>
                 </div>
             </div>
 
-            {/* Match Rows */}
+            {/* Tarjetas de partidos */}
             {isExpanded && (
-                <div>
+                <div className="dxj-mlist">
                     {league.games.map((game) => {
                         const fid = game.fixture.id;
                         const hasReport = !!reportsAvailable[fid];
@@ -80,6 +71,7 @@ const FlashscoreLeagueGroup: React.FC<FlashscoreLeagueGroupProps> = ({
                                 userRole={userRole}
                                 onOpenDetail={onOpenDetail}
                                 onAnalyze={onAnalyzeGame}
+                                onViewReport={onViewReport}
                             />
                         );
                     })}
