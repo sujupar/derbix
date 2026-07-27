@@ -459,8 +459,10 @@ body {
 .dxj-crests b:nth-child(2){ margin-left:-10px; }
 .dxj-crests b img { width:100%; height:100%; object-fit:contain; }
 .dxj-pinfo { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
-.dxj-pinfo .mt { font-weight:600; font-size:14px; color:var(--dx-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.dxj-pinfo .mk { font-size:12px; color:var(--dx-text-soft); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* NO cortar palabras: los nombres largos (ej. "Barcelona — Real Madrid") y el tipo de
+   apuesta (ej. "Ambos Anotan: No") se envuelven en varias líneas en lugar de recortarse. */
+.dxj-pinfo .mt { font-weight:600; font-size:14px; color:var(--dx-text); line-height:1.3; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
+.dxj-pinfo .mk { font-size:12px; color:var(--dx-text-soft); margin-top:3px; line-height:1.3; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
 .dxj-pinfo .mk .lv { color:var(--dx-live); font-weight:600; }
 .dxj-pmeta { display:flex; align-items:center; gap:16px; flex-shrink:0; }
 .dxj-pmeta .prob { font-family:'Archivo',sans-serif; font-variant-numeric:tabular-nums; font-weight:700; font-size:19px; color:var(--dx-accent); line-height:1; text-align:right; }

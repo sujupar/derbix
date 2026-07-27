@@ -61,6 +61,52 @@ const processFixturesResponse = (response: Game[]): DashboardData => {
 
 // --- FUNCIONES EXPORTADAS ---
 
+// Convierte filas planas de `daily_matches` a la estructura anidada `Game` que
+// espera la UI. Se usa como RESPALDO cuando el listado en vivo de SportMonks viene
+// vacío (p. ej. la API key guardada en Supabase está degradada). Así los partidos
+// que sí importamos a `daily_matches` siguen apareciendo en la pestaña Partidos.
+const dailyMatchesToGames = (rows: any[]): Game[] => (rows || []).map(m => ({
+    fixture: {
+        id: m.api_fixture_id,
+        date: m.match_time,
+        status: { short: m.match_status || 'NS', long: '', elapsed: null },
+        venue: { id: null, name: '', city: '' },
+        referee: null,
+        period: { first: null, second: null },
+        timestamp: m.match_time ? new Date(m.match_time).getTime() / 1000 : 0,
+        timezone: 'UTC'
+    },
+    league: {
+        id: m.league_id ?? 0,
+        name: m.league_name || 'Liga',
+        country: '',
+        logo: '',
+        flag: '',
+        season: new Date().getFullYear(),
+        round: ''
+    },
+    teams: {
+        home: { id: 0, name: m.home_team, logo: m.home_team_logo, winner: null },
+        away: { id: 0, name: m.away_team, logo: m.away_team_logo, winner: null }
+    },
+    goals: { home: m.home_score ?? null, away: m.away_score ?? null },
+    score: { halftime: { home: null, away: null }, fulltime: { home: null, away: null }, extratime: { home: null, away: null }, penalty: { home: null, away: null } }
+})) as Game[];
+
+// Respaldo desde `daily_matches` para una fecha concreta.
+const fetchFixturesFromDailyMatches = async (date: string): Promise<DashboardData> => {
+    const { data: rows, error } = await supabase
+        .from('daily_matches')
+        .select('*')
+        .eq('match_date', date);
+    if (error || !rows || rows.length === 0) {
+        console.log(`[DEBUG] daily_matches fallback: 0 partidos para ${date}`);
+        return { importantLeagues: [], countryLeagues: [] };
+    }
+    console.log(`[DEBUG] daily_matches fallback: usando ${rows.length} partidos locales para ${date}`);
+    return processFixturesResponse(dailyMatchesToGames(rows));
+};
+
 export const fetchFixturesByDate = async (date: string): Promise<DashboardData> => {
     console.log(`[DEBUG] fetchFixturesByDate (SportMonks) called for: ${date}`);
     try {
@@ -71,6 +117,9 @@ export const fetchFixturesByDate = async (date: string): Promise<DashboardData> 
 
         if (error) {
             console.error('[DEBUG] Error invocando v2-list-fixtures-sportmonks:', error);
+            // No abortamos: intentamos el respaldo local antes de fallar.
+            const fallback = await fetchFixturesFromDailyMatches(date);
+            if (fallback.importantLeagues.length || fallback.countryLeagues.length) return fallback;
             throw new Error(error.message || 'Error fetching fixtures from SportMonks');
         }
 
@@ -91,12 +140,24 @@ export const fetchFixturesByDate = async (date: string): Promise<DashboardData> 
             console.warn(`[DEBUG] Frontend Bogotá filter removed ${(data || []).length - filteredData.length} fixtures from wrong date`);
         }
 
+        // Si SportMonks no devuelve nada (key degradada / sin cobertura), usamos el
+        // respaldo local de daily_matches para no dejar la pestaña Partidos vacía.
+        if (filteredData.length === 0) {
+            console.warn('[DEBUG] SportMonks devolvió 0 partidos — usando respaldo daily_matches');
+            return await fetchFixturesFromDailyMatches(date);
+        }
+
         const processed = processFixturesResponse(filteredData);
         console.log(`[DEBUG] Processed data:`, processed);
         return processed;
 
     } catch (e) {
         console.error(`[DEBUG] Error in fetchFixturesByDate:`, e);
+        // Último intento: respaldo local antes de propagar el error a la UI.
+        try {
+            const fallback = await fetchFixturesFromDailyMatches(date);
+            if (fallback.importantLeagues.length || fallback.countryLeagues.length) return fallback;
+        } catch { /* ignora */ }
         throw e;
     }
 };
