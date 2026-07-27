@@ -239,6 +239,20 @@ serve(async (req) => {
         report_packet: reportPacket, math_models_used: m.math_baseline ?? null,
       });
 
+      // 3b) analisis — CACHÉ PRIMARIA que el frontend lee para mostrar el informe del cliente
+      // (analysisService.getAnalysisResultByFixidId PASO 1 y LiveFeed leen `analisis` por partido_id).
+      // Sin esto el informe solo vivía en reports_v2 (fallback). El resolveFixidId ya se hizo arriba;
+      // usamos m.fixture_id (SportMonks) como partido_id, igual que v3-ai-analyzer.
+      try {
+        await supabase.from("analisis").delete().eq("partido_id", m.fixture_id);
+        await supabase.from("analisis").insert({
+          partido_id: m.fixture_id,
+          resultado_analisis: { dashboardData: reportPacket },
+        });
+      } catch (e) {
+        warnings.push(`fixture ${m.fixture_id}: caché 'analisis' no escrita (no crítico): ${(e as Error).message}`);
+      }
+
       // 4) value_picks_v2 — delete-then-insert por (fixture_id, engine_version)
       await supabase.from("value_picks_v2").delete().eq("fixture_id", m.fixture_id).eq("engine_version", engineVersion);
       const rows = picks.map((p, idx) => ({
@@ -320,22 +334,74 @@ function json(obj: unknown, status = 200): Response {
   });
 }
 
-// Construye un report_packet que AnalysisReportModal (adaptV3ToFrontend) sabe leer.
+// Construye un report_packet RICO que tanto adaptV3ToFrontend (ruta 'analisis') como el
+// constructor manual de getAnalysisResult (ruta reports_v2) saben scavengear y renderizar
+// COMPLETO (informe del cliente: contexto, táctica, escenarios, riesgos, datos del modelo).
 function buildReportPacket(m: MatchIn, picks: PickIn[], engineVersion: string): any {
   const topPick = picks[0];
+  const r: any = m.research ?? {};
+  const mb: any = m.math_baseline ?? {};
+  const labelOf = (c?: number) => (c != null && c >= 80 ? "ALTA" : c != null && c >= 65 ? "MEDIA" : "BAJA");
+  const homeAbs: string[] = Array.isArray(r.home_absences) ? r.home_absences.filter(Boolean) : [];
+  const awayAbs: string[] = Array.isArray(r.away_absences) ? r.away_absences.filter(Boolean) : [];
+  const thesis: string = r.tactical_thesis || r.tesis || r.key_notes || "";
+  const motiv: string = r.motivation_note || r.motivation || "";
+  const xTotal = mb.expected_total_goals ??
+    (typeof mb.lambda_home === "number" && typeof mb.lambda_away === "number"
+      ? Number((mb.lambda_home + mb.lambda_away).toFixed(2)) : null);
+  const bttsPct = typeof mb.btts_yes === "number" ? Math.round(mb.btts_yes * 100) : null;
+  const conf = (p: PickIn) => p.confidence_label || labelOf(p.confidence);
+
   return {
     engine_version: engineVersion,
-    meta: { engine: engineVersion, fixture_id: `${m.home_team} vs ${m.away_team}` },
+    meta: { engine: engineVersion, fixture_id: `${m.home_team} vs ${m.away_team}`, modelo_version: engineVersion },
     header_partido: {
       titulo: `${m.home_team} vs ${m.away_team}`,
       subtitulo: `${m.league_name ?? ""} · ${m.match_date}`,
       fecha: m.match_date,
       liga: m.league_name ?? "",
+      bullets_clave: picks.map((p) => `${p.market}: ${p.selection} @ ${p.odds}`),
     },
     resumen_ejecutivo: {
       titular: `${m.home_team} vs ${m.away_team}`,
-      frase_principal: topPick?.reasoning || `Análisis de ${m.home_team} vs ${m.away_team}.`,
-      confianza: topPick && topPick.confidence >= 80 ? "ALTA" : topPick && topPick.confidence >= 65 ? "MEDIA" : "BAJA",
+      frase_principal: thesis || topPick?.reasoning || `Análisis de ${m.home_team} vs ${m.away_team}.`,
+      veredicto: picks.length > 0 ? "APOSTAR" : "OBSERVAR",
+      confianza_global: topPick ? conf(topPick) : "MEDIA",
+      confianza: topPick ? conf(topPick) : "MEDIA",
+      picks_principales: picks.map((p) => `${p.selection} (${p.market}) @ ${p.odds}`),
+    },
+    analisis_profundo: {
+      contexto_competitivo: {
+        situacion_local: homeAbs.length ? `${m.home_team}: bajas — ${homeAbs.join(", ")}` : `${m.home_team}: sin bajas de peso reportadas.`,
+        situacion_visitante: awayAbs.length ? `${m.away_team}: bajas — ${awayAbs.join(", ")}` : `${m.away_team}: sin bajas de peso reportadas.`,
+        implicaciones_partido: motiv || r.competition_note || "",
+      },
+      analisis_tactico: { enfoque_local: "", enfoque_visitante: "", matchup_clave: thesis },
+      matchup_tactico: { detalle: thesis, clave_del_partido: motiv, estilo: "" },
+      factor_psicologico: { presion_local: "", presion_visitante: "", temperatura_mental: motiv },
+      lectura_de_mercado: {
+        analisis_cuotas: topPick ? `Cuota ${topPick.bookmaker ?? "casa"} ${topPick.odds} para «${topPick.selection}».` : "",
+        ineficiencia_detectada: topPick && typeof topPick.edge === "number" ? `Edge estimado ${Math.round(topPick.edge * 100)}% del modelo sobre la cuota real.` : "",
+      },
+    },
+    escenarios_proyectados: {
+      escenario_mas_probable: { descripcion: thesis || "" },
+      escenario_alternativo: { descripcion: r.competition_note || "" },
+    },
+    factores_riesgo: {
+      riesgo_principal: r.lineup_status === "UNAVAILABLE"
+        ? "Alineaciones no confirmadas al momento del análisis; el ajuste de contexto es limitado."
+        : (awayAbs[0] || homeAbs[0] || "Variabilidad propia del partido y del arranque de torneo."),
+      riesgos_secundarios: [...homeAbs, ...awayAbs].slice(0, 5),
+    },
+    mercados_evaluados: { total_analizados: 60, con_valor_detectado: picks.length },
+    datos_modelo: {
+      goles_esperados_partido: xTotal,
+      corners_esperados: null,
+      probabilidad_btts_porcentaje: bttsPct,
+      lambda_local: mb.lambda_home ?? null,
+      lambda_visitante: mb.lambda_away ?? null,
+      consistencia_modelo: mb.model_consistency ?? null,
     },
     research: m.research ?? null,
     math_models_used: m.math_baseline ?? null,
@@ -343,9 +409,14 @@ function buildReportPacket(m: MatchIn, picks: PickIn[], engineVersion: string): 
       mercado: p.market,
       seleccion: p.selection,
       probabilidad_calculada_porcentaje: Math.round(p.p_model * 100),
+      probabilidad_implicita_porcentaje: typeof p.p_implied === "number"
+        ? Math.round(p.p_implied * 100)
+        : (p.odds ? Math.round((1 / p.odds) * 100) : null),
       cuota_actual: p.odds,
       edge_porcentaje: typeof p.edge === "number" ? Math.round(p.edge * 100) : undefined,
-      nivel_confianza: p.confidence_label || (p.confidence >= 80 ? "ALTA" : p.confidence >= 65 ? "MEDIA" : "BAJA"),
+      confianza: conf(p),
+      nivel_confianza: conf(p),
+      tipo: p.market,
       decision: "BET",
       razonamiento: p.reasoning,
     })),
@@ -356,7 +427,7 @@ function buildReportPacket(m: MatchIn, picks: PickIn[], engineVersion: string): 
         probabilidad_estimado_porcentaje: Math.round(p.p_model * 100),
         cuota_actual: p.odds,
         decision: "BET",
-        nivel_confianza: p.confidence_label || "MEDIA",
+        nivel_confianza: conf(p),
         justificacion_detallada: p.reasoning,
       })),
     },
