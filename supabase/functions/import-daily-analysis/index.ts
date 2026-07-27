@@ -379,6 +379,19 @@ function buildReportPacket(m: MatchIn, picks: PickIn[], engineVersion: string): 
   const awayAbs: string[] = Array.isArray(r.away_absences) ? r.away_absences.filter(Boolean) : [];
   const thesis: string = r.tactical_thesis || r.tesis || r.key_notes || "";
   const motiv: string = r.motivation_note || r.motivation || "";
+  // Notas del marco de análisis profundo (§2c) — para que el informe muestre TODAS las variables.
+  const str = (v: any): string => (typeof v === "string" ? v.trim() : "");
+  const pressure: string = str(r.pressure_level) || str(r.pressure_note);
+  const refereeNote: string = str(r.referee_note);
+  const weatherNote: string = str(r.weather_note) || str(r.weather);
+  const altitudeNote: string = str(r.altitude_note);
+  const h2hNote: string = str(r.h2h_note) || str(r.head_to_head_note);
+  const formHome: string = str(r.form_home_note);
+  const formAway: string = str(r.form_away_note);
+  const matchupNote: string = str(r.matchup_note);
+  const restHome = r.rest_days_home ?? null;
+  const restAway = r.rest_days_away ?? null;
+  const joinDot = (...xs: string[]): string => xs.map((x) => str(x)).filter(Boolean).join(" · ");
   const xTotal = mb.expected_total_goals ??
     (typeof mb.lambda_home === "number" && typeof mb.lambda_away === "number"
       ? Number((mb.lambda_home + mb.lambda_away).toFixed(2)) : null);
@@ -453,17 +466,33 @@ function buildReportPacket(m: MatchIn, picks: PickIn[], engineVersion: string): 
       confianza_global: topPick ? conf(topPick) : "MEDIA",
       confianza: topPick ? conf(topPick) : "MEDIA",
       picks_principales: valorRows.map((row) => `${esSelection(row.selection)} (${esMarket(row.market)}) @ ${row.odds}`),
+      // Datos concretos del marco §2c — el informe los muestra como puntos clave.
+      puntos_clave: [
+        pressure ? `Presión del partido: ${pressure}` : "",
+        formHome ? `${m.home_team} (local): ${formHome}` : "",
+        formAway ? `${m.away_team} (visitante): ${formAway}` : "",
+        h2hNote ? `Historial directo: ${h2hNote}` : "",
+        homeAbs.length ? `Bajas ${m.home_team}: ${homeAbs.join(", ")}` : "",
+        awayAbs.length ? `Bajas ${m.away_team}: ${awayAbs.join(", ")}` : "",
+        refereeNote ? `Árbitro: ${refereeNote}` : "",
+        (weatherNote || altitudeNote) ? `Entorno: ${joinDot(weatherNote, altitudeNote)}` : "",
+        (restHome != null || restAway != null) ? `Descanso: local ${restHome ?? "?"}d · visitante ${restAway ?? "?"}d` : "",
+        xTotal != null ? `Goles esperados ≈ ${xTotal}` : "",
+        bttsPct != null ? `Probabilidad Ambos Anotan ≈ ${bttsPct}%` : "",
+        xCorners != null ? `Córners esperados ≈ ${xCorners}` : "",
+        xCards != null ? `Tarjetas esperadas ≈ ${xCards}` : "",
+      ].filter(Boolean),
     },
     analisis_profundo: {
       contexto_competitivo: {
-        situacion_local: homeAbs.length ? `${m.home_team}: bajas — ${homeAbs.join(", ")}` : `${m.home_team}: sin bajas de peso reportadas.`,
-        situacion_visitante: awayAbs.length ? `${m.away_team}: bajas — ${awayAbs.join(", ")}` : `${m.away_team}: sin bajas de peso reportadas.`,
-        implicaciones_partido: motiv || r.competition_note || "",
+        situacion_local: `${m.home_team} (local): ${joinDot(formHome, homeAbs.length ? "bajas — " + homeAbs.join(", ") : "sin bajas de peso reportadas") || "sin datos de forma."}`,
+        situacion_visitante: `${m.away_team} (visitante): ${joinDot(formAway, awayAbs.length ? "bajas — " + awayAbs.join(", ") : "sin bajas de peso reportadas") || "sin datos de forma."}`,
+        implicaciones_partido: joinDot(pressure, motiv, h2hNote, str(r.competition_note)) || "Sin implicaciones destacadas reportadas.",
       },
-      analisis_tactico: { enfoque_local: "", enfoque_visitante: "", matchup_clave: thesis },
+      analisis_tactico: { enfoque_local: "", enfoque_visitante: "", matchup_clave: joinDot(thesis, matchupNote) || thesis },
       // matchup_tactico como STRING (no objeto): evita React #31 en adaptV3ToFrontend legacy.
-      matchup_tactico: thesis,
-      factor_psicologico: { presion_local: "", presion_visitante: "", temperatura_mental: motiv },
+      matchup_tactico: joinDot(thesis, matchupNote) || thesis,
+      factor_psicologico: { presion_local: "", presion_visitante: "", temperatura_mental: joinDot(motiv, pressure) },
       lectura_de_mercado: {
         analisis_cuotas: valorRows.length
           ? valorRows.slice(0, 4).map((row) => `${esMarket(row.market)}: ${esSelection(row.selection)} @ ${row.odds}`).join("; ")
@@ -481,7 +510,12 @@ function buildReportPacket(m: MatchIn, picks: PickIn[], engineVersion: string): 
       riesgo_principal: r.lineup_status === "UNAVAILABLE"
         ? "Alineaciones no confirmadas al momento del análisis; el ajuste de contexto es limitado."
         : (awayAbs[0] || homeAbs[0] || "Variabilidad propia del partido y del arranque de torneo."),
-      riesgos_secundarios: [...homeAbs, ...awayAbs].slice(0, 5),
+      riesgos_secundarios: [
+        refereeNote ? `Árbitro: ${refereeNote}` : "",
+        weatherNote ? `Clima: ${weatherNote}` : "",
+        altitudeNote ? `Altitud: ${altitudeNote}` : "",
+        ...homeAbs, ...awayAbs,
+      ].filter(Boolean).slice(0, 6),
     },
     mercados_evaluados: { total_analizados: rows.length || 60, con_valor_detectado: valorRows.length },
     datos_modelo: {
