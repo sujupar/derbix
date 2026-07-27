@@ -19,12 +19,12 @@ import { filterPicksForPlan, PLAN_PREDICTIONS_PERCENTAGES, PlanTier, PLAN_DISPLA
 const HeaderSection: React.FC<{ data: DashboardAnalysisJSON['header_partido'] }> = ({ data }) => {
     if (!data) return null;
     return (
-        <div className="bg-gradient-to-r from-gray-800 to-gray-900 border-b border-green-accent p-6 rounded-t-xl">
+        <div className="bg-gradient-to-r from-dx-surface-2 to-dx-surface border-b border-green-accent p-6 rounded-t-xl">
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-1">{data.titulo}</h2>
             <p className="text-green-accent font-medium mb-4">{data.subtitulo}</p>
             <div className="flex flex-wrap gap-2">
                 {data.bullets_clave?.map((bullet, idx) => (
-                    <span key={idx} className="px-3 py-1 bg-gray-700/50 rounded-full text-xs text-gray-300 border border-gray-600">
+                    <span key={idx} className="px-3 py-1 bg-dx-surface-2/50 rounded-full text-xs text-gray-300 border border-dx-border">
                         {bullet}
                     </span>
                 ))}
@@ -95,7 +95,7 @@ const PostMatchSection: React.FC<{ analysis: PostMatchAnalysis | string; outcome
     const isStructured = typeof analysis !== 'string';
 
     return (
-        <div className="bg-gradient-to-br from-emerald-900/50 to-slate-900 border border-emerald-500/30 p-6 rounded-xl shadow-lg mb-6 animate-pulse-fade-in relative overflow-hidden">
+        <div className="bg-gradient-to-br from-emerald-900/50 to-dx-surface border border-emerald-500/30 p-6 rounded-xl shadow-lg mb-6 animate-pulse-fade-in relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4 opacity-10">
                 <ClipboardDocumentCheckIcon className="w-32 h-32 text-emerald-400" />
             </div>
@@ -144,23 +144,23 @@ const PostMatchSection: React.FC<{ analysis: PostMatchAnalysis | string; outcome
                     </div>
                 ) : (
                     <>
-                        <div className="bg-gray-800/50 p-5 rounded-lg border border-gray-700/50">
+                        <div className="bg-dx-surface-2/50 p-5 rounded-lg border border-dx-border">
                             <h4 className="text-green-400 font-bold mb-3 uppercase text-xs tracking-wider">Análisis Táctico</h4>
                             <p className="text-gray-300 text-sm leading-relaxed">{(analysis as PostMatchAnalysis).tactical_analysis}</p>
                         </div>
-                        <div className="bg-gray-800/50 p-5 rounded-lg border border-gray-700/50">
+                        <div className="bg-dx-surface-2/50 p-5 rounded-lg border border-dx-border">
                             <h4 className="text-emerald-400 font-bold mb-3 uppercase text-xs tracking-wider">Desglose Estadístico</h4>
                             <p className="text-gray-300 text-sm leading-relaxed">{(analysis as PostMatchAnalysis).statistical_breakdown}</p>
                         </div>
-                        <div className="bg-gray-800/50 p-5 rounded-lg border border-gray-700/50">
+                        <div className="bg-dx-surface-2/50 p-5 rounded-lg border border-dx-border">
                             <h4 className="text-purple-400 font-bold mb-3 uppercase text-xs tracking-wider">Momentos Clave</h4>
                             <p className="text-gray-300 text-sm leading-relaxed">{(analysis as PostMatchAnalysis).key_moments}</p>
                         </div>
-                        <div className="bg-gray-800/50 p-5 rounded-lg border border-gray-700/50">
+                        <div className="bg-dx-surface-2/50 p-5 rounded-lg border border-dx-border">
                             <h4 className="text-yellow-400 font-bold mb-3 uppercase text-xs tracking-wider">Feedback del Sistema</h4>
                             <p className="text-gray-300 text-sm leading-relaxed">{(analysis as PostMatchAnalysis).learning_feedback}</p>
                         </div>
-                        <div className="col-span-1 md:col-span-2 bg-gradient-to-r from-gray-800 to-gray-700 p-5 rounded-lg border border-gray-600">
+                        <div className="col-span-1 md:col-span-2 bg-gradient-to-r from-dx-surface-2 to-dx-surface-2 p-5 rounded-lg border border-dx-border">
                             <h4 className="text-white font-bold mb-2">Revisión de Rendimiento</h4>
                             <p className="text-gray-200 italic">"{(analysis as PostMatchAnalysis).performance_review}"</p>
                         </div>
@@ -174,7 +174,7 @@ const PostMatchSection: React.FC<{ analysis: PostMatchAnalysis | string; outcome
 const ExecutiveSummary: React.FC<{ data: DashboardAnalysisJSON['resumen_ejecutivo'] }> = ({ data }) => {
     if (!data) return null;
     return (
-        <div className="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+        <div className="bg-dx-surface-2 p-5 rounded-xl border border-dx-border shadow-lg">
             <div className="flex items-center mb-3">
                 <LightBulbIcon className="w-6 h-6 text-yellow-400 mr-2" />
                 <h3 className="text-lg font-bold text-white">Resumen Ejecutivo</h3>
@@ -193,22 +193,22 @@ const ExecutiveSummary: React.FC<{ data: DashboardAnalysisJSON['resumen_ejecutiv
 };
 
 const DynamicTable: React.FC<{ data: TablaComparativaData }> = ({ data }) => (
-    <div className="bg-gray-900/50 rounded-lg overflow-hidden border border-gray-700">
-        <div className="bg-gray-800/80 p-3 border-b border-gray-700">
+    <div className="bg-dx-surface/50 rounded-lg overflow-hidden border border-dx-border">
+        <div className="bg-dx-surface-2/80 p-3 border-b border-dx-border">
             <h4 className="font-semibold text-white text-sm">{data.titulo}</h4>
         </div>
         <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-                <thead className="bg-gray-700/50 text-gray-400 uppercase text-xs">
+                <thead className="bg-dx-surface-2/50 text-gray-400 uppercase text-xs">
                     <tr>
                         {data.columnas.map((col, idx) => (
                             <th key={idx} className="px-4 py-2 font-medium whitespace-nowrap">{col}</th>
                         ))}
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800">
+                <tbody className="divide-y divide-white/5">
                     {(data.filas || []).map((fila, fIdx) => (
-                        <tr key={fIdx} className="hover:bg-gray-800/30 transition-colors">
+                        <tr key={fIdx} className="hover:bg-dx-surface-2/30 transition-colors">
                             {(Array.isArray(fila) ? fila : []).map((celda, cIdx) => (
                                 <td key={cIdx} className={`px-4 py-3 text-gray-300 ${cIdx === 0 ? 'font-medium text-white' : ''}`}>
                                     {celda}
@@ -232,7 +232,7 @@ const AnalysisBlock: React.FC<{ section: AnalisisSeccion; icon?: React.ReactNode
             {section.bullets && (
                 <ul className="space-y-2 mb-4">
                     {section.bullets.map((bullet, idx) => (
-                        <li key={idx} className="text-gray-300 text-sm pl-4 border-l-2 border-gray-600 hover:border-green-accent transition-colors">
+                        <li key={idx} className="text-gray-300 text-sm pl-4 border-l-2 border-dx-border hover:border-green-accent transition-colors">
                             {bullet}
                         </li>
                     ))}
@@ -256,7 +256,7 @@ const VisualChart: React.FC<{ data: GraficoSugerido }> = ({ data }) => {
     const colors = ['#1DE782', '#E7B84F', '#C2CDD8', '#ef4444'];
 
     return (
-        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+        <div className="bg-dx-surface-2 p-4 rounded-lg border border-dx-border">
             <h4 className="text-sm font-bold text-white mb-1">{data.titulo}</h4>
             <p className="text-xs text-gray-400 mb-4">{data.descripcion}</p>
             <div className="h-64 w-full min-h-[256px]">
@@ -305,7 +305,7 @@ const PredictionCard: React.FC<{ pred: DetallePrediccion }> = ({ pred }) => {
     // implies an impossible edge and was rejected by the backend sanity gate.
     const isOpportunity = prob >= OPPORTUNITY_THRESHOLD && coherent;
     const color = prob >= 70 ? 'text-green-accent' : prob >= 55 ? 'text-yellow-400' : 'text-gray-300';
-    const border = isOpportunity ? 'border-emerald-500' : !coherent && prob >= OPPORTUNITY_THRESHOLD ? 'border-amber-500/50' : prob >= 70 ? 'border-green-accent' : 'border-gray-600';
+    const border = isOpportunity ? 'border-emerald-500' : !coherent && prob >= OPPORTUNITY_THRESHOLD ? 'border-amber-500/50' : prob >= 70 ? 'border-green-accent' : 'border-dx-border';
 
     const justif = pred.justificacion_detallada;
     const edge = (pred as any).edge;
@@ -315,7 +315,7 @@ const PredictionCard: React.FC<{ pred: DetallePrediccion }> = ({ pred }) => {
     const conclusion = justif?.conclusion || 'Recomendación basada en el modelo de análisis';
 
     return (
-        <div className={`bg-gray-800 rounded-xl overflow-hidden border-l-4 ${border} shadow-lg mb-6 ${isOpportunity ? 'ring-2 ring-emerald-500/50 shadow-[0_0_28px_rgba(16,185,129,0.18)]' : ''}`}>
+        <div className={`bg-dx-surface-2 rounded-xl overflow-hidden border-l-4 ${border} shadow-lg mb-6 ${isOpportunity ? 'ring-2 ring-emerald-500/50 shadow-[0_0_28px_rgba(16,185,129,0.18)]' : ''}`}>
             {isOpportunity && (
                 <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-2 flex items-center gap-2">
                     <span className="text-white text-sm">⚡</span>
@@ -330,12 +330,12 @@ const PredictionCard: React.FC<{ pred: DetallePrediccion }> = ({ pred }) => {
                     </span>
                 </div>
             )}
-            <div className="p-5 border-b border-gray-700 flex justify-between items-center bg-gray-700/20">
+            <div className="p-5 border-b border-dx-border flex justify-between items-center bg-dx-surface-2/20">
                 <div>
                     <span className="text-xs uppercase font-bold text-gray-400 tracking-wider">{pred.mercado}</span>
                     <h3 className="text-xl font-bold text-white mt-1">{pred.seleccion}</h3>
                 </div>
-                <div className="flex flex-col items-center justify-center bg-gray-900 rounded-lg p-2 min-w-[80px]">
+                <div className="flex flex-col items-center justify-center bg-dx-surface rounded-lg p-2 min-w-[80px]">
                     <span className={`text-2xl font-bold ${color}`}>{prob}%</span>
                     <span className="text-[10px] text-gray-500 uppercase">Prob.</span>
                     {pred.odds && (
@@ -387,7 +387,7 @@ const LockedSection: React.FC<{
                 {children}
             </div>
         )}
-        <div className={`${children ? 'absolute inset-0' : ''} backdrop-blur-md bg-slate-900/70 z-10 flex flex-col items-center justify-center py-12 px-6 rounded-xl border border-white/10`}>
+        <div className={`${children ? 'absolute inset-0' : ''} backdrop-blur-md bg-dx-surface/70 z-10 flex flex-col items-center justify-center py-12 px-6 rounded-xl border border-white/10`}>
             <LockClosedIcon className="w-10 h-10 text-slate-400 mb-3" />
             <p className="text-white font-bold text-lg mb-1">{title}</p>
             <p className="text-slate-400 text-sm mb-4">Disponible desde el plan <span className="text-emerald-400 font-bold">{planRequired}</span></p>
@@ -405,7 +405,7 @@ const LockedSection: React.FC<{
 const DualScoresSection: React.FC<{ scores: any }> = ({ scores }) => {
     const [showExplanation, setShowExplanation] = useState(false);
     return (
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-6 rounded-xl border border-white/10 mb-2">
+        <div className="bg-gradient-to-r from-dx-surface-2 to-dx-surface p-6 rounded-xl border border-white/10 mb-2">
             <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
                 <ChartBarIcon className="w-5 h-5 text-emerald-400" />
                 Transparencia del Modelo
@@ -499,19 +499,19 @@ const VerdictSummary: React.FC<{
 
     // Theme Config
     let theme = {
-        bg: "bg-slate-900",
-        border: "border-gray-600",
+        bg: "bg-dx-surface",
+        border: "border-dx-border",
         accent: "text-gray-400",
-        iconBg: "bg-gray-700",
+        iconBg: "bg-dx-surface-2",
         mainText: "text-gray-200",
-        button: "bg-gray-700 hover:bg-gray-600",
+        button: "bg-dx-surface-2 hover:bg-dx-surface-2",
         glow: "",
         progressColor: "text-gray-500"
     };
 
     if (isBet) {
         theme = {
-            bg: "bg-gradient-to-br from-emerald-900/80 via-slate-900 to-slate-900",
+            bg: "bg-gradient-to-br from-emerald-900/80 via-dx-surface to-dx-surface",
             border: "border-emerald-500",
             accent: "text-emerald-400",
             iconBg: "bg-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.2)]",
@@ -522,18 +522,18 @@ const VerdictSummary: React.FC<{
         };
     } else if (isAvoid) {
         theme = {
-            bg: "bg-gradient-to-br from-red-900/30 via-slate-900 to-slate-900",
+            bg: "bg-gradient-to-br from-red-900/30 via-dx-surface to-dx-surface",
             border: "border-red-500",
             accent: "text-red-400",
             iconBg: "bg-red-500/10",
             mainText: "text-gray-300",
-            button: "bg-slate-700 hover:bg-slate-600 border border-slate-600",
+            button: "bg-dx-surface-2 hover:bg-dx-surface-2 border border-dx-border",
             glow: "",
             progressColor: "text-red-500"
         };
     } else if (isWatch) {
         theme = {
-            bg: "bg-gradient-to-br from-amber-900/30 via-slate-900 to-slate-900",
+            bg: "bg-gradient-to-br from-amber-900/30 via-dx-surface to-dx-surface",
             border: "border-amber-400",
             accent: "text-amber-400",
             iconBg: "bg-amber-500/15",
@@ -578,7 +578,7 @@ const VerdictSummary: React.FC<{
                     {confidence && (
                         <div className="flex flex-col items-start hidden md:flex">
                             <span className="text-xs text-gray-400 uppercase tracking-wider mb-1">Nivel de Confianza</span>
-                            <span className={`px-3 py-1 rounded text-xs font-black uppercase tracking-widest border ${isBet ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300' : 'border-gray-600 bg-gray-800 text-gray-400'}`}>
+                            <span className={`px-3 py-1 rounded text-xs font-black uppercase tracking-widest border ${isBet ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300' : 'border-dx-border bg-dx-surface-2 text-gray-400'}`}>
                                 {confidence}
                             </span>
                         </div>
@@ -615,7 +615,7 @@ const VerdictSummary: React.FC<{
 
             {/* ACTION BUTTON */}
             {/* ACTION BUTTON - Sticky Bottom for Mobile */}
-            <div className={`text-center relative z-20 pb-6 pt-4 mt-auto md:mt-8 sticky bottom-0 -mx-6 md:mx-0 px-6 md:px-0 bg-gradient-to-t from-slate-900 via-slate-900/95 to-transparent`}>
+            <div className={`text-center relative z-20 pb-6 pt-4 mt-auto md:mt-8 sticky bottom-0 -mx-6 md:mx-0 px-6 md:px-0 bg-gradient-to-t from-dx-surface via-dx-surface/95 to-transparent`}>
                 <p className="text-gray-500 text-xs mb-3 uppercase tracking-widest opacity-60">
                     {isBet ? "Ver análisis detallado" : "Explorar datos"}
                 </p>
@@ -646,7 +646,7 @@ const OddsOverviewSection: React.FC<{ odds: any }> = ({ odds }) => {
     const getPrice = (market: any, name: string) => market?.outcomes?.find((o: any) => o.name === name)?.price?.toFixed(2) || '-';
 
     return (
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 border border-emerald-500/20 rounded-xl p-5 mb-6 shadow-lg animate-fade-in relative overflow-hidden">
+        <div className="bg-gradient-to-r from-dx-surface-2 to-dx-surface border border-emerald-500/20 rounded-xl p-5 mb-6 shadow-lg animate-fade-in relative overflow-hidden">
             <div className="absolute top-0 right-0 p-2 opacity-10">
                 <span className="text-4xl">📊</span>
             </div>
@@ -894,13 +894,13 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
         return (
             <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 md:p-6 animate-fade-in backdrop-blur-md" onClick={(e) => e.target === e.currentTarget && onClose()}>
                 <div className="bg-dx-surface rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col border border-dx-border" onClick={(e) => e.stopPropagation()}>
-                    <div className="p-6 border-b border-gray-800 flex justify-between">
+                    <div className="p-6 border-b border-dx-border flex justify-between">
                         <h2 className="text-xl font-bold text-red-400">Error de Formato Visual</h2>
                         <button onClick={onClose}><XMarkIcon className="w-6 h-6 text-gray-400" /></button>
                     </div>
                     <div className="p-6 overflow-y-auto">
                         <p className="text-gray-300 mb-4">La IA generó el análisis pero no siguió el formato visual estricto. Aquí está el texto crudo:</p>
-                        <pre className="whitespace-pre-wrap text-sm text-gray-400 font-mono bg-gray-800 p-4 rounded">{currentAnalysis.analysisText}</pre>
+                        <pre className="whitespace-pre-wrap text-sm text-gray-400 font-mono bg-dx-surface-2 p-4 rounded">{currentAnalysis.analysisText}</pre>
                     </div>
                 </div>
             </div>
@@ -950,12 +950,12 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
                             DEBUG MODE: SPLIT VIEW (PAYLOAD vs AI RESPONSE)
                            ═══════════════════════════════════════════════════════════════ */}
                 {showDebug ? (
-                    <div className="p-6 bg-slate-950 h-full overflow-hidden flex flex-col">
+                    <div className="p-6 bg-dx-bg h-full overflow-hidden flex flex-col">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-xl font-bold text-white flex items-center gap-2">
                                 <span className="text-emerald-400">⚡</span> Inspector de Datos V3
                             </h3>
-                            <div className="flex bg-slate-800 rounded-lg p-1">
+                            <div className="flex bg-dx-surface-2 rounded-lg p-1">
                                 <button
                                     onClick={() => setDebugTab('payload')}
                                     className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${debugTab === 'payload' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
@@ -974,7 +974,7 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
                             </button>
                         </div>
 
-                        <div className="flex-grow overflow-auto border border-white/10 rounded-xl bg-slate-900 custom-scrollbar">
+                        <div className="flex-grow overflow-auto border border-white/10 rounded-xl bg-dx-surface custom-scrollbar">
                             {debugTab === 'payload' ? (
                                 <pre className="p-4 text-xs font-mono text-emerald-300 leading-relaxed whitespace-pre-wrap">
                                     {analysis.payload ? JSON.stringify(analysis.payload, null, 2) : "// No raw payload available for this analysis run."}
@@ -990,7 +990,7 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
                         </div>
                     </div>
                 ) : showVerdictView ? (
-                    <div className="relative h-full flex flex-col overflow-y-auto custom-scrollbar bg-slate-900">
+                    <div className="relative h-full flex flex-col overflow-y-auto custom-scrollbar bg-dx-surface">
                         <div className="absolute top-4 right-4 z-50 flex gap-2">
                             <button onClick={onClose} className="p-2 bg-black/40 hover:bg-black/60 rounded-full text-white transition-colors backdrop-blur-sm">
                                 <XMarkIcon className="w-6 h-6" />
@@ -1005,7 +1005,7 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
                 ) : (
                     <div className="flex flex-col h-full">
                         {/* Persistent Toolbar Header */}
-                        <div className="flex items-center justify-between px-3 py-3 sm:px-4 md:px-6 md:py-4 bg-slate-800 border-b border-white/5 z-20 shadow-md">
+                        <div className="flex items-center justify-between px-3 py-3 sm:px-4 md:px-6 md:py-4 bg-dx-surface-2 border-b border-white/5 z-20 shadow-md">
                             <div className="flex items-center gap-3">
                                 <div className="bg-brand/10 p-2 rounded-lg">
                                     <ChartBarIcon className="w-5 h-5 text-brand" />
@@ -1097,13 +1097,13 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
 
                                 {/* 3. Análisis Táctico y Escenarios */}
                                 {data.analisis_detallado && (
-                                    <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
-                                        <h3 className="text-2xl font-bold text-white mb-2 border-b border-gray-700 pb-2">Análisis Profundo</h3>
+                                    <div className="bg-dx-surface-2/50 p-6 rounded-xl border border-dx-border">
+                                        <h3 className="text-2xl font-bold text-white mb-2 border-b border-dx-border pb-2">Análisis Profundo</h3>
                                         <p className="text-gray-500 text-sm mb-6">Factores tácticos, psicológicos y contextuales que influyen en el resultado.</p>
 
                                         {/* 1. Razonamiento Central (Tesis de Inversión) - NUEVO */}
                                         {(data.analisis_detallado as any).razonamiento_central && (
-                                            <div className="bg-slate-800/80 p-6 rounded-xl border border-emerald-500/30 mb-8 shadow-inner">
+                                            <div className="bg-dx-surface-2/80 p-6 rounded-xl border border-emerald-500/30 mb-8 shadow-inner">
                                                 <h4 className="text-lg font-bold text-emerald-300 mb-4 flex items-center">
                                                     <span className="bg-emerald-500/20 p-1.5 rounded-lg mr-3">
                                                         <SparklesIcon className="w-5 h-5 text-emerald-400" />
@@ -1134,7 +1134,7 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
                                                 </h4>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     {(data.analisis_detallado.analisis_escenarios?.escenarios || data.analisis_detallado.escenarios_de_partido?.escenarios || []).map((esc, idx) => (
-                                                        <div key={idx} className="bg-slate-800 p-4 rounded-lg border-l-4 border-emerald-500 shadow-md">
+                                                        <div key={idx} className="bg-dx-surface-2 p-4 rounded-lg border-l-4 border-emerald-500 shadow-md">
                                                             <div className="flex justify-between items-start mb-2">
                                                                 <h5 className="font-bold text-white text-sm uppercase tracking-wide">{esc.nombre}</h5>
                                                                 <span className="text-xs bg-emerald-900 text-emerald-200 px-2 py-1 rounded font-mono">{esc.probabilidad_aproximada}</span>
@@ -1251,7 +1251,7 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
 
                                     if (allPreds.length === 0) {
                                         return (
-                                            <div className="bg-slate-800/40 border border-amber-500/20 rounded-xl p-6 text-center">
+                                            <div className="bg-dx-surface-2/40 border border-amber-500/20 rounded-xl p-6 text-center">
                                                 <TrophyIcon className="w-10 h-10 text-amber-500/60 mx-auto mb-3" />
                                                 <h3 className="text-lg font-bold text-white mb-1">Sin predicciones con edge suficiente</h3>
                                                 <p className="text-sm text-slate-400 max-w-md mx-auto">
@@ -1298,7 +1298,7 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
                                                 ))}
                                             </div>
                                             {lockedCount > 0 && (
-                                                <div className="mt-4 text-center py-4 bg-slate-800/50 rounded-xl border border-white/5">
+                                                <div className="mt-4 text-center py-4 bg-dx-surface-2/50 rounded-xl border border-white/5">
                                                     <p className="text-slate-400 text-sm">
                                                         <LockClosedIcon className="w-4 h-4 inline mr-1" />
                                                         {lockedCount} predicción{lockedCount > 1 ? 'es' : ''} adicional{lockedCount > 1 ? 'es' : ''} disponible{lockedCount > 1 ? 's' : ''} en planes superiores
@@ -1327,7 +1327,7 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
                                             {((data as any).analisis_mercados_calculados.top_oportunidades || []).slice(0, 5).map((opp: any, idx: number) => (
                                                 <div key={idx} className={`flex items-center justify-between p-4 rounded-lg border-l-4 ${opp.confianza === 'ALTA' ? 'border-green-500 bg-green-900/20' :
                                                     opp.confianza === 'MEDIA' ? 'border-yellow-500 bg-yellow-900/20' :
-                                                        'border-gray-500 bg-gray-800/50'
+                                                        'border-dx-border bg-dx-surface-2/50'
                                                     }`}>
                                                     <div className="flex items-center gap-4">
                                                         <span className="text-2xl font-black text-white">#{idx + 1}</span>
@@ -1347,7 +1347,7 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
                                                         </div>
                                                         <div className={`px-3 py-1 rounded-full font-bold text-sm ${opp.value_score > 10 ? 'bg-green-500 text-white' :
                                                             opp.value_score > 5 ? 'bg-yellow-500 text-black' :
-                                                                'bg-gray-600 text-white'
+                                                                'bg-dx-surface-2 text-white'
                                                             }`}>
                                                             +{opp.value_score}%
                                                         </div>
@@ -1383,10 +1383,10 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
                         </div>
 
                         {/* Footer Actions */}
-                        <div className="p-4 border-t border-gray-800 bg-gray-900 flex justify-end">
+                        <div className="p-4 border-t border-dx-border bg-dx-surface flex justify-end">
                             <button
                                 onClick={onClose}
-                                className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+                                className="bg-dx-surface-2 hover:bg-dx-surface-2 text-white font-bold py-2 px-6 rounded-lg transition-colors"
                             >
                                 Cerrar Informe
                             </button>
@@ -1419,17 +1419,17 @@ const PdfDownloadDialog: React.FC<{
 
     return (
         <div className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4 animate-fade-in" onClick={(e) => e.target === e.currentTarget && onClose()}>
-            <div className="bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md border border-white/10 p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-dx-surface-2 rounded-2xl shadow-2xl w-full max-w-md border border-white/10 p-6" onClick={(e) => e.stopPropagation()}>
                 <h3 className="text-lg font-bold text-white mb-1">Configurar Descarga PDF</h3>
                 <p className="text-slate-400 text-sm mb-6">{matchTitle}</p>
 
                 {/* Toggle: Pronóstico Gratuito */}
-                <label className="flex items-start gap-3 p-4 bg-slate-900/50 rounded-xl border border-white/5 mb-3 cursor-pointer hover:border-white/10 transition-colors">
+                <label className="flex items-start gap-3 p-4 bg-dx-surface/50 rounded-xl border border-white/5 mb-3 cursor-pointer hover:border-white/10 transition-colors">
                     <input
                         type="checkbox"
                         checked={isPromo}
                         onChange={(e) => setIsPromo(e.target.checked)}
-                        className="mt-0.5 w-5 h-5 rounded border-slate-600 bg-slate-700 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-0"
+                        className="mt-0.5 w-5 h-5 rounded border-dx-border bg-dx-surface-2 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-0"
                     />
                     <div>
                         <span className="text-white font-semibold block text-sm">Pronóstico Gratuito (Telegram)</span>
@@ -1438,12 +1438,12 @@ const PdfDownloadDialog: React.FC<{
                 </label>
 
                 {/* Toggle: Solo Oportunidades */}
-                <label className="flex items-start gap-3 p-4 bg-slate-900/50 rounded-xl border border-white/5 mb-6 cursor-pointer hover:border-white/10 transition-colors">
+                <label className="flex items-start gap-3 p-4 bg-dx-surface/50 rounded-xl border border-white/5 mb-6 cursor-pointer hover:border-white/10 transition-colors">
                     <input
                         type="checkbox"
                         checked={onlyOpportunities}
                         onChange={(e) => setOnlyOpportunities(e.target.checked)}
-                        className="mt-0.5 w-5 h-5 rounded border-slate-600 bg-slate-700 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-0"
+                        className="mt-0.5 w-5 h-5 rounded border-dx-border bg-dx-surface-2 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-0"
                     />
                     <div>
                         <span className="text-white font-semibold block text-sm">Solo Oportunidades de Valor</span>
@@ -1455,7 +1455,7 @@ const PdfDownloadDialog: React.FC<{
                 <div className="flex gap-3 justify-end">
                     <button
                         onClick={onClose}
-                        className="px-5 py-2.5 text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-xl text-sm font-medium transition-colors"
+                        className="px-5 py-2.5 text-slate-400 hover:text-white bg-dx-surface-2 hover:bg-dx-surface-2 rounded-xl text-sm font-medium transition-colors"
                     >
                         Cancelar
                     </button>
