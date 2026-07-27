@@ -49,6 +49,12 @@ interface PickIn {
   decision?: string; is_opportunity?: boolean; is_primary_pick?: boolean;
   rank?: number; reasoning?: string; bookmaker?: string; kelly_stake_pct?: number;
 }
+// TODOS los mercados evaluados de un partido (incluye los que NO son oportunidad),
+// para que el informe del cliente muestre varias alternativas, no solo los picks.
+interface MarketIn {
+  market: string; selection: string;
+  prob: number; odds?: number; edge?: number; valor?: boolean; nota?: string;
+}
 interface MatchIn {
   fixture_id: number; league_id?: number | null; league_name?: string;
   match_date: string; scan_date?: string; kickoff_utc: string;
@@ -56,6 +62,7 @@ interface MatchIn {
   home_team_logo?: string | null; away_team_logo?: string | null;
   home_team_id?: number; away_team_id?: number; season_id?: number;
   match_status?: string; research?: any; math_baseline?: any;
+  markets?: MarketIn[];   // opcional; si viene, alimenta el informe rico
   picks: PickIn[];
 }
 interface FileIn {
@@ -334,9 +341,35 @@ function json(obj: unknown, status = 200): Response {
   });
 }
 
+// Traducción mínima a español legible (espejo de services/marketTranslator.ts) para que el
+// informe salga 100% en español aunque el análisis codifique la selección en inglés.
+function esSelection(sel: string): string {
+  let out = (sel || "").trim();
+  const reps: Array<[RegExp, string]> = [
+    [/\bunder\b/gi, "Menos de"], [/\bover\b/gi, "Más de"],
+    [/\bhome\b/gi, "Local"], [/\baway\b/gi, "Visitante"], [/\bdraw\b/gi, "Empate"],
+    [/\byes\b/gi, "Sí"], [/\bno\b/gi, "No"], [/\bboth teams to score\b/gi, "Ambos equipos anotan"],
+  ];
+  for (const [re, rep] of reps) out = out.replace(re, rep);
+  return out;
+}
+function esMarket(mk: string): string {
+  const x = (mk || "").toLowerCase();
+  if (x.includes("btts") || x.includes("ambos")) return "Ambos equipos anotan";
+  if (x.includes("esquina") || x.includes("corner")) return "Córneres";
+  if (x.includes("tarjeta") || x.includes("card")) return "Tarjetas";
+  if (x.includes("doble") || x.includes("double chance")) return "Doble Oportunidad";
+  if (x.includes("empate no") || x.includes("draw no bet") || x.includes("no acción")) return "Empate No Acción";
+  if (x.includes("goles") || x.includes("over") || x.includes("under") || x.includes("total goals")) return "Más / Menos Goles";
+  if (x.includes("1x2") || x.includes("resultado") || x.includes("match winner")) return "Resultado (1X2)";
+  return mk || "Mercado";
+}
+
 // Construye un report_packet RICO que tanto adaptV3ToFrontend (ruta 'analisis') como el
 // constructor manual de getAnalysisResult (ruta reports_v2) saben scavengear y renderizar
 // COMPLETO (informe del cliente: contexto, táctica, escenarios, riesgos, datos del modelo).
+// Si el partido trae `markets` (TODOS los mercados evaluados), el informe muestra VARIAS
+// alternativas — no solo los picks de valor — para que el cliente tenga con qué decidir.
 function buildReportPacket(m: MatchIn, picks: PickIn[], engineVersion: string): any {
   const topPick = picks[0];
   const r: any = m.research ?? {};
@@ -350,7 +383,58 @@ function buildReportPacket(m: MatchIn, picks: PickIn[], engineVersion: string): 
     (typeof mb.lambda_home === "number" && typeof mb.lambda_away === "number"
       ? Number((mb.lambda_home + mb.lambda_away).toFixed(2)) : null);
   const bttsPct = typeof mb.btts_yes === "number" ? Math.round(mb.btts_yes * 100) : null;
+  const xCorners = mb.corners_expected ?? mb.expected_corners ?? mb.xcorners ?? null;
+  const xCards = mb.cards_expected ?? mb.expected_cards ?? mb.xcards ?? null;
   const conf = (p: PickIn) => p.confidence_label || labelOf(p.confidence);
+
+  // Razonamiento por (mercado, selección) para reutilizarlo en los mercados de valor.
+  const reasonByKey = new Map<string, string>();
+  for (const p of picks) reasonByKey.set(`${p.market}|${p.selection}`.toLowerCase(), p.reasoning ?? "");
+
+  // Filas de TODOS los mercados: usa `markets` si viene; si no, cae a los picks (compat).
+  type Row = { market: string; selection: string; prob: number; odds?: number; edge?: number; valor: boolean; nota?: string };
+  const rows: Row[] = Array.isArray(m.markets) && m.markets.length
+    ? m.markets.map((x) => ({
+        market: x.market, selection: x.selection, prob: x.prob, odds: x.odds, edge: x.edge,
+        valor: x.valor ?? false, nota: x.nota,
+      }))
+    : picks.map((p) => ({
+        market: p.market, selection: p.selection, prob: p.p_model, odds: p.odds, edge: p.edge,
+        valor: true, nota: p.reasoning,
+      }));
+  // Valor primero, luego por probabilidad — así las mejores alternativas quedan arriba.
+  rows.sort((a, b) => (Number(b.valor) - Number(a.valor)) || (b.prob - a.prob));
+
+  const rowConf = (row: Row): string =>
+    row.valor ? (typeof row.edge === "number" && row.edge >= 0.1 ? "ALTA" : "MEDIA") : "BAJA";
+  const rowReason = (row: Row): string => {
+    if (row.valor) return reasonByKey.get(`${row.market}|${row.selection}`.toLowerCase()) || row.nota || "Oportunidad de valor.";
+    return row.nota || "Mercado informativo (sin ventaja clara sobre la cuota).";
+  };
+
+  const mercadosResumen = rows.map((row) => ({
+    mercado: esMarket(row.market),
+    seleccion: esSelection(row.selection),
+    prob: Math.round(row.prob * 100),
+    cuota: row.odds ?? null,
+    edge: typeof row.edge === "number" ? Math.round(row.edge * 100) : null,
+    valor: row.valor,
+  }));
+  const valorRows = rows.filter((row) => row.valor);
+
+  const pronosticos = rows.map((row) => ({
+    mercado: esMarket(row.market),
+    seleccion: esSelection(row.selection),
+    probabilidad_calculada_porcentaje: Math.round(row.prob * 100),
+    probabilidad_implicita_porcentaje: row.odds ? Math.round((1 / row.odds) * 100) : null,
+    cuota_actual: row.odds ?? null,
+    edge_porcentaje: typeof row.edge === "number" ? Math.round(row.edge * 100) : null,
+    confianza: rowConf(row),
+    nivel_confianza: rowConf(row),
+    tipo: row.valor ? "VALOR" : "Informativo",
+    decision: row.valor ? "BET" : "WATCH",
+    razonamiento: rowReason(row),
+  }));
 
   return {
     engine_version: engineVersion,
@@ -360,7 +444,7 @@ function buildReportPacket(m: MatchIn, picks: PickIn[], engineVersion: string): 
       subtitulo: `${m.league_name ?? ""} · ${m.match_date}`,
       fecha: m.match_date,
       liga: m.league_name ?? "",
-      bullets_clave: picks.map((p) => `${p.market}: ${p.selection} @ ${p.odds}`),
+      bullets_clave: valorRows.map((row) => `${esMarket(row.market)}: ${esSelection(row.selection)} @ ${row.odds} (${Math.round(row.prob * 100)}%)`),
     },
     resumen_ejecutivo: {
       titular: `${m.home_team} vs ${m.away_team}`,
@@ -368,7 +452,7 @@ function buildReportPacket(m: MatchIn, picks: PickIn[], engineVersion: string): 
       veredicto: picks.length > 0 ? "APOSTAR" : "OBSERVAR",
       confianza_global: topPick ? conf(topPick) : "MEDIA",
       confianza: topPick ? conf(topPick) : "MEDIA",
-      picks_principales: picks.map((p) => `${p.selection} (${p.market}) @ ${p.odds}`),
+      picks_principales: valorRows.map((row) => `${esSelection(row.selection)} (${esMarket(row.market)}) @ ${row.odds}`),
     },
     analisis_profundo: {
       contexto_competitivo: {
@@ -381,8 +465,12 @@ function buildReportPacket(m: MatchIn, picks: PickIn[], engineVersion: string): 
       matchup_tactico: thesis,
       factor_psicologico: { presion_local: "", presion_visitante: "", temperatura_mental: motiv },
       lectura_de_mercado: {
-        analisis_cuotas: topPick ? `Cuota ${topPick.bookmaker ?? "casa"} ${topPick.odds} para «${topPick.selection}».` : "",
-        ineficiencia_detectada: topPick && typeof topPick.edge === "number" ? `Edge estimado ${Math.round(topPick.edge * 100)}% del modelo sobre la cuota real.` : "",
+        analisis_cuotas: valorRows.length
+          ? valorRows.slice(0, 4).map((row) => `${esMarket(row.market)}: ${esSelection(row.selection)} @ ${row.odds}`).join("; ")
+          : (topPick ? `Cuota ${topPick.bookmaker ?? "casa"} ${topPick.odds} para «${esSelection(topPick.selection)}».` : "El mercado luce eficiente."),
+        ineficiencia_detectada: valorRows.length
+          ? valorRows.map((row) => `${esSelection(row.selection)} (+${typeof row.edge === "number" ? Math.round(row.edge * 100) : 0}%)`).join(", ")
+          : "Sin ventaja clara del modelo sobre la cuota.",
       },
     },
     escenarios_proyectados: {
@@ -395,10 +483,11 @@ function buildReportPacket(m: MatchIn, picks: PickIn[], engineVersion: string): 
         : (awayAbs[0] || homeAbs[0] || "Variabilidad propia del partido y del arranque de torneo."),
       riesgos_secundarios: [...homeAbs, ...awayAbs].slice(0, 5),
     },
-    mercados_evaluados: { total_analizados: 60, con_valor_detectado: picks.length },
+    mercados_evaluados: { total_analizados: rows.length || 60, con_valor_detectado: valorRows.length },
     datos_modelo: {
       goles_esperados_partido: xTotal,
-      corners_esperados: null,
+      corners_esperados: xCorners,
+      tarjetas_esperadas: xCards,
       probabilidad_btts_porcentaje: bttsPct,
       lambda_local: mb.lambda_home ?? null,
       lambda_visitante: mb.lambda_away ?? null,
@@ -406,30 +495,18 @@ function buildReportPacket(m: MatchIn, picks: PickIn[], engineVersion: string): 
     },
     research: m.research ?? null,
     math_models_used: m.math_baseline ?? null,
-    pronosticos: picks.map((p) => ({
-      mercado: p.market,
-      seleccion: p.selection,
-      probabilidad_calculada_porcentaje: Math.round(p.p_model * 100),
-      probabilidad_implicita_porcentaje: typeof p.p_implied === "number"
-        ? Math.round(p.p_implied * 100)
-        : (p.odds ? Math.round((1 / p.odds) * 100) : null),
-      cuota_actual: p.odds,
-      edge_porcentaje: typeof p.edge === "number" ? Math.round(p.edge * 100) : undefined,
-      confianza: conf(p),
-      nivel_confianza: conf(p),
-      tipo: p.market,
-      decision: "BET",
-      razonamiento: p.reasoning,
-    })),
+    // TODOS los mercados evaluados (para mostrar varias alternativas en el informe).
+    mercados_resumen: mercadosResumen,
+    pronosticos,
     predicciones_finales: {
-      detalle: picks.map((p) => ({
-        mercado: p.market,
-        seleccion: p.selection,
-        probabilidad_estimado_porcentaje: Math.round(p.p_model * 100),
-        cuota_actual: p.odds,
-        decision: "BET",
-        nivel_confianza: conf(p),
-        justificacion_detallada: p.reasoning,
+      detalle: rows.map((row) => ({
+        mercado: esMarket(row.market),
+        seleccion: esSelection(row.selection),
+        probabilidad_estimado_porcentaje: Math.round(row.prob * 100),
+        cuota_actual: row.odds ?? null,
+        decision: row.valor ? "BET" : "WATCH",
+        nivel_confianza: rowConf(row),
+        justificacion_detallada: rowReason(row),
       })),
     },
   };
