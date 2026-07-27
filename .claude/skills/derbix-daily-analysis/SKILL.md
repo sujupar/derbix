@@ -194,3 +194,61 @@ lo sube manualmente en Admin -> Importar Análisis del Día.
 - El blend con mercado SOLO reduce el edge, nunca lo infla.
 - Mercados no modelados topan confianza en MEDIA.
 - Sin info de alineación fiable -> ajuste 0, confianza MEDIA.
+
+---
+
+# PARTE II — Del análisis al producto (informe rico → oportunidades → plataforma)
+
+Esta parte es OBLIGATORIA y define cómo el análisis se convierte en lo que ve el usuario.
+NO se improvisa ni se recorta sobre la marcha: es el mismo procedimiento cada día.
+
+## 11. Evaluar TODOS los mercados de cada partido (no solo los de valor)
+El informe del cliente debe mostrar el partido COMPLETO, no solo los picks. Por cada partido
+registra en el JSON (campo `markets`) TODOS los mercados relevantes con su probabilidad del
+modelo + cuota real de BetPlay + edge, AUNQUE la cuota sea baja o no pase los gates:
+- Resultado 1X2 (Local / Empate / Visitante)
+- Doble Oportunidad (1X / 12 / X2)
+- Más/Menos Goles (líneas 1.5, 2.5, 3.5)
+- Ambos Anotan (Sí / No)
+- Empate No Acción (Local / Visitante)
+- Más/Menos Esquinas (línea principal) — conservador, confianza tope MEDIA
+- Total Tarjetas (línea principal) — conservador, confianza tope MEDIA
+Cada entrada: `{market, selection, prob (0-1), odds (BetPlay real), edge, valor:bool}`. `valor=true`
+solo si pasa los gates de la Parte I. Añade para el informe: goles esperados (λ_local+λ_visitante),
+BTTS %, córners esperados (stat type_id 34) y tarjetas esperadas (stat type_id 84) del historial.
+
+## 12. Extraer las MEJORES oportunidades (informe → pestaña Oportunidades)
+De los mercados evaluados en 11, los que pasan los gates de valor (Parte I) se convierten en
+`picks` (máx 5/partido). Flujo obligatorio: **informe completo del partido → de ahí se extraen
+las mejores → esas van a Oportunidades.** Un partido sin mercado de valor conserva su informe
+pero NO aporta oportunidad. Cada partido rinde las oportunidades que tenga (ninguno es igual a otro).
+
+## 12b. Autocrítica adversarial por pick
+Antes de emitir cada pick intenta REFUTARLO: ¿qué escenario lo tumba? (baja clave, rotación,
+clima, o una cuota "demasiado buena" = catálogo sospechoso). Si el contraargumento es fuerte y
+no hay dato que lo mitigue, baja la confianza o descarta el pick. Registra la refutación en `reasoning`.
+
+## 13. Esquema del archivo — campos por partido
+Por cada match en `matches`: `fixture_id, league_name, home_team, away_team, home_team_logo,
+away_team_logo, kickoff_utc, match_date (=TARGET_DATE), research{...}, math_baseline{...},
+markets[TODOS], picks[valor]`. Vocabulario EXACTO de mercados/selecciones (ver sección 9).
+
+## 14. Cómo se estructura en la plataforma (qué alimenta qué)
+El importador `import-daily-analysis` mapea el archivo así:
+
+| Pestaña | Tabla | Qué se muestra |
+|---------|-------|----------------|
+| **Partidos** | `daily_matches` (upsert) | 1 fila por partido (equipos, hora, liga). Si el listado en vivo de SportMonks viene vacío, la app cae a `daily_matches` como respaldo. |
+| **Oportunidades** | `value_picks_v2` (`is_opportunity`, `opportunity_date`, `opportunity_rank`) | los `picks` de valor, rankeados global top-15 del día |
+| **Informe** | `analisis` (`dashboardData`) + `reports_v2` (`report_packet`) | informe rico por partido: todos los mercados + secciones + datos del modelo |
+
+La caché `analisis` es la fuente PRIMARIA del informe; `reports_v2` es respaldo. Ambos se
+escriben delete-then-insert por `(fixture_id, engine_version)`. `is_opportunity = p_model >= 0.72`.
+
+## 15. Contrato de presentación (correcciones aprobadas — NO regresar)
+Permanentes; cualquier cambio futuro DEBE preservarlas:
+- **Oportunidades**: NO mostrar la hora. Mostrar mercado+selección legible ("Ambos Anotan: No",
+  no solo "No"). El texto se ENVUELVE en varias líneas, NUNCA se recorta con ellipsis. Cuota a la derecha.
+- **Informe**: sin crash (React #31) — `matchup_tactico` es STRING, no objeto. Muestra TODOS los
+  mercados en secciones, no un bloque de texto plano.
+- **Partidos**: respaldo desde `daily_matches` cuando el listado en vivo de SportMonks viene vacío.
