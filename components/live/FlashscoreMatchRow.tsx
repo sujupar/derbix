@@ -11,17 +11,32 @@ interface FlashscoreMatchRowProps {
     userRole?: string;
     onOpenDetail: (game: Game) => void;
     onAnalyze: (game: Game) => void;
+    onViewReport: (gameId: number) => void;
 }
 
+// Iniciales del equipo cuando no hay logo (mismo criterio que Oportunidades)
+const crest = (name?: string) => (name || '?').replace(/[^A-Za-z0-9 ]/g, '').slice(0, 3).toUpperCase();
+
 const FlashscoreMatchRow: React.FC<FlashscoreMatchRowProps> = ({
-    game, hasReport, isReportLocked, jobStatus, userRole, onOpenDetail, onAnalyze
+    game, hasReport, isReportLocked, jobStatus, userRole, onOpenDetail, onAnalyze, onViewReport
 }) => {
     const isAdmin = isAgencyRole(userRole);
     const scoreAvailable = game.goals.home !== null && game.goals.away !== null;
     const LIVE_STATUSES = ['LIVE', '1H', 'HT', '2H', 'ET', 'BT', 'PEN_LIVE', 'BREAK', 'INT'];
     const isLive = LIVE_STATUSES.includes(game.fixture.status.short);
-    const isFinished = game.fixture.status.short === 'FT' || game.fixture.status.short === 'AET' || game.fixture.status.short === 'PEN';
+    const isFinished = ['FT', 'AET', 'PEN'].includes(game.fixture.status.short);
     const isProcessing = jobStatus && ['queued', 'ingesting', 'data_ready', 'analyzing'].includes(jobStatus);
+
+    const kickoff = new Date(game.fixture.timestamp * 1000).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+
+    // Clic en la tarjeta del partido:
+    //  - Con informe disponible → abre el INFORME directamente (el gating por plan lo
+    //    resuelve LiveFeed en handleViewReport / verifyReportAccess).
+    //  - Sin informe → abre el detalle del partido (donde el admin puede analizar).
+    const handleCardClick = () => {
+        if (hasReport) onViewReport(game.fixture.id);
+        else onOpenDetail(game);
+    };
 
     const handleAnalyzeClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -29,80 +44,54 @@ const FlashscoreMatchRow: React.FC<FlashscoreMatchRowProps> = ({
     };
 
     return (
-        <div
-            onClick={() => onOpenDetail(game)}
-            className="flex items-center h-14 sm:h-12 px-2 sm:px-3 hover:bg-white/5 cursor-pointer transition-colors border-b border-white/[0.03] last:border-b-0 group"
-        >
-            {/* Time / Status */}
-            <div className="w-12 sm:w-14 shrink-0 text-center">
+        <div className="dxj-mcard" onClick={handleCardClick}>
+            {/* Hora / estado + marcador */}
+            <span className="min">
                 {isLive ? (
-                    <span className="text-xs font-bold text-red-400 flex items-center justify-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                        {game.fixture.status.elapsed
-                            ? `${game.fixture.status.elapsed}'`
-                            : game.fixture.status.short === 'HT' ? 'DT' : 'EN VIVO'}
+                    <span className="live">
+                        {game.fixture.status.elapsed ? `${game.fixture.status.elapsed}'` : (game.fixture.status.short === 'HT' ? 'DT' : 'EN VIVO')}
                     </span>
                 ) : isFinished ? (
-                    <span className="text-[11px] font-bold text-slate-500">FIN</span>
+                    <span className="fin">FIN</span>
                 ) : (
-                    <span className="text-xs font-mono text-slate-400">
-                        {new Date(game.fixture.timestamp * 1000).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                    <span className="t dx-num">{kickoff}</span>
                 )}
-            </div>
+                {scoreAvailable && <span className="sc">{game.goals.home}-{game.goals.away}</span>}
+            </span>
 
-            {/* Separator */}
-            <div className="w-px h-6 bg-white/5 mx-1 shrink-0" />
+            {/* Escudos (superpuestos, igual que Oportunidades) */}
+            <span className="dxj-crests">
+                <b>{game.teams.home.logo ? <img src={game.teams.home.logo} alt="" /> : crest(game.teams.home.name)}</b>
+                <b>{game.teams.away.logo ? <img src={game.teams.away.logo} alt="" /> : crest(game.teams.away.name)}</b>
+            </span>
 
-            {/* Home Team */}
-            <div className="flex-1 flex items-center justify-end gap-2 min-w-0 pr-2">
-                <span className={`text-sm truncate ${isFinished && scoreAvailable && game.goals.home! > game.goals.away! ? 'text-white font-bold' : 'text-slate-300'}`}>
-                    {game.teams.home.name}
+            {/* Equipos + subtítulo (estado del informe) */}
+            <span className="info">
+                <span className="tt">{game.teams.home.name} — {game.teams.away.name}</span>
+                <span className="sub">
+                    {hasReport
+                        ? (isReportLocked ? <span className="lock">Informe premium</span> : <span className="rep">Ver informe</span>)
+                        : (isProcessing ? 'Analizando…' : 'Sin informe todavía')}
                 </span>
-                <img src={game.teams.home.logo} alt="" className="w-5 h-5 object-contain shrink-0" />
-            </div>
+            </span>
 
-            {/* Score */}
-            <div className="w-14 shrink-0 text-center">
-                {scoreAvailable ? (
-                    <span className={`text-sm font-bold tracking-wider ${isLive ? 'text-red-400' : 'text-white'}`}>
-                        {game.goals.home} - {game.goals.away}
-                    </span>
-                ) : (
-                    <span className="text-sm font-bold text-slate-600">vs</span>
-                )}
-            </div>
-
-            {/* Away Team */}
-            <div className="flex-1 flex items-center justify-start gap-2 min-w-0 pl-2">
-                <img src={game.teams.away.logo} alt="" className="w-5 h-5 object-contain shrink-0" />
-                <span className={`text-sm truncate ${isFinished && scoreAvailable && game.goals.away! > game.goals.home! ? 'text-white font-bold' : 'text-slate-300'}`}>
-                    {game.teams.away.name}
-                </span>
-            </div>
-
-            {/* Indicators */}
-            <div className="w-16 sm:w-20 shrink-0 flex items-center justify-end gap-1.5">
+            {/* Indicadores a la derecha */}
+            <span className="meta">
                 {isProcessing && (
-                    <div className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+                    <span className="w-4 h-4 border-2 border-dx-green border-t-transparent rounded-full animate-spin" />
                 )}
-
                 {hasReport && (
                     isReportLocked
-                        ? <LockClosedIcon className="w-4 h-4 text-amber-500/60" />
-                        : <CheckCircleIcon className="w-4 h-4 text-brand" />
+                        ? <LockClosedIcon className="w-4 h-4 text-dx-gold/70" />
+                        : <CheckCircleIcon className="w-4 h-4 text-dx-green" />
                 )}
-
                 {isAdmin && !hasReport && !isProcessing && (
-                    <button
-                        onClick={handleAnalyzeClick}
-                        className="sm:opacity-0 sm:group-hover:opacity-100 p-2 sm:p-1 rounded text-blue-400 hover:bg-blue-500/10 transition-all"
-                        title="Analizar"
-                    >
-                        <SparklesIcon className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                    <button onClick={handleAnalyzeClick} className="an" title="Analizar">
+                        <SparklesIcon className="w-3.5 h-3.5" />
                     </button>
                 )}
-            </div>
+                {hasReport && <span className="go">›</span>}
+            </span>
         </div>
     );
 };
