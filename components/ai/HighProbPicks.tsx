@@ -414,7 +414,15 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
     const crest = (name?: string) => (name || '?').replace(/[^A-Za-z0-9 ]/g, '').slice(0, 3).toUpperCase();
     const probOf = (p: { p_model: number }) => Math.round(p.p_model * 100);
     const oddOf = (p: HighProbPick) => (p.odds && p.odds >= 1.01 ? `@${p.odds.toFixed(2)}` : '—');
-    const betOf = (p: HighProbPick) => translatePick(p.market || '', p.selection || '').selectionEs;
+    const betOf = (p: HighProbPick) => {
+        // Mostrar mercado + selección para que sea entendible (ej. "Ambos Anotan: No",
+        // no solo "No"). Antes salía únicamente la selección y confundía.
+        const tr = translatePick(p.market || '', p.selection || '');
+        const mk = (tr.marketEs || '').trim();
+        const sel = (tr.selectionEs || '').trim();
+        if (mk && sel && !sel.toLowerCase().includes(mk.toLowerCase())) return `${mk}: ${sel}`;
+        return sel || mk;
+    };
     const LIVE_STATUSES = ['1H', '2H', 'HT', 'ET', 'BT', 'P', 'LIVE', 'INT'];
     const isLive = (p: { match_status?: string }) => LIVE_STATUSES.includes(p.match_status || '');
     const kickoffOf = (p: { match_time?: string }): string => {
@@ -491,12 +499,12 @@ const HighProbPicks: React.FC<HighProbPicksProps> = ({ date, onViewReport, onPic
                                 {g.picks.map((pick) => {
                                     const lost = !presentationMode && pick.result === 'LOST';
                                     // Mercado + estado/hora: se muestra inline en PC y full-width abajo en móvil
+                                    // En Oportunidades NO se muestra la hora (eso es de la pestaña
+                                    // Partidos). Solo el mercado/selección (+ EN VIVO si aplica).
                                     const mkContent = (
                                         <>
                                             {betOf(pick)}
-                                            {isLive(pick)
-                                                ? <> · <span className="lv">EN VIVO</span></>
-                                                : kickoffOf(pick) ? ` · ${kickoffOf(pick)}` : ''}
+                                            {isLive(pick) ? <> · <span className="lv">EN VIVO</span></> : ''}
                                         </>
                                     );
                                     return (

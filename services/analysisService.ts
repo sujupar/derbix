@@ -95,9 +95,18 @@ const adaptV3ToFrontend = (rawData: any): DashboardAnalysisJSON => {
     // 3. Fallback para Estilo y Táctica si aún está vacío
     if (analisisDetallado.estilo_y_tactica.bullets.length === 0) {
         if (deepContext.matchup_tactico) {
-            analisisDetallado.estilo_y_tactica.bullets.push(deepContext.matchup_tactico);
+            // matchup_tactico puede ser string u OBJETO ({detalle, clave_del_partido, estilo, enfoque...}).
+            // NUNCA empujar el objeto crudo: React lo renderiza como <li>{objeto}</li> → error #31.
+            const mt = deepContext.matchup_tactico;
+            if (typeof mt === 'string') {
+                analisisDetallado.estilo_y_tactica.bullets.push(mt);
+            } else if (mt && typeof mt === 'object') {
+                [mt.detalle, mt.clave_del_partido, mt.estilo, mt.enfoque, mt.enfoque_local, mt.enfoque_visitante, mt.matchup_clave]
+                    .filter((s) => typeof s === 'string' && s.trim())
+                    .forEach((s) => analisisDetallado.estilo_y_tactica.bullets.push(s));
+            }
         }
-        if (deepContext.clave_del_partido) {
+        if (deepContext.clave_del_partido && typeof deepContext.clave_del_partido === 'string') {
             analisisDetallado.estilo_y_tactica.bullets.push(deepContext.clave_del_partido);
         }
         // Fallback for AI Hallucinations (factor_clave)

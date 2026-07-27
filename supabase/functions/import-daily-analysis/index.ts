@@ -377,7 +377,8 @@ function buildReportPacket(m: MatchIn, picks: PickIn[], engineVersion: string): 
         implicaciones_partido: motiv || r.competition_note || "",
       },
       analisis_tactico: { enfoque_local: "", enfoque_visitante: "", matchup_clave: thesis },
-      matchup_tactico: { detalle: thesis, clave_del_partido: motiv, estilo: "" },
+      // matchup_tactico como STRING (no objeto): evita React #31 en adaptV3ToFrontend legacy.
+      matchup_tactico: thesis,
       factor_psicologico: { presion_local: "", presion_visitante: "", temperatura_mental: motiv },
       lectura_de_mercado: {
         analisis_cuotas: topPick ? `Cuota ${topPick.bookmaker ?? "casa"} ${topPick.odds} para «${topPick.selection}».` : "",
