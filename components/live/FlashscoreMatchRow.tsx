@@ -1,6 +1,6 @@
 import React from 'react';
 import { Game, AnalysisJob } from '../../types';
-import { CheckCircleIcon, SparklesIcon, LockClosedIcon } from '../icons/Icons';
+import { SparklesIcon, LockClosedIcon } from '../icons/Icons';
 import { isAgencyRole } from '../../utils/roles';
 
 interface FlashscoreMatchRowProps {
@@ -14,7 +14,7 @@ interface FlashscoreMatchRowProps {
     onViewReport: (gameId: number) => void;
 }
 
-// Iniciales del equipo cuando no hay logo (mismo criterio que Oportunidades)
+// Iniciales del equipo cuando no hay logo
 const crest = (name?: string) => (name || '?').replace(/[^A-Za-z0-9 ]/g, '').slice(0, 3).toUpperCase();
 
 const FlashscoreMatchRow: React.FC<FlashscoreMatchRowProps> = ({
@@ -44,54 +44,59 @@ const FlashscoreMatchRow: React.FC<FlashscoreMatchRowProps> = ({
     };
 
     return (
-        <div className="dxj-mcard" onClick={handleCardClick}>
-            {/* Hora / estado + marcador */}
-            <span className="min">
+        <div className="dxj-fx" onClick={handleCardClick}>
+            {/* Enfrentamiento: logo + nombre  VS  nombre + logo */}
+            <div className="fx-teams">
+                <div className="fx-side home">
+                    {game.teams.home.logo
+                        ? <img className="fx-lg" src={game.teams.home.logo} alt="" />
+                        : <span className="fx-cr">{crest(game.teams.home.name)}</span>}
+                    <span className="fx-nm">{game.teams.home.name}</span>
+                </div>
+
+                <div className={`fx-mid ${scoreAvailable ? 'sc' : ''} ${isLive ? 'live' : ''}`.trim()}>
+                    {scoreAvailable ? `${game.goals.home}-${game.goals.away}` : 'VS'}
+                </div>
+
+                <div className="fx-side away">
+                    <span className="fx-nm">{game.teams.away.name}</span>
+                    {game.teams.away.logo
+                        ? <img className="fx-lg" src={game.teams.away.logo} alt="" />
+                        : <span className="fx-cr">{crest(game.teams.away.name)}</span>}
+                </div>
+            </div>
+
+            {/* Hora / estado + acceso al informe */}
+            <div className="fx-meta">
                 {isLive ? (
                     <span className="live">
                         {game.fixture.status.elapsed ? `${game.fixture.status.elapsed}'` : (game.fixture.status.short === 'HT' ? 'DT' : 'EN VIVO')}
                     </span>
                 ) : isFinished ? (
-                    <span className="fin">FIN</span>
+                    <span className="h">Finalizado</span>
                 ) : (
-                    <span className="t dx-num">{kickoff}</span>
+                    <span className="h">{kickoff}</span>
                 )}
-                {scoreAvailable && <span className="sc">{game.goals.home}-{game.goals.away}</span>}
-            </span>
 
-            {/* Escudos (superpuestos, igual que Oportunidades) */}
-            <span className="dxj-crests">
-                <b>{game.teams.home.logo ? <img src={game.teams.home.logo} alt="" /> : crest(game.teams.home.name)}</b>
-                <b>{game.teams.away.logo ? <img src={game.teams.away.logo} alt="" /> : crest(game.teams.away.name)}</b>
-            </span>
+                {hasReport && <span className="dot">·</span>}
+                {hasReport && (isReportLocked
+                    ? <span className="lock"><LockClosedIcon className="w-3.5 h-3.5" /> Informe premium</span>
+                    : <span className="rep">Ver informe ›</span>)}
 
-            {/* Equipos + subtítulo (estado del informe) */}
-            <span className="info">
-                <span className="tt">{game.teams.home.name} — {game.teams.away.name}</span>
-                <span className="sub">
-                    {hasReport
-                        ? (isReportLocked ? <span className="lock">Informe premium</span> : <span className="rep">Ver informe</span>)
-                        : (isProcessing ? 'Analizando…' : 'Sin informe todavía')}
-                </span>
-            </span>
+                {!hasReport && isProcessing && (
+                    <>
+                        <span className="dot">·</span>
+                        <span>Analizando…</span>
+                    </>
+                )}
+            </div>
 
-            {/* Indicadores a la derecha */}
-            <span className="meta">
-                {isProcessing && (
-                    <span className="w-4 h-4 border-2 border-dx-green border-t-transparent rounded-full animate-spin" />
-                )}
-                {hasReport && (
-                    isReportLocked
-                        ? <LockClosedIcon className="w-4 h-4 text-dx-gold/70" />
-                        : <CheckCircleIcon className="w-4 h-4 text-dx-green" />
-                )}
-                {isAdmin && !hasReport && !isProcessing && (
-                    <button onClick={handleAnalyzeClick} className="an" title="Analizar">
-                        <SparklesIcon className="w-3.5 h-3.5" />
-                    </button>
-                )}
-                {hasReport && <span className="go">›</span>}
-            </span>
+            {/* Admin: analizar (solo si aún no hay informe) */}
+            {isAdmin && !hasReport && !isProcessing && (
+                <button className="fx-an" onClick={handleAnalyzeClick} title="Analizar">
+                    <SparklesIcon className="w-4 h-4" />
+                </button>
+            )}
         </div>
     );
 };

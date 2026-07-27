@@ -315,11 +315,11 @@ const PredictionCard: React.FC<{ pred: DetallePrediccion }> = ({ pred }) => {
     const conclusion = justif?.conclusion || 'Recomendación basada en el modelo de análisis';
 
     return (
-        <div className={`bg-gray-800 rounded-xl overflow-hidden border-l-4 ${border} shadow-lg mb-6 ${isOpportunity ? 'ring-1 ring-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]' : ''}`}>
+        <div className={`bg-gray-800 rounded-xl overflow-hidden border-l-4 ${border} shadow-lg mb-6 ${isOpportunity ? 'ring-2 ring-emerald-500/50 shadow-[0_0_28px_rgba(16,185,129,0.18)]' : ''}`}>
             {isOpportunity && (
-                <div className="bg-gradient-to-r from-emerald-600/20 to-emerald-500/10 px-5 py-2 flex items-center gap-2 border-b border-emerald-500/20">
-                    <span className="text-emerald-400 text-sm">⚡</span>
-                    <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Oportunidad de Valor</span>
+                <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-2 flex items-center gap-2">
+                    <span className="text-white text-sm">⚡</span>
+                    <span className="text-xs font-black text-white uppercase tracking-wider">Oportunidad de Valor</span>
                 </div>
             )}
             {!coherent && prob >= OPPORTUNITY_THRESHOLD && pred.odds && (
@@ -339,7 +339,7 @@ const PredictionCard: React.FC<{ pred: DetallePrediccion }> = ({ pred }) => {
                     <span className={`text-2xl font-bold ${color}`}>{prob}%</span>
                     <span className="text-[10px] text-gray-500 uppercase">Prob.</span>
                     {pred.odds && (
-                        <div className="mt-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white px-3 py-1 rounded-md text-sm font-black shadow-[0_0_10px_rgba(59,130,246,0.5)] animate-pulse-slow border border-blue-400">
+                        <div className="mt-2 bg-gradient-to-b from-[#F6D27A] to-[#E7B84F] text-[#1A1304] px-3 py-1 rounded-md text-sm font-black shadow-[0_3px_10px_-4px_rgba(231,184,79,0.55)] border border-[#E7B84F]">
                             @{pred.odds.toFixed(2)}
                         </div>
                     )}
@@ -555,7 +555,7 @@ const VerdictSummary: React.FC<{
 
             {/* Header Mini */}
             <div className="mb-4 text-center relative z-10 opacity-80 hover:opacity-100 transition-opacity">
-                <span className="text-blue-400 text-xs font-bold uppercase tracking-widest mb-1 block">Derbix Intelligence</span>
+                <span className="text-emerald-400 text-xs font-bold uppercase tracking-widest mb-1 block">Inteligencia Derbix</span>
                 <h2 className="text-lg md:text-xl font-bold text-gray-300 truncate">{headerData?.titulo}</h2>
                 <p className="text-gray-500 text-xs">{headerData?.subtitulo}</p>
             </div>
@@ -653,7 +653,7 @@ const OddsOverviewSection: React.FC<{ odds: any }> = ({ odds }) => {
 
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-white flex items-center">
-                    <span className="bg-blue-500/20 text-blue-400 p-1.5 rounded mr-2 text-xs">LIVE</span>
+                    <span className="bg-emerald-500/20 text-emerald-400 p-1.5 rounded mr-2 text-xs font-bold">EN VIVO</span>
                     Cuotas en Tiempo Real
                 </h3>
                 <span className="text-xs text-gray-400 bg-black/30 px-2 py-1 rounded border border-white/5">
@@ -689,11 +689,11 @@ const OddsOverviewSection: React.FC<{ odds: any }> = ({ odds }) => {
                     <div className="flex justify-around items-center text-sm font-bold">
                         <div className="flex flex-col items-center">
                             <span className="text-green-400">{getPrice(totals, 'Over')}</span>
-                            <span className="text-[10px] text-gray-500 font-normal">Over</span>
+                            <span className="text-[10px] text-gray-500 font-normal">Más</span>
                         </div>
                         <div className="flex flex-col items-center">
                             <span className="text-red-400">{getPrice(totals, 'Under')}</span>
-                            <span className="text-[10px] text-gray-500 font-normal">Under</span>
+                            <span className="text-[10px] text-gray-500 font-normal">Menos</span>
                         </div>
                     </div>
                 </div>
@@ -892,8 +892,8 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
     // Fallback por si la IA devolvió texto plano en lugar del JSON (caso raro con Gemini 2.5 Pro y prompt estricto)
     if (!data) {
         return (
-            <div className="fixed inset-0 bg-black/95 z-[100] flex items-center justify-center p-4 md:p-6 animate-fade-in backdrop-blur-md" onClick={(e) => e.target === e.currentTarget && onClose()}>
-                <div className="bg-dx-bg rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col border border-dx-border" onClick={(e) => e.stopPropagation()}>
+            <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 md:p-6 animate-fade-in backdrop-blur-md" onClick={(e) => e.target === e.currentTarget && onClose()}>
+                <div className="bg-dx-surface rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col border border-dx-border" onClick={(e) => e.stopPropagation()}>
                     <div className="p-6 border-b border-gray-800 flex justify-between">
                         <h2 className="text-xl font-bold text-red-400">Error de Formato Visual</h2>
                         <button onClick={onClose}><XMarkIcon className="w-6 h-6 text-gray-400" /></button>
@@ -943,8 +943,8 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
     };
 
     return createPortal(
-        <div className="fixed inset-0 bg-black/95 z-[100] flex items-center justify-center p-0 md:p-6 animate-fade-in backdrop-blur-md" onClick={(e) => e.target === e.currentTarget && onClose()}>
-            <div className="bg-dx-bg w-full h-full md:h-[90vh] md:max-w-6xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-dx-border" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-0 md:p-6 animate-fade-in backdrop-blur-md" onClick={(e) => e.target === e.currentTarget && onClose()}>
+            <div className="bg-dx-surface w-full h-full md:h-[90vh] md:max-w-6xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-dx-border" onClick={(e) => e.stopPropagation()}>
 
                 {/* ═══════════════════════════════════════════════════════════════
                             DEBUG MODE: SPLIT VIEW (PAYLOAD vs AI RESPONSE)
