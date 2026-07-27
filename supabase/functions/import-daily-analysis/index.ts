@@ -1,9 +1,12 @@
 // supabase/functions/import-daily-analysis/index.ts
 // Ingesta del archivo JSON diario generado por Claude Code (skill derbix-daily-analysis).
-// Sube manualmente en el panel Admin. Mapea el archivo a daily_matches / analysis_jobs_v2 /
-// reports_v2 / value_picks_v2 preservando la compatibilidad con hourly-results-verifier.
+// Sube MANUAL (panel Admin) o AUTOMÁTICO (Claude/pipeline hace POST con X-Internal-Secret).
+// Mapea el archivo a daily_matches / analysis_jobs_v2 / reports_v2 / value_picks_v2
+// preservando la compatibilidad con hourly-results-verifier.
 //
-// Deploy: npx supabase functions deploy import-daily-analysis   (CON verify-jwt — solo admin)
+// Deploy: npx supabase functions deploy import-daily-analysis --no-verify-jwt
+//   (auth interno: JWT de admin para la subida manual, o cabecera X-Internal-Secret con
+//    INTERNAL_FUNCTION_SECRET para la subida automática. Sin uno de los dos → 401/403.)
 //
 // Contrato:  POST { payload: <archivo>, dryRun?: boolean, overwrite?: boolean }
 // Respuesta: { ok, dryRun, counts, warnings, errors, preview }
@@ -11,7 +14,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { requirePlatformAdmin, authErrorResponse } from "../_shared/auth-guard.ts";
+import { requireAdminOrService, authErrorResponse } from "../_shared/auth-guard.ts";
 import { checkProbOddsCoherence } from "../_shared/odds-selector.ts";
 
 const ENGINE_FALLBACK = "COWORK-V1";
@@ -76,8 +79,9 @@ function bogotaToday(): string {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  // ── Auth: solo admin de plataforma ──────────────────────────────────────
-  const auth = await requirePlatformAdmin(req);
+  // ── Auth: admin de plataforma (subida MANUAL) O clave de servicio en la
+  //    cabecera X-Internal-Secret (subida AUTOMÁTICA de Claude/pipeline). ────
+  const auth = await requireAdminOrService(req);
   if (!auth.ok) return authErrorResponse(auth, corsHeaders);
 
   let body: { payload?: FileIn; dryRun?: boolean; overwrite?: boolean };
