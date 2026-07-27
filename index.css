@@ -475,8 +475,8 @@ body {
 .dxj-rc { background:var(--dx-surface); border:1px solid var(--dx-border); border-radius:15px; padding:16px; }
 .dxj-rc-t { display:flex; align-items:center; gap:8px; font-family:'Archivo',sans-serif; font-weight:600; font-size:13px; color:var(--dx-text-soft); margin-bottom:13px; text-transform:uppercase; letter-spacing:.06em; }
 .dxj-rc-t svg { width:15px; height:15px; color:var(--dx-accent); }
-/* Destacado del día: fondo VERDE vivo (igual que el tab activo) + texto negro, cuota dorada */
-.dxj-feat { background:linear-gradient(165deg,var(--dx-accent-bright),var(--dx-accent)); border:1px solid var(--dx-accent); box-shadow:0 16px 44px -16px rgba(29,231,130,.65); }
+/* Destacado del día: fondo VERDE profundo y elegante (menos neón) + texto negro, cuota dorada */
+.dxj-feat { background:linear-gradient(160deg,#17B274,#0C8A55); border:1px solid rgba(9,110,68,.55); box-shadow:0 12px 30px -18px rgba(12,120,78,.55); }
 .dxj-feat .dxj-rc-t { color:rgba(4,20,12,.72); }
 .dxj-feat .dxj-rc-t svg { color:#04140C; }
 .dxj-feat .fteams { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
