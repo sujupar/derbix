@@ -134,12 +134,101 @@ Registra por pick: `odds` = cuota colombiana decimal, `bookmaker` = BOOKMAKER_RE
 > geobloquear o pedir verificación. La primera corrida nos dirá si funciona; si no, pasamos
 > al comparador o configuramos un acceso adecuado. Reporta qué método funcionó.
 
-### 3. Investigación web (SIN Perplexity)
-Por partido, busca: alineación probable/confirmada, lesiones/suspensiones (goleador,
-creador, portero), rotación por calendario europeo, motivación de fin de temporada, clima.
-- CONFIRMED (XI oficial) / PROBABLE (>=2 fuentes reputadas concuerdan) / UNAVAILABLE.
-- UNAVAILABLE o fuente única no fiable -> ajuste contextual = 0 y confianza tope MEDIA.
-- Registra fuentes y ausencias en research.*.
+### 2c. MARCO DE ANÁLISIS OBLIGATORIO — todas las variables (analizar a FONDO, NUNCA por encima)
+**Regla de oro:** cada partido se estudia con TODAS estas variables. Está PROHIBIDO el análisis
+"en general" o superficial. Por cada bloque el agente DEBE extraer los números concretos, razonar
+explícitamente, y registrarlo en `research` / `math_baseline` para que aparezca en el informe del
+cliente. Si un dato no está disponible, decláralo (no lo inventes) y ajusta la confianza.
+
+**A. Forma y rendimiento reciente** (por equipo, y SEPARANDO local/visitante)
+- Últimos 10 partidos: secuencia V/E/D y puntos obtenidos.
+- Goles a favor y en contra: total y PROMEDIO por partido (ventanas de 5 y de 10).
+- Racha actual: nº de partidos sin perder / sin ganar / sin marcar / sin encajar.
+- Split de sede: el LOCAL, ¿cómo rinde jugando en casa? el VISITANTE, ¿cómo rinde fuera?
+  (Esto pesa MÁS que la forma global — sepáralo siempre.)
+- Vallas invictas (clean sheets) y partidos sin marcar.
+- xG a favor/en contra (si hay dato) vs goles reales → ¿sobre-/infra-rendimiento (factor suerte)?
+- Tendencia: ¿en alza o en caída en las últimas semanas?
+
+**B. Enfrentamientos directos (H2H)**
+- Últimos 5-10 cruces: resultado y MARCADOR EXACTO de cada uno.
+- Balance histórico: victorias de cada lado y empates.
+- H2H EN ESTA SEDE (en la cancha del local de hoy) — filtra por localía.
+- Patrón de goles del H2H: media de goles, % con Over 2.5, % con Ambos Anotan.
+- ¿Rival "incómodo"? (equipo inferior que históricamente le complica al favorito).
+
+**C. Tabla, objetivos y PRESIÓN del partido**
+- Posición, puntos y diferencia de goles de cada equipo.
+- Qué se juega cada uno: título, cupo continental (Libertadores/Sudamericana/Champions),
+  permanencia/descenso, playoffs, o nada.
+- Nivel de presión, EXPLÍCITO: final virtual / derbi / clásico / partido de trámite / arranque.
+- Momento de temporada (arranque, recta final, post-eliminación → posible relajación).
+
+**D. Alineaciones, jugadores y bajas** (por NOMBRE y ROL, cuantificando el impacto)
+- Alineación probable u oficial (11 inicial) + formación de cada equipo.
+- Bajas confirmadas: nombre, posición y PESO real — ¿es el goleador? ¿el 10 creador? ¿el portero
+  titular? ¿un central clave? Cuantifica sus goles/asistencias de la temporada.
+- Regresos de lesión / sanción cumplida.
+- Rotación esperada por calendario (partido entre semana, viaje largo, competición continental).
+- Riesgo de tarjetas: jugadores al borde de sanción por acumulación de amarillas.
+
+**E. Táctica y estilo (el MATCHUP)**
+- Formación y esquema de cada equipo (4-3-3, 3-5-2, 4-2-3-1, etc.).
+- Estilo: posesión vs contragolpe, presión alta vs bloque bajo/medio, juego directo vs elaborado.
+- Matchup: cómo CHOCAN los estilos → ¿se anulan (pocos goles) o se abren (muchos goles)?
+- Fortalezas/debilidades concretas: balón parado (córners/faltas), transiciones, juego por bandas,
+  fragilidad defensiva, dependencia de una figura.
+- Entrenador: estilo, historial reciente y cómo suele plantear este tipo de partidos.
+
+**F. Psicología, ambiente y contexto externo**
+- Presión sobre el entrenador (¿en riesgo de destitución? → reacción o hundimiento).
+- Ambiente: localía fuerte/hostil, afición, aforo.
+- Rivalidad (derbi/clásico → más intensidad, más tarjetas, resultados imprevisibles).
+- Estado anímico por la racha (envalentonado vs tocado de moral).
+
+**G. Físico y logística**
+- Días de descanso desde el último partido (cada equipo).
+- Viaje: distancia y ALTITUD (clave en Sudamérica — Bogotá ~2.600 m, Quito, La Paz; el visitante
+  de tierras bajas se ve afectado en la altura).
+- Clima previsto: lluvia (juego más lento, suele bajar goles), calor extremo, viento.
+- Estado del campo y horario del partido.
+
+**H. Árbitro**
+- Árbitro designado y su MEDIA de tarjetas y de penales por partido (para mercados de tarjetas).
+- Criterio: permisivo vs riguroso.
+
+**I. Estadísticas por mercado** (para ir MÁS ALLÁ del 1X2)
+- Goles: promedios combinados, línea Over/Under histórica de ambos, % BTTS.
+- Córners: promedio a favor/contra de cada equipo (stat type_id 34); estilo que genera córners.
+- Tarjetas: promedio de cada equipo (stat type_id 84) + criterio del árbitro + rivalidad.
+- Patrones por mitad: ¿marca temprano?, ¿fuerte en el 2T?
+
+**J. Mercado (cuotas reales)**
+- Cuotas de BetPlay para TODOS los mercados (§2b).
+- Comparar prob del modelo vs prob implícita de la cuota → dónde hay VALOR real.
+- "Valor demasiado bueno" = catálogo sospechoso → aplica el gate de coherencia (§7).
+
+**Cierre del marco:** el `reasoning` de CADA pick DEBE citar las variables concretas que lo
+sostienen — con números. Ejemplo del nivel exigido: *"Local invicto en 7 de local (2.1 goles/p),
+visitante sin su goleador (12 goles esta temporada) y con 3 días menos de descanso; H2H 3 de 4 con
+Over 2.5; árbitro con 5.2 tarjetas/p → Over 2.5 @ 1.62 y Total Tarjetas Más de 4.5."* PROHIBIDAS
+las frases genéricas tipo "buen momento del equipo" sin dato que lo respalde.
+
+### 3. Investigación web (SIN Perplexity) — profundizar los bloques del §2c
+Por partido, busca activamente y contrasta ≥2 fuentes reputadas (prensa deportiva, sitios de la
+liga, medios locales) para completar los bloques D, E, F, G, H del §2c:
+- **Alineación**: probable/confirmada, formación, y quién entra/sale.
+- **Bajas/regresos**: lesiones y suspensiones con NOMBRE y rol; regresos.
+- **Rotación**: calendario, viajes, doble competición.
+- **Motivación/presión**: qué se juega, ambiente, situación del DT (bloque C y F).
+- **Árbitro**: designación y su perfil de tarjetas/penales (bloque H).
+- **Clima y logística**: pronóstico, altitud, descanso (bloque G).
+Marca el estado de la alineación: CONFIRMED (XI oficial) / PROBABLE (≥2 fuentes concuerdan) /
+UNAVAILABLE. UNAVAILABLE o fuente única no fiable → ajuste contextual = 0 y confianza tope MEDIA.
+Registra TODO en `research.*` con las fuentes citadas: `lineup_status`, `home_absences[]`,
+`away_absences[]` (con rol e impacto), `tactical_thesis`, `matchup_note`, `motivation_note`,
+`pressure_level`, `referee_note`, `weather_note`, `rest_days_home/away`, `altitude_note`, `h2h_note`,
+`form_home_note`, `form_away_note`, `sources[]`.
 
 ### 4. Baseline matemático
 Calcula features (streak 5, descanso default 7, promedios 5/10 con xG si hay,
@@ -194,3 +283,61 @@ lo sube manualmente en Admin -> Importar Análisis del Día.
 - El blend con mercado SOLO reduce el edge, nunca lo infla.
 - Mercados no modelados topan confianza en MEDIA.
 - Sin info de alineación fiable -> ajuste 0, confianza MEDIA.
+
+---
+
+# PARTE II — Del análisis al producto (informe rico → oportunidades → plataforma)
+
+Esta parte es OBLIGATORIA y define cómo el análisis se convierte en lo que ve el usuario.
+NO se improvisa ni se recorta sobre la marcha: es el mismo procedimiento cada día.
+
+## 11. Evaluar TODOS los mercados de cada partido (no solo los de valor)
+El informe del cliente debe mostrar el partido COMPLETO, no solo los picks. Por cada partido
+registra en el JSON (campo `markets`) TODOS los mercados relevantes con su probabilidad del
+modelo + cuota real de BetPlay + edge, AUNQUE la cuota sea baja o no pase los gates:
+- Resultado 1X2 (Local / Empate / Visitante)
+- Doble Oportunidad (1X / 12 / X2)
+- Más/Menos Goles (líneas 1.5, 2.5, 3.5)
+- Ambos Anotan (Sí / No)
+- Empate No Acción (Local / Visitante)
+- Más/Menos Esquinas (línea principal) — conservador, confianza tope MEDIA
+- Total Tarjetas (línea principal) — conservador, confianza tope MEDIA
+Cada entrada: `{market, selection, prob (0-1), odds (BetPlay real), edge, valor:bool}`. `valor=true`
+solo si pasa los gates de la Parte I. Añade para el informe: goles esperados (λ_local+λ_visitante),
+BTTS %, córners esperados (stat type_id 34) y tarjetas esperadas (stat type_id 84) del historial.
+
+## 12. Extraer las MEJORES oportunidades (informe → pestaña Oportunidades)
+De los mercados evaluados en 11, los que pasan los gates de valor (Parte I) se convierten en
+`picks` (máx 5/partido). Flujo obligatorio: **informe completo del partido → de ahí se extraen
+las mejores → esas van a Oportunidades.** Un partido sin mercado de valor conserva su informe
+pero NO aporta oportunidad. Cada partido rinde las oportunidades que tenga (ninguno es igual a otro).
+
+## 12b. Autocrítica adversarial por pick
+Antes de emitir cada pick intenta REFUTARLO: ¿qué escenario lo tumba? (baja clave, rotación,
+clima, o una cuota "demasiado buena" = catálogo sospechoso). Si el contraargumento es fuerte y
+no hay dato que lo mitigue, baja la confianza o descarta el pick. Registra la refutación en `reasoning`.
+
+## 13. Esquema del archivo — campos por partido
+Por cada match en `matches`: `fixture_id, league_name, home_team, away_team, home_team_logo,
+away_team_logo, kickoff_utc, match_date (=TARGET_DATE), research{...}, math_baseline{...},
+markets[TODOS], picks[valor]`. Vocabulario EXACTO de mercados/selecciones (ver sección 9).
+
+## 14. Cómo se estructura en la plataforma (qué alimenta qué)
+El importador `import-daily-analysis` mapea el archivo así:
+
+| Pestaña | Tabla | Qué se muestra |
+|---------|-------|----------------|
+| **Partidos** | `daily_matches` (upsert) | 1 fila por partido (equipos, hora, liga). Si el listado en vivo de SportMonks viene vacío, la app cae a `daily_matches` como respaldo. |
+| **Oportunidades** | `value_picks_v2` (`is_opportunity`, `opportunity_date`, `opportunity_rank`) | los `picks` de valor, rankeados global top-15 del día |
+| **Informe** | `analisis` (`dashboardData`) + `reports_v2` (`report_packet`) | informe rico por partido: todos los mercados + secciones + datos del modelo |
+
+La caché `analisis` es la fuente PRIMARIA del informe; `reports_v2` es respaldo. Ambos se
+escriben delete-then-insert por `(fixture_id, engine_version)`. `is_opportunity = p_model >= 0.72`.
+
+## 15. Contrato de presentación (correcciones aprobadas — NO regresar)
+Permanentes; cualquier cambio futuro DEBE preservarlas:
+- **Oportunidades**: NO mostrar la hora. Mostrar mercado+selección legible ("Ambos Anotan: No",
+  no solo "No"). El texto se ENVUELVE en varias líneas, NUNCA se recorta con ellipsis. Cuota a la derecha.
+- **Informe**: sin crash (React #31) — `matchup_tactico` es STRING, no objeto. Muestra TODOS los
+  mercados en secciones, no un bloque de texto plano.
+- **Partidos**: respaldo desde `daily_matches` cuando el listado en vivo de SportMonks viene vacío.

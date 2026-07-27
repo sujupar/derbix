@@ -52,6 +52,12 @@ interface PickIn {
   decision?: string; is_opportunity?: boolean; is_primary_pick?: boolean;
   rank?: number; reasoning?: string; bookmaker?: string; kelly_stake_pct?: number;
 }
+// TODOS los mercados evaluados de un partido (incluye los que NO son oportunidad),
+// para que el informe del cliente muestre varias alternativas, no solo los picks.
+interface MarketIn {
+  market: string; selection: string;
+  prob: number; odds?: number; edge?: number; valor?: boolean; nota?: string;
+}
 interface MatchIn {
   fixture_id: number; league_id?: number | null; league_name?: string;
   match_date: string; scan_date?: string; kickoff_utc: string;
@@ -59,6 +65,7 @@ interface MatchIn {
   home_team_logo?: string | null; away_team_logo?: string | null;
   home_team_id?: number; away_team_id?: number; season_id?: number;
   match_status?: string; research?: any; math_baseline?: any;
+  markets?: MarketIn[];   // opcional; si viene, alimenta el informe rico
   picks: PickIn[];
 }
 interface FileIn {
@@ -243,6 +250,20 @@ serve(async (req) => {
         report_packet: reportPacket, math_models_used: m.math_baseline ?? null,
       });
 
+      // 3b) analisis — CACHÉ PRIMARIA que el frontend lee para mostrar el informe del cliente
+      // (analysisService.getAnalysisResultByFixidId PASO 1 y LiveFeed leen `analisis` por partido_id).
+      // Sin esto el informe solo vivía en reports_v2 (fallback). El resolveFixidId ya se hizo arriba;
+      // usamos m.fixture_id (SportMonks) como partido_id, igual que v3-ai-analyzer.
+      try {
+        await supabase.from("analisis").delete().eq("partido_id", m.fixture_id);
+        await supabase.from("analisis").insert({
+          partido_id: m.fixture_id,
+          resultado_analisis: { dashboardData: reportPacket },
+        });
+      } catch (e) {
+        warnings.push(`fixture ${m.fixture_id}: caché 'analisis' no escrita (no crítico): ${(e as Error).message}`);
+      }
+
       // 4) value_picks_v2 — delete-then-insert por (fixture_id, engine_version)
       await supabase.from("value_picks_v2").delete().eq("fixture_id", m.fixture_id).eq("engine_version", engineVersion);
       const rows = picks.map((p, idx) => ({
@@ -324,44 +345,206 @@ function json(obj: unknown, status = 200): Response {
   });
 }
 
-// Construye un report_packet que AnalysisReportModal (adaptV3ToFrontend) sabe leer.
+// Traducción mínima a español legible (espejo de services/marketTranslator.ts) para que el
+// informe salga 100% en español aunque el análisis codifique la selección en inglés.
+function esSelection(sel: string): string {
+  let out = (sel || "").trim();
+  const reps: Array<[RegExp, string]> = [
+    [/\bunder\b/gi, "Menos de"], [/\bover\b/gi, "Más de"],
+    [/\bhome\b/gi, "Local"], [/\baway\b/gi, "Visitante"], [/\bdraw\b/gi, "Empate"],
+    [/\byes\b/gi, "Sí"], [/\bno\b/gi, "No"], [/\bboth teams to score\b/gi, "Ambos equipos anotan"],
+  ];
+  for (const [re, rep] of reps) out = out.replace(re, rep);
+  return out;
+}
+function esMarket(mk: string): string {
+  const x = (mk || "").toLowerCase();
+  if (x.includes("btts") || x.includes("ambos")) return "Ambos equipos anotan";
+  if (x.includes("esquina") || x.includes("corner")) return "Córneres";
+  if (x.includes("tarjeta") || x.includes("card")) return "Tarjetas";
+  if (x.includes("doble") || x.includes("double chance")) return "Doble Oportunidad";
+  if (x.includes("empate no") || x.includes("draw no bet") || x.includes("no acción")) return "Empate No Acción";
+  if (x.includes("goles") || x.includes("over") || x.includes("under") || x.includes("total goals")) return "Más / Menos Goles";
+  if (x.includes("1x2") || x.includes("resultado") || x.includes("match winner")) return "Resultado (1X2)";
+  return mk || "Mercado";
+}
+
+// Construye un report_packet RICO que tanto adaptV3ToFrontend (ruta 'analisis') como el
+// constructor manual de getAnalysisResult (ruta reports_v2) saben scavengear y renderizar
+// COMPLETO (informe del cliente: contexto, táctica, escenarios, riesgos, datos del modelo).
+// Si el partido trae `markets` (TODOS los mercados evaluados), el informe muestra VARIAS
+// alternativas — no solo los picks de valor — para que el cliente tenga con qué decidir.
 function buildReportPacket(m: MatchIn, picks: PickIn[], engineVersion: string): any {
   const topPick = picks[0];
+  const r: any = m.research ?? {};
+  const mb: any = m.math_baseline ?? {};
+  const labelOf = (c?: number) => (c != null && c >= 80 ? "ALTA" : c != null && c >= 65 ? "MEDIA" : "BAJA");
+  const homeAbs: string[] = Array.isArray(r.home_absences) ? r.home_absences.filter(Boolean) : [];
+  const awayAbs: string[] = Array.isArray(r.away_absences) ? r.away_absences.filter(Boolean) : [];
+  const thesis: string = r.tactical_thesis || r.tesis || r.key_notes || "";
+  const motiv: string = r.motivation_note || r.motivation || "";
+  // Notas del marco de análisis profundo (§2c) — para que el informe muestre TODAS las variables.
+  const str = (v: any): string => (typeof v === "string" ? v.trim() : "");
+  const pressure: string = str(r.pressure_level) || str(r.pressure_note);
+  const refereeNote: string = str(r.referee_note);
+  const weatherNote: string = str(r.weather_note) || str(r.weather);
+  const altitudeNote: string = str(r.altitude_note);
+  const h2hNote: string = str(r.h2h_note) || str(r.head_to_head_note);
+  const formHome: string = str(r.form_home_note);
+  const formAway: string = str(r.form_away_note);
+  const matchupNote: string = str(r.matchup_note);
+  const restHome = r.rest_days_home ?? null;
+  const restAway = r.rest_days_away ?? null;
+  const joinDot = (...xs: string[]): string => xs.map((x) => str(x)).filter(Boolean).join(" · ");
+  const xTotal = mb.expected_total_goals ??
+    (typeof mb.lambda_home === "number" && typeof mb.lambda_away === "number"
+      ? Number((mb.lambda_home + mb.lambda_away).toFixed(2)) : null);
+  const bttsPct = typeof mb.btts_yes === "number" ? Math.round(mb.btts_yes * 100) : null;
+  const xCorners = mb.corners_expected ?? mb.expected_corners ?? mb.xcorners ?? null;
+  const xCards = mb.cards_expected ?? mb.expected_cards ?? mb.xcards ?? null;
+  const conf = (p: PickIn) => p.confidence_label || labelOf(p.confidence);
+
+  // Razonamiento por (mercado, selección) para reutilizarlo en los mercados de valor.
+  const reasonByKey = new Map<string, string>();
+  for (const p of picks) reasonByKey.set(`${p.market}|${p.selection}`.toLowerCase(), p.reasoning ?? "");
+
+  // Filas de TODOS los mercados: usa `markets` si viene; si no, cae a los picks (compat).
+  type Row = { market: string; selection: string; prob: number; odds?: number; edge?: number; valor: boolean; nota?: string };
+  const rows: Row[] = Array.isArray(m.markets) && m.markets.length
+    ? m.markets.map((x) => ({
+        market: x.market, selection: x.selection, prob: x.prob, odds: x.odds, edge: x.edge,
+        valor: x.valor ?? false, nota: x.nota,
+      }))
+    : picks.map((p) => ({
+        market: p.market, selection: p.selection, prob: p.p_model, odds: p.odds, edge: p.edge,
+        valor: true, nota: p.reasoning,
+      }));
+  // Valor primero, luego por probabilidad — así las mejores alternativas quedan arriba.
+  rows.sort((a, b) => (Number(b.valor) - Number(a.valor)) || (b.prob - a.prob));
+
+  const rowConf = (row: Row): string =>
+    row.valor ? (typeof row.edge === "number" && row.edge >= 0.1 ? "ALTA" : "MEDIA") : "BAJA";
+  const rowReason = (row: Row): string => {
+    if (row.valor) return reasonByKey.get(`${row.market}|${row.selection}`.toLowerCase()) || row.nota || "Oportunidad de valor.";
+    return row.nota || "Mercado informativo (sin ventaja clara sobre la cuota).";
+  };
+
+  const mercadosResumen = rows.map((row) => ({
+    mercado: esMarket(row.market),
+    seleccion: esSelection(row.selection),
+    prob: Math.round(row.prob * 100),
+    cuota: row.odds ?? null,
+    edge: typeof row.edge === "number" ? Math.round(row.edge * 100) : null,
+    valor: row.valor,
+  }));
+  const valorRows = rows.filter((row) => row.valor);
+
+  const pronosticos = rows.map((row) => ({
+    mercado: esMarket(row.market),
+    seleccion: esSelection(row.selection),
+    probabilidad_calculada_porcentaje: Math.round(row.prob * 100),
+    probabilidad_implicita_porcentaje: row.odds ? Math.round((1 / row.odds) * 100) : null,
+    cuota_actual: row.odds ?? null,
+    edge_porcentaje: typeof row.edge === "number" ? Math.round(row.edge * 100) : null,
+    confianza: rowConf(row),
+    nivel_confianza: rowConf(row),
+    tipo: row.valor ? "VALOR" : "Informativo",
+    decision: row.valor ? "BET" : "WATCH",
+    razonamiento: rowReason(row),
+  }));
+
   return {
     engine_version: engineVersion,
-    meta: { engine: engineVersion, fixture_id: `${m.home_team} vs ${m.away_team}` },
+    meta: { engine: engineVersion, fixture_id: `${m.home_team} vs ${m.away_team}`, modelo_version: engineVersion },
     header_partido: {
       titulo: `${m.home_team} vs ${m.away_team}`,
       subtitulo: `${m.league_name ?? ""} · ${m.match_date}`,
       fecha: m.match_date,
       liga: m.league_name ?? "",
+      bullets_clave: valorRows.map((row) => `${esMarket(row.market)}: ${esSelection(row.selection)} @ ${row.odds} (${Math.round(row.prob * 100)}%)`),
     },
     resumen_ejecutivo: {
       titular: `${m.home_team} vs ${m.away_team}`,
-      frase_principal: topPick?.reasoning || `Análisis de ${m.home_team} vs ${m.away_team}.`,
-      confianza: topPick && topPick.confidence >= 80 ? "ALTA" : topPick && topPick.confidence >= 65 ? "MEDIA" : "BAJA",
+      frase_principal: thesis || topPick?.reasoning || `Análisis de ${m.home_team} vs ${m.away_team}.`,
+      veredicto: picks.length > 0 ? "APOSTAR" : "OBSERVAR",
+      confianza_global: topPick ? conf(topPick) : "MEDIA",
+      confianza: topPick ? conf(topPick) : "MEDIA",
+      picks_principales: valorRows.map((row) => `${esSelection(row.selection)} (${esMarket(row.market)}) @ ${row.odds}`),
+      // Datos concretos del marco §2c — el informe los muestra como puntos clave.
+      puntos_clave: [
+        pressure ? `Presión del partido: ${pressure}` : "",
+        formHome ? `${m.home_team} (local): ${formHome}` : "",
+        formAway ? `${m.away_team} (visitante): ${formAway}` : "",
+        h2hNote ? `Historial directo: ${h2hNote}` : "",
+        homeAbs.length ? `Bajas ${m.home_team}: ${homeAbs.join(", ")}` : "",
+        awayAbs.length ? `Bajas ${m.away_team}: ${awayAbs.join(", ")}` : "",
+        refereeNote ? `Árbitro: ${refereeNote}` : "",
+        (weatherNote || altitudeNote) ? `Entorno: ${joinDot(weatherNote, altitudeNote)}` : "",
+        (restHome != null || restAway != null) ? `Descanso: local ${restHome ?? "?"}d · visitante ${restAway ?? "?"}d` : "",
+        xTotal != null ? `Goles esperados ≈ ${xTotal}` : "",
+        bttsPct != null ? `Probabilidad Ambos Anotan ≈ ${bttsPct}%` : "",
+        xCorners != null ? `Córners esperados ≈ ${xCorners}` : "",
+        xCards != null ? `Tarjetas esperadas ≈ ${xCards}` : "",
+      ].filter(Boolean),
+    },
+    analisis_profundo: {
+      contexto_competitivo: {
+        situacion_local: `${m.home_team} (local): ${joinDot(formHome, homeAbs.length ? "bajas — " + homeAbs.join(", ") : "sin bajas de peso reportadas") || "sin datos de forma."}`,
+        situacion_visitante: `${m.away_team} (visitante): ${joinDot(formAway, awayAbs.length ? "bajas — " + awayAbs.join(", ") : "sin bajas de peso reportadas") || "sin datos de forma."}`,
+        implicaciones_partido: joinDot(pressure, motiv, h2hNote, str(r.competition_note)) || "Sin implicaciones destacadas reportadas.",
+      },
+      analisis_tactico: { enfoque_local: "", enfoque_visitante: "", matchup_clave: joinDot(thesis, matchupNote) || thesis },
+      // matchup_tactico como STRING (no objeto): evita React #31 en adaptV3ToFrontend legacy.
+      matchup_tactico: joinDot(thesis, matchupNote) || thesis,
+      factor_psicologico: { presion_local: "", presion_visitante: "", temperatura_mental: joinDot(motiv, pressure) },
+      lectura_de_mercado: {
+        analisis_cuotas: valorRows.length
+          ? valorRows.slice(0, 4).map((row) => `${esMarket(row.market)}: ${esSelection(row.selection)} @ ${row.odds}`).join("; ")
+          : (topPick ? `Cuota ${topPick.bookmaker ?? "casa"} ${topPick.odds} para «${esSelection(topPick.selection)}».` : "El mercado luce eficiente."),
+        ineficiencia_detectada: valorRows.length
+          ? valorRows.map((row) => `${esSelection(row.selection)} (+${typeof row.edge === "number" ? Math.round(row.edge * 100) : 0}%)`).join(", ")
+          : "Sin ventaja clara del modelo sobre la cuota.",
+      },
+    },
+    escenarios_proyectados: {
+      escenario_mas_probable: { descripcion: thesis || "" },
+      escenario_alternativo: { descripcion: r.competition_note || "" },
+    },
+    factores_riesgo: {
+      riesgo_principal: r.lineup_status === "UNAVAILABLE"
+        ? "Alineaciones no confirmadas al momento del análisis; el ajuste de contexto es limitado."
+        : (awayAbs[0] || homeAbs[0] || "Variabilidad propia del partido y del arranque de torneo."),
+      riesgos_secundarios: [
+        refereeNote ? `Árbitro: ${refereeNote}` : "",
+        weatherNote ? `Clima: ${weatherNote}` : "",
+        altitudeNote ? `Altitud: ${altitudeNote}` : "",
+        ...homeAbs, ...awayAbs,
+      ].filter(Boolean).slice(0, 6),
+    },
+    mercados_evaluados: { total_analizados: rows.length || 60, con_valor_detectado: valorRows.length },
+    datos_modelo: {
+      goles_esperados_partido: xTotal,
+      corners_esperados: xCorners,
+      tarjetas_esperadas: xCards,
+      probabilidad_btts_porcentaje: bttsPct,
+      lambda_local: mb.lambda_home ?? null,
+      lambda_visitante: mb.lambda_away ?? null,
+      consistencia_modelo: mb.model_consistency ?? null,
     },
     research: m.research ?? null,
     math_models_used: m.math_baseline ?? null,
-    pronosticos: picks.map((p) => ({
-      mercado: p.market,
-      seleccion: p.selection,
-      probabilidad_calculada_porcentaje: Math.round(p.p_model * 100),
-      cuota_actual: p.odds,
-      edge_porcentaje: typeof p.edge === "number" ? Math.round(p.edge * 100) : undefined,
-      nivel_confianza: p.confidence_label || (p.confidence >= 80 ? "ALTA" : p.confidence >= 65 ? "MEDIA" : "BAJA"),
-      decision: "BET",
-      razonamiento: p.reasoning,
-    })),
+    // TODOS los mercados evaluados (para mostrar varias alternativas en el informe).
+    mercados_resumen: mercadosResumen,
+    pronosticos,
     predicciones_finales: {
-      detalle: picks.map((p) => ({
-        mercado: p.market,
-        seleccion: p.selection,
-        probabilidad_estimado_porcentaje: Math.round(p.p_model * 100),
-        cuota_actual: p.odds,
-        decision: "BET",
-        nivel_confianza: p.confidence_label || "MEDIA",
-        justificacion_detallada: p.reasoning,
+      detalle: rows.map((row) => ({
+        mercado: esMarket(row.market),
+        seleccion: esSelection(row.selection),
+        probabilidad_estimado_porcentaje: Math.round(row.prob * 100),
+        cuota_actual: row.odds ?? null,
+        decision: row.valor ? "BET" : "WATCH",
+        nivel_confianza: rowConf(row),
+        justificacion_detallada: rowReason(row),
       })),
     },
   };

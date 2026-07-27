@@ -157,9 +157,9 @@ export function translatePick(market: string, selection: string): TranslatedPick
     const isNo = lower(s).includes(' no') || lower(s) === 'no';
     const sel = isYes ? 'Sí' : isNo ? 'No' : translateSelection(s);
     return {
-      marketEs: 'Ambos equipos anotan (BTTS)',
+      marketEs: 'Ambos equipos anotan',
       selectionEs: sel,
-      shortLabel: `BTTS ${sel}`,
+      shortLabel: `Ambos anotan: ${sel}`,
       longLabel: `Ambos equipos anotan — ${sel}`,
       category: 'BTTS',
     };
