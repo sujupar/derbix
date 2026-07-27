@@ -95,25 +95,25 @@ const PostMatchSection: React.FC<{ analysis: PostMatchAnalysis | string; outcome
     const isStructured = typeof analysis !== 'string';
 
     return (
-        <div className="bg-gradient-to-br from-blue-900/50 to-slate-900 border border-blue-500/30 p-6 rounded-xl shadow-lg mb-6 animate-pulse-fade-in relative overflow-hidden">
+        <div className="bg-gradient-to-br from-emerald-900/50 to-slate-900 border border-emerald-500/30 p-6 rounded-xl shadow-lg mb-6 animate-pulse-fade-in relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4 opacity-10">
-                <ClipboardDocumentCheckIcon className="w-32 h-32 text-blue-400" />
+                <ClipboardDocumentCheckIcon className="w-32 h-32 text-emerald-400" />
             </div>
 
             <div className="flex justify-between items-start relative z-10 mb-6">
                 <div className="flex items-center">
-                    <div className="bg-blue-500/20 p-3 rounded-lg mr-4">
-                        <TrophyIcon className="w-8 h-8 text-blue-400" />
+                    <div className="bg-emerald-500/20 p-3 rounded-lg mr-4">
+                        <TrophyIcon className="w-8 h-8 text-emerald-400" />
                     </div>
                     <div>
                         <h3 className="text-2xl font-bold text-white">Análisis Post-Partido</h3>
-                        <p className="text-blue-300 text-sm">Evaluación final y feedback del sistema</p>
+                        <p className="text-emerald-300 text-sm">Evaluación final y feedback del sistema</p>
                     </div>
                 </div>
                 {showPdfButton && (
                     <button
                         onClick={handleDownloadFinalPDF}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold transition-all shadow-lg hover:shadow-blue-500/20"
+                        className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold transition-all shadow-lg hover:shadow-emerald-500/20"
                     >
                         <ArrowDownTrayIcon className="w-5 h-5" />
                         Descargar Informe Final
@@ -130,7 +130,7 @@ const PostMatchSection: React.FC<{ analysis: PostMatchAnalysis | string; outcome
                             <span className="text-gray-600">-</span>
                             <span>{outcome.score?.away ?? '-'}</span>
                         </div>
-                        <div className="mt-2 inline-block px-3 py-1 bg-white/10 rounded-full text-sm font-medium text-blue-200">
+                        <div className="mt-2 inline-block px-3 py-1 bg-white/10 rounded-full text-sm font-medium text-emerald-200">
                             {outcome.winner === 'Home' ? 'Ganador Local' : outcome.winner === 'Away' ? 'Ganador Visitante' : 'Empate'} {outcome.status}
                         </div>
                     </div>
@@ -149,7 +149,7 @@ const PostMatchSection: React.FC<{ analysis: PostMatchAnalysis | string; outcome
                             <p className="text-gray-300 text-sm leading-relaxed">{(analysis as PostMatchAnalysis).tactical_analysis}</p>
                         </div>
                         <div className="bg-gray-800/50 p-5 rounded-lg border border-gray-700/50">
-                            <h4 className="text-blue-400 font-bold mb-3 uppercase text-xs tracking-wider">Desglose Estadístico</h4>
+                            <h4 className="text-emerald-400 font-bold mb-3 uppercase text-xs tracking-wider">Desglose Estadístico</h4>
                             <p className="text-gray-300 text-sm leading-relaxed">{(analysis as PostMatchAnalysis).statistical_breakdown}</p>
                         </div>
                         <div className="bg-gray-800/50 p-5 rounded-lg border border-gray-700/50">
@@ -253,7 +253,7 @@ const VisualChart: React.FC<{ data: GraficoSugerido }> = ({ data }) => {
         return item;
     });
 
-    const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
+    const colors = ['#1DE782', '#E7B84F', '#C2CDD8', '#ef4444'];
 
     return (
         <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
@@ -352,7 +352,7 @@ const PredictionCard: React.FC<{ pred: DetallePrediccion }> = ({ pred }) => {
             </div>
             <div className="p-5">
                 <h4 className="text-sm font-bold text-white mb-3 flex items-center">
-                    <ListBulletIcon className="w-4 h-4 mr-2 text-blue-400" /> Justificación del Analista
+                    <ListBulletIcon className="w-4 h-4 mr-2 text-emerald-400" /> Justificación del Analista
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
                     <div>
@@ -366,8 +366,8 @@ const PredictionCard: React.FC<{ pred: DetallePrediccion }> = ({ pred }) => {
                         <p className="text-gray-300">{context}</p>
                     </div>
                 </div>
-                <div className="bg-blue-900/20 p-3 rounded text-sm text-blue-200 border border-blue-900/50">
-                    <strong className="block mb-1 text-blue-400">Conclusión:</strong>
+                <div className="bg-emerald-900/20 p-3 rounded text-sm text-emerald-200 border border-emerald-900/50">
+                    <strong className="block mb-1 text-emerald-400">Conclusión:</strong>
                     {conclusion}
                 </div>
             </div>
@@ -407,14 +407,14 @@ const DualScoresSection: React.FC<{ scores: any }> = ({ scores }) => {
     return (
         <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-6 rounded-xl border border-white/10 mb-2">
             <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
-                <ChartBarIcon className="w-5 h-5 text-blue-400" />
+                <ChartBarIcon className="w-5 h-5 text-emerald-400" />
                 Transparencia del Modelo
             </h3>
             <p className="text-gray-400 text-sm mb-4">Cómo nuestro sistema evalúa este partido desde dos ángulos independientes.</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-black/30 p-4 rounded-lg text-center border border-blue-500/20">
-                    <span className="text-2xl sm:text-3xl font-black text-blue-400">{scores.score_estadistico}</span>
-                    <span className="block text-xs text-blue-300 font-bold uppercase mt-1">Score Estadístico</span>
+                <div className="bg-black/30 p-4 rounded-lg text-center border border-emerald-500/20">
+                    <span className="text-2xl sm:text-3xl font-black text-emerald-400">{scores.score_estadistico}</span>
+                    <span className="block text-xs text-emerald-300 font-bold uppercase mt-1">Score Estadístico</span>
                     <span className="block text-[10px] text-gray-500 mt-1 leading-tight">Datos puros: forma, xG, goles, corners</span>
                 </div>
                 <div className="bg-black/30 p-4 rounded-lg text-center border border-purple-500/20">
@@ -435,14 +435,14 @@ const DualScoresSection: React.FC<{ scores: any }> = ({ scores }) => {
             )}
             <button
                 onClick={() => setShowExplanation(!showExplanation)}
-                className="mt-3 text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+                className="mt-3 text-xs text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1"
             >
                 <svg className={`w-3 h-3 transition-transform ${showExplanation ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                 ¿Cómo se calculan estos scores?
             </button>
             {showExplanation && (
                 <div className="mt-2 bg-black/20 p-4 rounded-lg text-sm text-gray-400 leading-relaxed border border-white/5 animate-fade-in">
-                    <p className="mb-2"><strong className="text-blue-400">Score Estadístico</strong> analiza datos cuantitativos: forma reciente de ambos equipos, goles esperados (xG), corners, posesión, rendimiento local/visitante y tendencias históricas.</p>
+                    <p className="mb-2"><strong className="text-emerald-400">Score Estadístico</strong> analiza datos cuantitativos: forma reciente de ambos equipos, goles esperados (xG), corners, posesión, rendimiento local/visitante y tendencias históricas.</p>
                     <p className="mb-2"><strong className="text-purple-400">Score de Contexto</strong> evalúa factores cualitativos: presión competitiva (necesidad de puntos), bajas y lesiones, factor cancha, historial directo y situación psicológica.</p>
                     <p><strong className="text-emerald-400">Confianza Final</strong> es una combinación ponderada 50/50 de ambos scores, representando la seguridad global del modelo en su análisis.</p>
                 </div>
@@ -533,14 +533,14 @@ const VerdictSummary: React.FC<{
         };
     } else if (isWatch) {
         theme = {
-            bg: "bg-gradient-to-br from-blue-900/40 via-slate-900 to-slate-900",
-            border: "border-blue-400",
-            accent: "text-blue-400",
-            iconBg: "bg-blue-500/20",
-            mainText: "text-blue-100",
-            button: "bg-blue-600 hover:bg-blue-500",
+            bg: "bg-gradient-to-br from-amber-900/30 via-slate-900 to-slate-900",
+            border: "border-amber-400",
+            accent: "text-amber-400",
+            iconBg: "bg-amber-500/15",
+            mainText: "text-amber-100",
+            button: "bg-amber-600 hover:bg-amber-500",
             glow: "",
-            progressColor: "text-blue-400"
+            progressColor: "text-amber-400"
         };
     }
 
@@ -570,7 +570,7 @@ const VerdictSummary: React.FC<{
                     ) : (
                         <div className={`w-20 h-20 rounded-full ${theme.iconBg} flex items-center justify-center mb-6`}>
                             {isAvoid && <ExclamationTriangleIcon className="w-10 h-10 text-red-500" />}
-                            {isWatch && <EyeIcon className="w-10 h-10 text-blue-400" />}
+                            {isWatch && <EyeIcon className="w-10 h-10 text-amber-400" />}
                         </div>
                     )}
 
@@ -646,7 +646,7 @@ const OddsOverviewSection: React.FC<{ odds: any }> = ({ odds }) => {
     const getPrice = (market: any, name: string) => market?.outcomes?.find((o: any) => o.name === name)?.price?.toFixed(2) || '-';
 
     return (
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 border border-blue-500/20 rounded-xl p-5 mb-6 shadow-lg animate-fade-in relative overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-800 to-slate-900 border border-emerald-500/20 rounded-xl p-5 mb-6 shadow-lg animate-fade-in relative overflow-hidden">
             <div className="absolute top-0 right-0 p-2 opacity-10">
                 <span className="text-4xl">📊</span>
             </div>
@@ -657,7 +657,7 @@ const OddsOverviewSection: React.FC<{ odds: any }> = ({ odds }) => {
                     Cuotas en Tiempo Real
                 </h3>
                 <span className="text-xs text-gray-400 bg-black/30 px-2 py-1 rounded border border-white/5">
-                    Fuente: <span className="text-blue-300 font-bold">{bookmaker}</span>
+                    Fuente: <span className="text-emerald-300 font-bold">{bookmaker}</span>
                 </span>
             </div>
 
@@ -703,7 +703,7 @@ const OddsOverviewSection: React.FC<{ odds: any }> = ({ odds }) => {
                     <div className="text-xs text-gray-400 uppercase tracking-wider mb-2 text-center">Ambos Anotan</div>
                     <div className="flex justify-around items-center text-sm font-bold">
                         <div className="flex flex-col items-center">
-                            <span className="text-blue-300">{getPrice(btts, 'Yes') || getPrice(btts, 'Sí')}</span>
+                            <span className="text-emerald-300">{getPrice(btts, 'Yes') || getPrice(btts, 'Sí')}</span>
                             <span className="text-[10px] text-gray-500 font-normal">Sí</span>
                         </div>
                         <div className="flex flex-col items-center">
@@ -733,7 +733,7 @@ const SeoPageLinkModal: React.FC<{ fixtureId?: string | number }> = ({ fixtureId
             href={`https://derbix.co${path}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 px-4 py-2 rounded-lg text-sm font-medium transition-all border border-blue-500/20 hover:border-blue-500/40"
+            className="flex items-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-4 py-2 rounded-lg text-sm font-medium transition-all border border-emerald-500/20 hover:border-emerald-500/40"
             title="Ver página SEO pública"
         >
             <LinkIcon className="w-4 h-4" />
@@ -953,12 +953,12 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
                     <div className="p-6 bg-slate-950 h-full overflow-hidden flex flex-col">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                                <span className="text-blue-400">⚡</span> Inspector de Datos V3
+                                <span className="text-emerald-400">⚡</span> Inspector de Datos V3
                             </h3>
                             <div className="flex bg-slate-800 rounded-lg p-1">
                                 <button
                                     onClick={() => setDebugTab('payload')}
-                                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${debugTab === 'payload' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${debugTab === 'payload' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
                                 >
                                     Input (API Payload)
                                 </button>
@@ -976,7 +976,7 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
 
                         <div className="flex-grow overflow-auto border border-white/10 rounded-xl bg-slate-900 custom-scrollbar">
                             {debugTab === 'payload' ? (
-                                <pre className="p-4 text-xs font-mono text-blue-300 leading-relaxed whitespace-pre-wrap">
+                                <pre className="p-4 text-xs font-mono text-emerald-300 leading-relaxed whitespace-pre-wrap">
                                     {analysis.payload ? JSON.stringify(analysis.payload, null, 2) : "// No raw payload available for this analysis run."}
                                 </pre>
                             ) : (
@@ -1088,7 +1088,7 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
                                         ))}
                                     </div>
                                     <div className="space-y-6">
-                                        <h3 className="text-xl font-bold text-white flex items-center"><TrophyIcon className="w-5 h-5 mr-2 text-blue-400" /> Visualización</h3>
+                                        <h3 className="text-xl font-bold text-white flex items-center"><TrophyIcon className="w-5 h-5 mr-2 text-emerald-400" /> Visualización</h3>
                                         {data.graficos_sugeridos && data.graficos_sugeridos.map((grafico, idx) => (
                                             <VisualChart key={idx} data={grafico} />
                                         ))}
@@ -1103,14 +1103,14 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
 
                                         {/* 1. Razonamiento Central (Tesis de Inversión) - NUEVO */}
                                         {(data.analisis_detallado as any).razonamiento_central && (
-                                            <div className="bg-slate-800/80 p-6 rounded-xl border border-blue-500/30 mb-8 shadow-inner">
-                                                <h4 className="text-lg font-bold text-blue-300 mb-4 flex items-center">
-                                                    <span className="bg-blue-500/20 p-1.5 rounded-lg mr-3">
-                                                        <SparklesIcon className="w-5 h-5 text-blue-400" />
+                                            <div className="bg-slate-800/80 p-6 rounded-xl border border-emerald-500/30 mb-8 shadow-inner">
+                                                <h4 className="text-lg font-bold text-emerald-300 mb-4 flex items-center">
+                                                    <span className="bg-emerald-500/20 p-1.5 rounded-lg mr-3">
+                                                        <SparklesIcon className="w-5 h-5 text-emerald-400" />
                                                     </span>
                                                     Tesis de Inversión
                                                 </h4>
-                                                <p className="text-gray-200 leading-relaxed text-sm md:text-base whitespace-pre-line border-l-4 border-blue-500 pl-4">
+                                                <p className="text-gray-200 leading-relaxed text-sm md:text-base whitespace-pre-line border-l-4 border-emerald-500 pl-4">
                                                     {(data.analisis_detallado as any).razonamiento_central}
                                                 </p>
                                             </div>
@@ -1127,22 +1127,22 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
 
                                         {/* NUEVA SECCIÓN: ESCENARIOS DETALLADOS */}
                                         {(data.analisis_detallado.analisis_escenarios || data.analisis_detallado.escenarios_de_partido) && (
-                                            <div className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 p-6 rounded-lg border border-blue-500/30">
-                                                <h4 className="text-lg font-bold text-blue-300 mb-4 flex items-center">
+                                            <div className="bg-gradient-to-r from-emerald-900/20 to-purple-900/20 p-6 rounded-lg border border-emerald-500/30">
+                                                <h4 className="text-lg font-bold text-emerald-300 mb-4 flex items-center">
                                                     <LightBulbIcon className="w-5 h-5 mr-2" />
                                                     {data.analisis_detallado.analisis_escenarios?.titulo || "Escenarios de Partido"}
                                                 </h4>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     {(data.analisis_detallado.analisis_escenarios?.escenarios || data.analisis_detallado.escenarios_de_partido?.escenarios || []).map((esc, idx) => (
-                                                        <div key={idx} className="bg-slate-800 p-4 rounded-lg border-l-4 border-blue-500 shadow-md">
+                                                        <div key={idx} className="bg-slate-800 p-4 rounded-lg border-l-4 border-emerald-500 shadow-md">
                                                             <div className="flex justify-between items-start mb-2">
                                                                 <h5 className="font-bold text-white text-sm uppercase tracking-wide">{esc.nombre}</h5>
-                                                                <span className="text-xs bg-blue-900 text-blue-200 px-2 py-1 rounded font-mono">{esc.probabilidad_aproximada}</span>
+                                                                <span className="text-xs bg-emerald-900 text-emerald-200 px-2 py-1 rounded font-mono">{esc.probabilidad_aproximada}</span>
                                                             </div>
                                                             <p className="text-gray-300 text-sm mb-3">{esc.descripcion}</p>
                                                             {esc.implicacion_apuestas && (
-                                                                <div className="bg-blue-500/10 p-2 rounded text-xs text-blue-200 mt-2">
-                                                                    <strong className="text-blue-400">Apuesta:</strong> {esc.implicacion_apuestas}
+                                                                <div className="bg-emerald-500/10 p-2 rounded text-xs text-emerald-200 mt-2">
+                                                                    <strong className="text-emerald-400">Apuesta:</strong> {esc.implicacion_apuestas}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -1194,7 +1194,7 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
                                             )}
                                             {(data as any).patrones_detectados.formacion_rendimiento && (
                                                 <div className="bg-black/30 p-4 rounded-lg border border-white/5">
-                                                    <h4 className="text-blue-400 text-xs font-bold uppercase mb-2">Formaciones</h4>
+                                                    <h4 className="text-emerald-400 text-xs font-bold uppercase mb-2">Formaciones</h4>
                                                     <div className="space-y-2 text-sm">
                                                         <div>
                                                             <span className="text-gray-400 text-xs">Local:</span>
@@ -1208,7 +1208,7 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
                                                         </div>
                                                     </div>
                                                     {(data as any).patrones_detectados.formacion_rendimiento.insight && (
-                                                        <p className="text-blue-300 text-xs mt-2 italic">{(data as any).patrones_detectados.formacion_rendimiento.insight}</p>
+                                                        <p className="text-emerald-300 text-xs mt-2 italic">{(data as any).patrones_detectados.formacion_rendimiento.insight}</p>
                                                     )}
                                                 </div>
                                             )}
@@ -1313,7 +1313,7 @@ export const AnalysisReportModal: React.FC<{ analysis: VisualAnalysisResult | nu
                                 {(data as any).analisis_mercados_calculados && (() => {
                                     const canSeeMarkets = hasFullAccess || userPlan === 'pro' || userPlan === 'premium';
                                     const marketsContent = (
-                                    <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 p-6 rounded-xl border border-purple-500/30">
+                                    <div className="bg-gradient-to-r from-purple-900/30 to-emerald-900/30 p-6 rounded-xl border border-purple-500/30">
                                         <h3 className="text-2xl font-bold text-white mb-2 flex items-center">
                                             <ChartBarIcon className="w-8 h-8 text-purple-400 mr-3" />
                                             Análisis de 60+ Mercados

@@ -30,12 +30,17 @@ const FlashscoreMatchRow: React.FC<FlashscoreMatchRowProps> = ({
     const kickoff = new Date(game.fixture.timestamp * 1000).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
 
     // Clic en la tarjeta del partido:
-    //  - Con informe disponible → abre el INFORME directamente (el gating por plan lo
-    //    resuelve LiveFeed en handleViewReport / verifyReportAccess).
-    //  - Sin informe → abre el detalle del partido (donde el admin puede analizar).
+    //  - Con informe → abre el INFORME directamente (el gating por plan lo resuelve
+    //    LiveFeed en handleViewReport / verifyReportAccess).
+    //  - Sin informe → abre el detalle (donde el admin puede analizar).
     const handleCardClick = () => {
         if (hasReport) onViewReport(game.fixture.id);
         else onOpenDetail(game);
+    };
+
+    const handleReportClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onViewReport(game.fixture.id);
     };
 
     const handleAnalyzeClick = (e: React.MouseEvent) => {
@@ -43,60 +48,58 @@ const FlashscoreMatchRow: React.FC<FlashscoreMatchRowProps> = ({
         onAnalyze(game);
     };
 
+    const teamRow = (team: { name: string; logo?: string }, score: number | null) => (
+        <div className="mx-tr">
+            {team.logo
+                ? <img className="mx-lg" src={team.logo} alt="" />
+                : <span className="mx-cr">{crest(team.name)}</span>}
+            <span className="mx-nm">{team.name}</span>
+            {scoreAvailable && <span className="mx-sc">{score}</span>}
+        </div>
+    );
+
     return (
-        <div className="dxj-fx" onClick={handleCardClick}>
-            {/* Enfrentamiento: logo + nombre  VS  nombre + logo */}
-            <div className="fx-teams">
-                <div className="fx-side home">
-                    {game.teams.home.logo
-                        ? <img className="fx-lg" src={game.teams.home.logo} alt="" />
-                        : <span className="fx-cr">{crest(game.teams.home.name)}</span>}
-                    <span className="fx-nm">{game.teams.home.name}</span>
-                </div>
-
-                <div className={`fx-mid ${scoreAvailable ? 'sc' : ''} ${isLive ? 'live' : ''}`.trim()}>
-                    {scoreAvailable ? `${game.goals.home}-${game.goals.away}` : 'VS'}
-                </div>
-
-                <div className="fx-side away">
-                    <span className="fx-nm">{game.teams.away.name}</span>
-                    {game.teams.away.logo
-                        ? <img className="fx-lg" src={game.teams.away.logo} alt="" />
-                        : <span className="fx-cr">{crest(game.teams.away.name)}</span>}
-                </div>
-            </div>
-
-            {/* Hora / estado + acceso al informe */}
-            <div className="fx-meta">
+        <div className="dxj-mx" onClick={handleCardClick}>
+            {/* Hora / estado */}
+            <div className="mx-time">
                 {isLive ? (
                     <span className="live">
-                        {game.fixture.status.elapsed ? `${game.fixture.status.elapsed}'` : (game.fixture.status.short === 'HT' ? 'DT' : 'EN VIVO')}
+                        {game.fixture.status.elapsed ? `${game.fixture.status.elapsed}'` : (game.fixture.status.short === 'HT' ? 'DT' : 'VIVO')}
                     </span>
                 ) : isFinished ? (
-                    <span className="h">Finalizado</span>
+                    <span className="fin">FIN</span>
                 ) : (
-                    <span className="h">{kickoff}</span>
-                )}
-
-                {hasReport && <span className="dot">·</span>}
-                {hasReport && (isReportLocked
-                    ? <span className="lock"><LockClosedIcon className="w-3.5 h-3.5" /> Informe premium</span>
-                    : <span className="rep">Ver informe ›</span>)}
-
-                {!hasReport && isProcessing && (
                     <>
-                        <span className="dot">·</span>
-                        <span>Analizando…</span>
+                        <span className="t">{kickoff}</span>
+                        <span className="d">Hora</span>
                     </>
                 )}
             </div>
 
-            {/* Admin: analizar (solo si aún no hay informe) */}
-            {isAdmin && !hasReport && !isProcessing && (
-                <button className="fx-an" onClick={handleAnalyzeClick} title="Analizar">
-                    <SparklesIcon className="w-4 h-4" />
-                </button>
-            )}
+            {/* Equipos apilados: logo + nombre (+ marcador si aplica) */}
+            <div className="mx-teams">
+                {teamRow(game.teams.home, game.goals.home)}
+                {teamRow(game.teams.away, game.goals.away)}
+            </div>
+
+            {/* Acción a la derecha */}
+            <div className="mx-action">
+                {hasReport ? (
+                    isReportLocked ? (
+                        <span className="mx-lock"><LockClosedIcon className="w-3.5 h-3.5" /> Premium</span>
+                    ) : (
+                        <button className="mx-btn" onClick={handleReportClick}>Ver informe</button>
+                    )
+                ) : isProcessing ? (
+                    <span className="mx-soft">Analizando…</span>
+                ) : isAdmin ? (
+                    <button className="mx-an" onClick={handleAnalyzeClick} title="Analizar">
+                        <SparklesIcon className="w-4 h-4" />
+                    </button>
+                ) : (
+                    <span className="mx-soft">Próximamente</span>
+                )}
+            </div>
         </div>
     );
 };
